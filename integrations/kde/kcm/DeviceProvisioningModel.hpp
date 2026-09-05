@@ -40,7 +40,7 @@ class DeviceProvisioningModel final : public QObject {
     Q_INVOKABLE void start(
         const QString& profile_id,
         const QString& profile_name,
-        const QString& source_candidate_id,
+        const QVariantList& sources,
         const QString& passphrase,
         const QString& confirmation,
         bool automatic_key

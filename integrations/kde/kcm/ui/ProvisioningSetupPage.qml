@@ -16,8 +16,7 @@ QQC2.ScrollView {
     readonly property alias profileName: configurationForm.profileName
     readonly property alias profileIdentifier: configurationForm.profileIdentifier
     readonly property alias profileIdentifierAcceptable: configurationForm.profileIdentifierAcceptable
-    readonly property alias sourceCurrentIndex: configurationForm.sourceCurrentIndex
-    readonly property alias sourceCurrentValue: configurationForm.sourceCurrentValue
+    readonly property alias sources: configurationForm.sources
     readonly property alias passphrase: configurationForm.passphrase
     readonly property alias confirmation: configurationForm.confirmation
     readonly property alias automaticKey: configurationForm.automaticKey

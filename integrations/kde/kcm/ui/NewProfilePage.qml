@@ -46,15 +46,7 @@ KCMUtils.AbstractKCM {
     readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(device => root.deviceAvailable(device))
     readonly property var unavailableDevices: (root.provisioning.devices ?? []).filter(device => !root.deviceAvailable(device))
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
-    readonly property var selectedSourceCandidate: setupPage.sourceCurrentIndex >= 0
-        ? root.provisioning.sourceCandidates[setupPage.sourceCurrentIndex] : null
-    readonly property string localSnapshotDirectory: {
-        const snapshotRoot = root.selectedSourceCandidate?.localSnapshotRoot ?? ""
-        const id = setupPage.profileIdentifier.trim()
-        if (snapshotRoot === "" || id === "")
-            return ""
-        return snapshotRoot.endsWith("/") ? snapshotRoot + id : snapshotRoot + "/" + id
-    }
+    readonly property var selectedSources: setupPage.sources
 
     function deviceHasConfiguredTarget(device) {
         const regions = device?.regions ?? []
@@ -179,7 +171,7 @@ KCMUtils.AbstractKCM {
             && setupPage.passphrase.length > 0
             && (root.adoption && !root.hasPlan
                 || setupPage.profileIdentifierAcceptable
-                    && setupPage.profileName.length > 0 && setupPage.sourceCurrentIndex >= 0
+                    && setupPage.profileName.length > 0 && setupPage.sources.length > 0
                     && (root.adoption || setupPage.passphrase === setupPage.confirmation)
                     && (root.adoption || setupPage.eraseConfirmation === root.confirmationToken)
                     && root.hasPlan
@@ -196,7 +188,7 @@ KCMUtils.AbstractKCM {
             }
             root.step = 2;
             root.provisioning.start(
-                setupPage.profileIdentifier, setupPage.profileName, setupPage.sourceCurrentValue,
+                setupPage.profileIdentifier, setupPage.profileName, setupPage.sources,
                 setupPage.passphrase, root.adoption ? setupPage.passphrase : setupPage.confirmation,
                 root.adoption ? false : setupPage.automaticKey
             );

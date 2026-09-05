@@ -12,15 +12,24 @@ QQC2.Dialog {
 
     property int sourceIndex: -1
     property bool editing: sourceIndex >= 0
+    property bool candidateOnly: false
     property var sourceCandidates: []
     property string editingSubvolume: ""
-    readonly property string subvolumeText: subvolumeField.editable
-        ? subvolumeField.editText : subvolumeField.currentText
+    property string editingCandidateId: ""
+    readonly property var selectedCandidate: !editing && candidateOnly
+        && subvolumeField.currentIndex >= 0
+        ? sourceCandidates[subvolumeField.currentIndex] : null
+    readonly property string subvolumeText: editing ? editingSubvolume
+        : candidateOnly ? (selectedCandidate?.path ?? "")
+        : subvolumeField.editable ? subvolumeField.editText : subvolumeField.currentText
+    readonly property string candidateId: editing ? editingCandidateId
+        : candidateOnly ? (selectedCandidate?.id ?? "") : ""
     readonly property bool inputValid: nameField.text.trim().length > 0
         && (editing || root.subvolumeText.trim().startsWith("/"))
+        && (!candidateOnly || candidateId.length > 0)
 
     signal addAccepted(string name, string subvolume, int localRetention,
-        int targetRetention)
+        int targetRetention, string candidateId)
     signal editAccepted(int index, string name, int localRetention,
         int targetRetention)
 
@@ -42,15 +51,16 @@ QQC2.Dialog {
                 localRetention.value, targetRetention.value)
         } else {
             root.addAccepted(nameField.text, root.subvolumeText,
-                localRetention.value, targetRetention.value)
+                localRetention.value, targetRetention.value, root.candidateId)
         }
     }
 
     function openForAdd() {
         sourceIndex = -1
         editingSubvolume = ""
+        editingCandidateId = ""
         nameField.text = ""
-        subvolumeField.currentIndex = -1
+        subvolumeField.currentIndex = candidateOnly && sourceCandidates.length > 0 ? 0 : -1
         subvolumeField.editText = ""
         localRetention.value = 30
         targetRetention.value = 30
@@ -61,6 +71,7 @@ QQC2.Dialog {
     function openForEdit(index, source) {
         sourceIndex = index
         editingSubvolume = source.subvolume || ""
+        editingCandidateId = source.candidateId || ""
         nameField.text = source.name || source.id || ""
         subvolumeField.currentIndex = 0
         subvolumeField.editText = editingSubvolume
@@ -88,9 +99,11 @@ QQC2.Dialog {
                 objectName: "subvolumeField"
                 Kirigami.FormData.label: translations.i18n("Btrfs subvolume:")
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 22
-                editable: !root.editing
+                editable: !root.editing && !root.candidateOnly
                 enabled: !root.editing
                 model: root.editing ? [root.editingSubvolume] : root.sourceCandidates
+                textRole: root.candidateOnly && !root.editing ? "displayName" : ""
+                valueRole: root.candidateOnly && !root.editing ? "id" : ""
                 editText: ""
             }
         }
