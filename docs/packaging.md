@@ -137,9 +137,12 @@ wizard --apply` and `profile save` write active profiles, udev rules, native
 profile-specific mount units, and mount-dependency drop-ins after an explicit
 user command.
 
-Packages keep lifecycle code to one read-only, fail-closed 4.0 profile
-preflight. Standard state and runtime directory modes are declared through
-`systemd-tmpfiles`; distribution-native hooks handle cache and manager reloads.
+Packages keep lifecycle code to one read-only 4.0 profile preflight. DEB, RPM
+and Gentoo abort when it fails. Pacman reports a failing Arch install scriptlet
+but continues the transaction, so Arch administrators must complete preflight
+and the v4 export before invoking the package manager. Standard state and
+runtime directory modes are declared through `systemd-tmpfiles`;
+distribution-native hooks handle cache and manager reloads.
 Profile regeneration remains an explicit administrator operation after
 upgrades that change generated artifacts. The complete inventory and migration
 commands are documented in

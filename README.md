@@ -321,10 +321,11 @@ sudo btrfs-backupctl upgrade preflight
 
 Do not install 4.0 until the final summary is `READY`. After upgrading, retain
 the export until a backup and restore test have both succeeded. `RESTORE.txt`
-inside the export records the recovery command. Arch, DEB, RPM and Gentoo
-upgrades run the same read-only gate before replacing the installed binary. A
-direct upgrade from a release without the command is stopped and requires the
-latest 3.2.x migration bridge first.
+inside the export records the recovery command. DEB, RPM and Gentoo upgrades
+run the same read-only gate and stop before replacement when it fails. The Arch
+install script runs the check, but pacman treats a failing install scriptlet as
+a warning and continues; run preflight and save the v4 export before `pacman
+-U`. A direct Arch upgrade from 3.2.0 with installed profiles is unsupported.
 
 Read the [4.0 changelog](CHANGELOG.md) and the
 [configuration guide](docs/configuration.md) before upgrading an existing

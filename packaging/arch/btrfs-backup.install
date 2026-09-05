@@ -13,12 +13,12 @@ pre_upgrade() {
     return 0
   fi
   if [[ ! -x /usr/bin/btrfs-backupctl ]]; then
-    error 'upgrade blocked: installed profiles require the latest 3.2.x migration bridge'
+    printf '%s\n' 'btrfs-backup: upgrade blocked: installed profiles require the latest 3.2.x migration bridge' >&2
     return 1
   fi
   if ! /usr/bin/btrfs-backupctl upgrade preflight; then
-    error 'package upgrade blocked by profile migration preflight'
-    error 'run: btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-4.0'
+    printf '%s\n' 'btrfs-backup: package upgrade blocked by profile migration preflight' >&2
+    printf '%s\n' 'run: btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-4.0' >&2
     return 1
   fi
 }
