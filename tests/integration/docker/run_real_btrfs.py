@@ -175,6 +175,8 @@ class RealBtrfsContainer:
                 "--target",
                 "arch-base",
                 "--skip-tests",
+                "--build-dir",
+                "/artifacts/build",
                 "--dist-dir",
                 "/artifacts/dist",
             ]

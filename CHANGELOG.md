@@ -207,7 +207,9 @@ preflight until it reports `READY`.
 9. C++ changes across the release series follow the enforced formatting
    contract when checked together against their remote base commit;
 10. a manually dispatched release-gate workflow builds every package format
-    and runs the privileged real-Btrfs and QEMU suites for one candidate SHA.
+    and runs the privileged real-Btrfs and QEMU suites for one candidate SHA;
+11. container-based integration package builders keep their CMake trees in the
+    writable artifact volume while the checked-out source remains read-only.
 
 ## 0.3.3 - 2026-08-30
 

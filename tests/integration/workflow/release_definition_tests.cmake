@@ -59,3 +59,15 @@ foreach(gate IN ITEMS
         message(FATAL_ERROR "${gate} is missing the migration preflight contract")
     endif()
 endforeach()
+
+foreach(runner IN ITEMS
+        "tests/integration/docker/run_real_btrfs.py"
+        "tests/qemu/run_hotplug.py")
+    file(READ "${SOURCE_DIR}/${runner}" runner_content)
+    string(FIND "${runner_content}" "\"--build-dir\"" build_dir_option)
+    string(FIND "${runner_content}" "\"/artifacts/build\"" writable_build_dir)
+    if(build_dir_option EQUAL -1 OR writable_build_dir EQUAL -1)
+        message(FATAL_ERROR
+            "${runner} does not keep container-built packages outside the read-only source mount")
+    endif()
+endforeach()
