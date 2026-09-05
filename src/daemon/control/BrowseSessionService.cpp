@@ -178,19 +178,19 @@ BrowseSessionService::BrowseSessionService(
     BrowseSessionWallClock wall_clock,
     BrowseSessionEventSink events,
     std::size_t global_limit,
-    std::size_t per_uid_limit,
+    std::size_t per_caller_limit,
     std::size_t operation_lease_limit,
     BrowseOperationLeaseIdGenerator operation_lease_ids
 ) : authorizer_(authorizer), backend_(backend), lifetime_(lifetime),
     session_ids_(session_ids ? std::move(session_ids) : BrowseSessionIdGenerator{random_session_id}),
     steady_clock_(steady_clock ? std::move(steady_clock) : BrowseSessionSteadyClock{[] { return std::chrono::steady_clock::now(); }}),
     wall_clock_(wall_clock ? std::move(wall_clock) : BrowseSessionWallClock{[] { return std::chrono::system_clock::now(); }}),
-    events_(std::move(events)), global_limit_(global_limit), per_uid_limit_(per_uid_limit),
+    events_(std::move(events)), global_limit_(global_limit), per_caller_limit_(per_caller_limit),
     operation_lease_limit_(operation_lease_limit),
     operation_lease_ids_(operation_lease_ids ? std::move(operation_lease_ids) : BrowseOperationLeaseIdGenerator{random_operation_lease_id}) {
     if (lifetime_ <= std::chrono::seconds::zero())
         throw std::invalid_argument("browse session lifetime must be positive");
-    if (global_limit_ == 0 || per_uid_limit_ == 0 || per_uid_limit_ > global_limit_ || operation_lease_limit_ == 0)
+    if (global_limit_ == 0 || per_caller_limit_ == 0 || per_caller_limit_ > global_limit_ || operation_lease_limit_ == 0)
         throw std::invalid_argument("browse session limits are invalid");
     backend_.cleanup_stale();
 }
@@ -227,10 +227,10 @@ BrowseSessionInfo BrowseSessionService::open(
     if (sessions_.size() >= global_limit_)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "browse session limit reached");
     const auto caller_sessions = std::ranges::count_if(sessions_, [&](const auto& item) {
-        return item.second.caller_uid == caller_uid;
+        return item.second.caller_bus_name == caller_bus_name;
     });
-    if (static_cast<std::size_t>(caller_sessions) >= per_uid_limit_)
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "user browse session limit reached");
+    if (static_cast<std::size_t>(caller_sessions) >= per_caller_limit_)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "caller browse session limit reached");
 
     BrowseSessionId id = session_ids_();
     if (sessions_.contains(std::string(id.value())))

@@ -127,7 +127,7 @@ class BrowseSessionService final {
         BrowseSessionWallClock wall_clock = {},
         BrowseSessionEventSink events = {},
         std::size_t global_limit = 64,
-        std::size_t per_uid_limit = 8,
+        std::size_t per_caller_limit = 8,
         std::size_t operation_lease_limit = 64,
         BrowseOperationLeaseIdGenerator operation_lease_ids = {}
     );
@@ -235,7 +235,7 @@ class BrowseSessionService final {
     BrowseSessionWallClock wall_clock_;
     BrowseSessionEventSink events_;
     std::size_t global_limit_;
-    std::size_t per_uid_limit_;
+    std::size_t per_caller_limit_;
     std::size_t operation_lease_limit_;
     BrowseOperationLeaseIdGenerator operation_lease_ids_;
     std::map<std::string, Session> sessions_;
