@@ -90,6 +90,7 @@ PlasmoidItem {
     Plasmoid.status: (root.primarySummary?.priority ?? 7) <= 3
         ? PlasmaCore.Types.ActiveStatus
         : PlasmaCore.Types.PassiveStatus
+    Plasmoid.icon: "backup"
     toolTipMainText: translations.i18n("Btrfs Backups")
     toolTipSubText: root.tooltipText()
 
@@ -194,16 +195,13 @@ PlasmoidItem {
     }
 
     compactRepresentation: MouseArea {
-        implicitWidth: Kirigami.Units.iconSizes.smallMedium
-        implicitHeight: implicitWidth
         acceptedButtons: Qt.LeftButton
         hoverEnabled: true
         onClicked: root.expanded = !root.expanded
 
         Kirigami.Icon {
             anchors.fill: parent
-            anchors.margins: Math.max(1, parent.width * 0.13)
-            source: "drive-harddisk-symbolic"
+            source: Plasmoid.icon
             opacity: profileDirectory.managerConnected ? 1 : 0.65
         }
 
