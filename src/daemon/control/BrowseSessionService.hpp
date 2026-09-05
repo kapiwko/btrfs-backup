@@ -93,6 +93,7 @@ class IBrowseSessionBackend {
 };
 
 enum class BrowseSessionCloseReason { Requested,
+                                      TargetEject,
                                       CallerDisconnected,
                                       Expired,
                                       Shutdown };
@@ -188,6 +189,7 @@ class BrowseSessionService final {
         const std::string& session_id
     );
     void close_for_caller(const std::string& caller_bus_name) noexcept;
+    void close_for_profile(const ProfileId& profile_id);
     void expire() noexcept;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
         const std::string& caller_bus_name,

@@ -121,7 +121,9 @@ preflight until it reports `READY`.
    mapper state, reopening the verified LUKS device and remounting only the
    identity configured for the profile;
 5. eject handles an unmounted stale mapper and a mapper whose backing device
-   disappeared without treating unrelated mappings as owned resources.
+   disappeared without treating unrelated mappings as owned resources;
+6. manual eject closes idle repository-browse sessions for the selected profile
+   before unmounting, while an active browse or restore operation remains busy.
 
 ### Restore And Repository Access
 

@@ -49,6 +49,7 @@ struct AuthorizedOperationContext {
 };
 
 using OperationIdGenerator = std::function<OperationId()>;
+using TargetEjectPreparation = std::function<void(const ProfileId&)>;
 
 [[nodiscard]] const char* manager_authorization_action_id(ManagerAuthorizationAction action) noexcept;
 [[nodiscard]] std::optional<ManagerAuthorizationAction> manager_method_authorization_action(
@@ -83,7 +84,8 @@ class OperationalControlService {
     OperationalControlService(
         IManagerAuthorizer& authorizer,
         IOperationalControlBackend& backend,
-        OperationIdGenerator operation_ids = {}
+        OperationIdGenerator operation_ids = {},
+        TargetEjectPreparation prepare_target_eject = {}
     );
 
     [[nodiscard]] OperationResult start_backup(
@@ -114,6 +116,7 @@ class OperationalControlService {
     IManagerAuthorizer& authorizer_;
     IOperationalControlBackend& backend_;
     OperationIdGenerator operation_ids_;
+    TargetEjectPreparation prepare_target_eject_;
 };
 
 } // namespace btrfsbackup::daemon::control
