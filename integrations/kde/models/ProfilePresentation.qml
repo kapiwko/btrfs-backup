@@ -19,15 +19,11 @@ QtObject {
     function statusIcon(profileStatus) {
         if (hasFailure(profileStatus))
             return "emblem-error"
-        if (!(profileStatus?.target?.connected ?? false))
-            return "emblem-unavailable"
+        if (isRunning(profileStatus?.run?.state ?? ""))
+            return "emblem-synchronizing"
         if (profileStatus?.target?.spaceBelowMinimum ?? false)
             return "emblem-warning"
-        if (profileStatus?.target?.mounted ?? false)
-            return "emblem-success"
-        if (profileStatus?.target?.unlocked ?? false)
-            return "emblem-unlocked"
-        return "emblem-locked"
+        return ""
     }
 
     function attentionPriority(profileStatus) {
@@ -35,9 +31,6 @@ QtObject {
             return 1
         if (profileStatus?.target?.spaceBelowMinimum ?? false)
             return 2
-        if ((profileStatus?.profileEnabled ?? false)
-                && !(profileStatus?.target?.connected ?? false))
-            return 3
         return 99
     }
 
@@ -45,7 +38,6 @@ QtObject {
         switch (attentionPriority(profileStatus)) {
         case 1: return "emblem-error"
         case 2: return "emblem-warning"
-        case 3: return "emblem-unavailable"
         default: return ""
         }
     }
