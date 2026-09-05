@@ -336,8 +336,8 @@ bool DeviceProvisioningModel::applySources(const QString& payload) {
         const QString name = path == QStringLiteral("/home")
             ? i18nd("kcm_btrfsbackup", "Home folder")
             : path == QStringLiteral("/")
-                ? i18nd("kcm_btrfsbackup", "System root")
-                : i18nd("kcm_btrfsbackup", "Btrfs source");
+            ? i18nd("kcm_btrfsbackup", "System root")
+            : i18nd("kcm_btrfsbackup", "Btrfs source");
         displayed.insert(QStringLiteral("displayName"), i18nd("kcm_btrfsbackup", "%1 — %2", name, path));
         result.push_back(std::move(displayed));
     }

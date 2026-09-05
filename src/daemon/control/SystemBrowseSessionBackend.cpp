@@ -533,10 +533,7 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId&
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    OwnedFileDescriptor root(::open(
-        session->second.view.c_str(),
-        O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
-    ));
+    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!root.valid())
         browse_path_error("cannot open browse session root");
     return root;
