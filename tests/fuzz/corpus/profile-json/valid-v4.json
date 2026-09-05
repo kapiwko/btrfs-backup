@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 4,
+  "profileId": "default",
+  "name": "Default backup",
+  "enabled": true,
+  "target": {
+    "device": "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555",
+    "luksUuid": "11111111-2222-3333-4444-555555555555",
+    "btrfsUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "partitionUuid": "",
+    "serial": "",
+    "mapperName": "backupdisk",
+    "activation": {"mode": "askPassword"}
+  },
+  "paths": {
+    "remoteRoot": "/mnt/btrfs-backup/default/snapshots",
+    "incomingRoot": "/mnt/btrfs-backup/default/.incoming"
+  },
+  "settings": {
+    "dailyLimit": true,
+    "incrementalRequired": true,
+    "keepFailedLocalSnapshot": false,
+    "autoEject": true,
+    "remoteRetention": 30,
+    "localRetention": 30,
+    "minimumTargetFreeBytes": 5368709120,
+    "minimumLocalFreeBytes": 1073741824
+  },
+  "sources": [{
+    "id": "home",
+    "name": "Home",
+    "enabled": true,
+    "subvolume": "/home",
+    "localSnapshotDir": "/.snapshots/btrfs-backup/home",
+    "remoteSubdir": "home",
+    "remoteRetention": 30,
+    "localRetention": 30
+  }]
+}

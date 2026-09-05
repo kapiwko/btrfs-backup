@@ -28,11 +28,23 @@ if(BUILD_TESTING)
 endif()
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
 option(BUILD_README_SCREENSHOTS "Build helpers used to render README screenshots" OFF)
+option(BTRFSBACKUP_BUILD_FUZZERS "Build libFuzzer targets for untrusted inputs" OFF)
 option(
     BUILD_SYSTEM_MANAGER
     "Build the privileged system D-Bus manager and device-preparation helper"
     ON
 )
+
+if(BTRFSBACKUP_BUILD_FUZZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "BTRFSBACKUP_BUILD_FUZZERS requires Clang and libFuzzer")
+    endif()
+    add_compile_options(
+        -fsanitize=fuzzer-no-link,address,undefined
+        -fno-omit-frame-pointer
+    )
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 add_custom_target(
     check-format
@@ -115,6 +127,9 @@ endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+if(BTRFSBACKUP_BUILD_FUZZERS)
+    add_subdirectory(tests/fuzz)
 endif()
 
 set(BTRFSBACKUP_BACKUP_COMMAND "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl runner execute")
