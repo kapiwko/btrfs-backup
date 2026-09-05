@@ -30,7 +30,8 @@ Item {
                     || typeof page.item.cfg_autoExpandActive !== "boolean"
                     || typeof page.item.cfg_autoExpandFailed !== "boolean"
                     || typeof page.item.cfg_showStorage !== "boolean"
-                    || typeof page.item.cfg_hideSourceNamesInTooltip !== "boolean") {
+                    || typeof page.item.cfg_hideSourceNamesInTooltip !== "boolean"
+                    || typeof page.item.cfg_hiddenProfilesAffectStatus !== "boolean") {
                 console.error("Plasmoid configuration properties are incomplete")
                 Qt.exit(2)
                 return

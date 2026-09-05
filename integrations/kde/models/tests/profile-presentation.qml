@@ -60,6 +60,17 @@ TestCase {
         }), "emblem-error")
     }
 
+    function test_attentionSummariesAreCompleteAndPrioritized() {
+        const summaries = BtrfsBackup.ProfilePresentation.sortedAttentionSummaries({
+            healthy: {profileName: "Healthy", attentionPriority: 99, attentionIcon: ""},
+            warning: {profileName: "Server", attentionPriority: 2, attentionIcon: "emblem-warning"},
+            error: {profileName: "Home", attentionPriority: 1, attentionIcon: "emblem-error"}
+        })
+        compare(summaries.length, 2)
+        compare(summaries[0].profileName, "Home")
+        compare(summaries[1].profileName, "Server")
+    }
+
     function test_actionAvailability() {
         const unlocked = status({target: {connected: true, unlocked: true, mounted: false}})
         verify(BtrfsBackup.ProfilePresentation.canStart(unlocked))

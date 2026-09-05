@@ -44,6 +44,12 @@ PlasmoidItem {
         })
         return profiles
     }
+    readonly property var hiddenProfiles: {
+        if (!Plasmoid.configuration.hiddenProfilesAffectStatus)
+            return []
+        return profileDirectory.profiles.filter(profile =>
+            !root.displayedProfiles.some(displayed => displayed.profileId === profile.profileId))
+    }
     readonly property var primarySummary: {
         let selected = null
         const summaries = root.profileSummaries
@@ -53,6 +59,7 @@ PlasmoidItem {
         }
         return selected
     }
+    readonly property var attentionSummaries: BtrfsBackup.ProfilePresentation.sortedAttentionSummaries(root.profileSummaries)
     readonly property string attentionIcon: BtrfsBackup.ProfilePresentation.mostImportantAttention(root.profileSummaries)
     readonly property bool running: root.primarySummary?.running ?? false
     readonly property bool failed: root.primarySummary?.failed ?? false
@@ -84,9 +91,7 @@ PlasmoidItem {
         ? PlasmaCore.Types.ActiveStatus
         : PlasmaCore.Types.PassiveStatus
     toolTipMainText: translations.i18n("Btrfs Backups")
-    toolTipSubText: root.primarySummary?.subtitle
-        ?? profileDirectory.lastError
-        ?? translations.i18n("No active backup")
+    toolTipSubText: root.tooltipText()
 
     BackupStatusModel {
         id: profileDirectory
@@ -101,10 +106,11 @@ PlasmoidItem {
         onTriggered: root.relativeTimeTick++
     }
 
-    function updateSummary(profileId, priority, isRunning, isFailed, profileProgress,
+    function updateSummary(profileId, profileName, priority, isRunning, isFailed, profileProgress,
                            attentionPriority, attentionIcon, subtitle) {
         const summaries = Object.assign({}, root.profileSummaries)
         summaries[profileId] = {
+            profileName: profileName,
             priority: priority,
             running: isRunning,
             failed: isFailed,
@@ -116,10 +122,64 @@ PlasmoidItem {
         root.profileSummaries = summaries
     }
 
+    function tooltipText() {
+        if (root.attentionSummaries.length === 1) {
+            const summary = root.attentionSummaries[0]
+            return summary.profileName + " — " + summary.subtitle
+        }
+        if (root.attentionSummaries.length > 1) {
+            const lines = [translations.i18np(
+                "%1 profile requires attention",
+                "%1 profiles require attention",
+                root.attentionSummaries.length
+            )]
+            const shown = Math.min(3, root.attentionSummaries.length)
+            for (let index = 0; index < shown; ++index) {
+                const summary = root.attentionSummaries[index]
+                lines.push(summary.profileName + " — " + summary.subtitle)
+            }
+            if (root.attentionSummaries.length > shown)
+                lines.push(translations.i18n("and %1 more", root.attentionSummaries.length - shown))
+            return lines.join("\n")
+        }
+        return root.primarySummary?.subtitle
+            ?? profileDirectory.lastError
+            ?? translations.i18n("No active backup")
+    }
+
     function removeSummary(profileId) {
         const summaries = Object.assign({}, root.profileSummaries)
         delete summaries[profileId]
         root.profileSummaries = summaries
+    }
+
+    Item {
+        visible: false
+
+        Repeater {
+            model: root.hiddenProfiles
+
+            delegate: ProfileItem {
+                required property var modelData
+
+                visible: false
+                profileId: modelData.profileId
+                profileName: modelData.name
+                targetNameHint: modelData.targetName
+                relativeTimeTick: root.relativeTimeTick
+                refreshRevision: root.refreshRevision
+                historyLimit: 1
+                autoExpandActive: false
+                autoExpandFailed: false
+                showStorageDetails: false
+                hideSourceNamesInTooltip: Plasmoid.configuration.hideSourceNamesInTooltip
+                onSummaryUpdated: (profileId, profileName, priority, isRunning, isFailed, profileProgress,
+                                   attentionPriority, attentionIcon, subtitle) =>
+                    root.updateSummary(profileId, profileName, priority, isRunning, isFailed, profileProgress,
+                                       attentionPriority, attentionIcon, subtitle)
+                onSummaryRemoved: profileId => root.removeSummary(profileId)
+            }
+        }
     }
 
     compactRepresentation: MouseArea {
@@ -243,9 +303,9 @@ PlasmoidItem {
                     autoExpandFailed: Plasmoid.configuration.autoExpandFailed
                     showStorageDetails: Plasmoid.configuration.showStorage
                     hideSourceNamesInTooltip: Plasmoid.configuration.hideSourceNamesInTooltip
-                    onSummaryUpdated: (profileId, priority, isRunning, isFailed, profileProgress,
+                    onSummaryUpdated: (profileId, profileName, priority, isRunning, isFailed, profileProgress,
                                        attentionPriority, attentionIcon, subtitle) =>
-                        root.updateSummary(profileId, priority, isRunning, isFailed, profileProgress,
+                        root.updateSummary(profileId, profileName, priority, isRunning, isFailed, profileProgress,
                                            attentionPriority, attentionIcon, subtitle)
                     onSummaryRemoved: profileId => root.removeSummary(profileId)
                 }

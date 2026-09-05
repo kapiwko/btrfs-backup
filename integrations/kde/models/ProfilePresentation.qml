@@ -61,6 +61,21 @@ QtObject {
         return selected?.attentionIcon ?? ""
     }
 
+    function sortedAttentionSummaries(summaries) {
+        const selected = []
+        for (const profileId in summaries) {
+            const summary = summaries[profileId]
+            if ((summary.attentionIcon ?? "").length > 0)
+                selected.push(summary)
+        }
+        selected.sort((left, right) => {
+            if (left.attentionPriority !== right.attentionPriority)
+                return left.attentionPriority - right.attentionPriority
+            return String(left.profileName ?? "").localeCompare(String(right.profileName ?? ""))
+        })
+        return selected
+    }
+
     function summaryPriority(profileStatus) {
         if (hasFailure(profileStatus))
             return 1
