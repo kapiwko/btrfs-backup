@@ -66,6 +66,7 @@ execute_process(
 )
 if(NOT install_result EQUAL 0 OR
    NOT install_content MATCHES "btrfs-backupctl upgrade preflight" OR
-   NOT install_content MATCHES "profile export-v4 --all")
+   NOT install_content MATCHES "profile export-v4 --all" OR
+   install_content MATCHES "error '")
     message(FATAL_ERROR "Arch pre-upgrade gate is missing the migration commands")
 endif()
