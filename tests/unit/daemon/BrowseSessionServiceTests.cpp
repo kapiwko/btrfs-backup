@@ -466,7 +466,13 @@ void test_previous_versions_pages_bind_tokens_to_session_and_query() {
     const auto first_session = service.open(":1.90", 1000, "default");
     const auto second_session = service.open(":1.90", 1000, "default");
     const auto first = service.list_previous_versions(
-        ":1.90", first_session.session_id, "default", "home", "documents/file.txt", "", 1
+        ":1.90",
+        first_session.session_id,
+        "default",
+        "home",
+        "documents/file.txt",
+        "",
+        1
     );
     test_helpers::expect_true(
         "previous versions first page",
