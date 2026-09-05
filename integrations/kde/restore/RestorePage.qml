@@ -29,33 +29,46 @@ Kirigami.Page {
         Kirigami.AbstractCard {
             Layout.fillWidth: true
 
-            contentItem: ColumnLayout {
-                spacing: Kirigami.Units.smallSpacing
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.largeSpacing
 
-                QQC2.Label {
-                    objectName: "restoreSourceName"
-                    Layout.fillWidth: true
-                    text: root.controller.sourceName
-                    elide: Text.ElideMiddle
-                    font.weight: Font.DemiBold
-                    font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.1
+                Kirigami.Icon {
+                    objectName: "restoreSourceIcon"
+                    source: root.controller.sourceIcon
+                    Layout.alignment: Qt.AlignTop
+                    implicitWidth: Kirigami.Units.iconSizes.huge
+                    implicitHeight: implicitWidth
                 }
 
-                GridLayout {
-                    objectName: "restoreSourceDetails"
-                    visible: root.controller.sourceDetailsAvailable
-                    columns: 2
-                    columnSpacing: Kirigami.Units.largeSpacing
-                    rowSpacing: Kirigami.Units.smallSpacing
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
 
-                    QQC2.Label { text: translations.i18n("Type:"); opacity: 0.7 }
-                    QQC2.Label { text: root.controller.sourceType }
-                    QQC2.Label { text: translations.i18n("Size:"); opacity: 0.7 }
-                    QQC2.Label { text: root.controller.sourceSize }
-                    QQC2.Label { text: translations.i18n("Modified:"); opacity: 0.7 }
-                    QQC2.Label { text: root.controller.sourceModified }
-                    QQC2.Label { text: translations.i18n("Backup date:"); opacity: 0.7 }
-                    QQC2.Label { text: root.controller.snapshotCreated }
+                    QQC2.Label {
+                        objectName: "restoreSourceName"
+                        Layout.fillWidth: true
+                        text: root.controller.sourceName
+                        elide: Text.ElideMiddle
+                        font.weight: Font.DemiBold
+                        font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.1
+                    }
+
+                    GridLayout {
+                        objectName: "restoreSourceDetails"
+                        visible: root.controller.sourceDetailsAvailable
+                        columns: 2
+                        columnSpacing: Kirigami.Units.largeSpacing
+                        rowSpacing: Kirigami.Units.smallSpacing
+
+                        QQC2.Label { text: translations.i18n("Type:"); opacity: 0.7 }
+                        QQC2.Label { text: root.controller.sourceType }
+                        QQC2.Label { text: translations.i18n("Size:"); opacity: 0.7 }
+                        QQC2.Label { text: root.controller.sourceSize }
+                        QQC2.Label { text: translations.i18n("Modified:"); opacity: 0.7 }
+                        QQC2.Label { text: root.controller.sourceModified }
+                        QQC2.Label { text: translations.i18n("Backup date:"); opacity: 0.7 }
+                        QQC2.Label { text: root.controller.snapshotCreated }
+                    }
                 }
             }
         }
@@ -84,6 +97,7 @@ Kirigami.Page {
                 Layout.fillWidth: false
                 icon.name: "folder-open-symbolic"
                 text: translations.i18n("Choose…")
+                enabled: !root.controller.busy
                 Accessible.name: translations.i18n("Choose destination")
                 onClicked: root.controller.chooseDestination()
             }
@@ -94,13 +108,6 @@ Kirigami.Page {
             text: translations.i18n("File ownership, permissions and timestamps will be preserved and verified.")
             wrapMode: Text.Wrap
             opacity: 0.75
-        }
-
-        Kirigami.InlineMessage {
-            Layout.fillWidth: true
-            visible: root.controller.planSummary.length > 0
-            text: root.controller.planSummary
-            type: Kirigami.MessageType.Information
         }
 
         Kirigami.InlineMessage {
@@ -144,22 +151,65 @@ Kirigami.Page {
             }
         }
 
-        QQC2.ProgressBar {
+        Kirigami.AbstractCard {
+            objectName: "restoreProgressCard"
             Layout.fillWidth: true
             visible: root.controller.busy
-            indeterminate: true
+
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.largeSpacing
+
+                Kirigami.Icon {
+                    source: root.controller.sourceIcon
+                    implicitWidth: Kirigami.Units.iconSizes.large
+                    implicitHeight: implicitWidth
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        text: translations.i18n("Restoring %1", root.controller.sourceName)
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideMiddle
+                    }
+                    QQC2.ProgressBar {
+                        objectName: "restoreProgressBar"
+                        Layout.fillWidth: true
+                        indeterminate: root.controller.progress < 0
+                        value: root.controller.progress < 0 ? 0 : root.controller.progress
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        QQC2.Label {
+                            objectName: "restoreTransferredSize"
+                            text: root.controller.transferredSize
+                            opacity: 0.75
+                        }
+                        Item { Layout.fillWidth: true }
+                        QQC2.Label {
+                            objectName: "restoreTransferSpeed"
+                            text: root.controller.transferSpeed
+                            visible: text.length > 0
+                            opacity: 0.75
+                        }
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        text: root.controller.currentItem
+                        visible: text.length > 0 && text !== root.controller.sourceName
+                        elide: Text.ElideMiddle
+                        opacity: 0.7
+                    }
+                }
+            }
         }
 
         Item { Layout.fillHeight: true }
 
         RowLayout {
             Layout.alignment: Qt.AlignRight
-            QQC2.Button {
-                icon.name: "document-preview"
-                text: translations.i18n("Preview plan")
-                enabled: !root.controller.busy
-                onClicked: root.controller.preview()
-            }
             QQC2.Button {
                 visible: root.controller.busy
                 icon.name: "dialog-cancel"
@@ -171,7 +221,8 @@ Kirigami.Page {
                 icon.name: "document-revert"
                 text: translations.i18n("Restore")
                 highlighted: true
-                enabled: root.controller.planSummary.length > 0
+                enabled: root.controller.sourceDetailsAvailable
+                    && root.controller.destination.length > 0
                 onClicked: root.controller.execute()
             }
         }
@@ -215,10 +266,12 @@ Kirigami.Page {
             Layout.alignment: Qt.AlignHCenter
 
             QQC2.Button {
-                objectName: "openRestoredDirectoryButton"
+                objectName: "openRestoredLocationButton"
                 icon.name: "folder-open-symbolic"
-                text: translations.i18n("Open restored directory")
-                onClicked: root.controller.openRestoredDirectory()
+                text: root.controller.sourceIsDirectory
+                    ? translations.i18n("Open restored folder")
+                    : translations.i18n("Show restored file")
+                onClicked: root.controller.openRestoredLocation()
             }
             QQC2.Button {
                 objectName: "closeRestoreButton"

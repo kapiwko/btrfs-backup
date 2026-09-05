@@ -60,24 +60,6 @@ msgstr "Obliczany podczas przywracania"
 msgid "File ownership, permissions and timestamps will be preserved and verified."
 msgstr "Właściciel, uprawnienia i znaczniki czasu zostaną zachowane i zweryfikowane."
 
-msgid "If destination exists:"
-msgstr "Jeśli miejsce docelowe istnieje:"
-
-msgid "Stop"
-msgstr "Zatrzymaj"
-
-msgid "Replace transactionally"
-msgstr "Zastąp transakcyjnie"
-
-msgid "Metadata:"
-msgstr "Metadane:"
-
-msgid "Preserve and verify"
-msgstr "Zachowaj i zweryfikuj"
-
-msgid "Preview plan"
-msgstr "Wyświetl plan"
-
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -89,12 +71,6 @@ msgstr "Wybrany adres kopii zapasowej jest nieprawidłowy."
 
 msgid "Could not keep the backup browsing session active."
 msgstr "Nie udało się utrzymać aktywnej sesji przeglądania kopii zapasowej."
-
-msgid "Replace %1, preserve metadata, then verify the restored data."
-msgstr "Zastąp %1, zachowaj metadane, a następnie zweryfikuj przywrócone dane."
-
-msgid "Restore to %1, preserve metadata, then verify the restored data."
-msgstr "Przywróć do %1, zachowaj metadane, a następnie zweryfikuj przywrócone dane."
 
 msgid "Restore completed"
 msgstr "Przywracanie zakończone"
@@ -129,8 +105,20 @@ msgstr[2] "Przywrócono %1 plików"
 msgid "%1 restored to %2"
 msgstr "Przywrócono %1 do %2"
 
-msgid "Open restored directory"
+msgid "Restoring %1"
+msgstr "Przywracanie: %1"
+
+msgid "%1 of %2"
+msgstr "%1 z %2"
+
+msgid "%1/s"
+msgstr "%1/s"
+
+msgid "Open restored folder"
 msgstr "Otwórz przywrócony katalog"
+
+msgid "Show restored file"
+msgstr "Pokaż przywrócony plik"
 
 msgid "Close"
 msgstr "Zamknij"

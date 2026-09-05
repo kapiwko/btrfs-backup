@@ -24,7 +24,11 @@ void throw_if_cancelled(CancellationToken& cancellation) {
 RestoreExecutor::RestoreExecutor(IRestoreOperations& operations) : operations_(operations) {
 }
 
-RestoreResult RestoreExecutor::execute(const RestorePlan& plan, CancellationToken& cancellation) {
+RestoreResult RestoreExecutor::execute(
+    const RestorePlan& plan,
+    CancellationToken& cancellation,
+    const RestoreProgressSink& progress
+) {
     throw_if_cancelled(cancellation);
     if (operations_.exists(plan.staging) || operations_.exists(plan.previous)) {
         throw RestoreError(RestoreErrorCode::DestinationUnsafe, "restore transaction artifacts already exist");
@@ -40,7 +44,7 @@ RestoreResult RestoreExecutor::execute(const RestorePlan& plan, CancellationToke
             operations_.prepare_copy_root(plan.source, plan.staging);
         }
         staging_created = true;
-        RestoreStatistics statistics = operations_.copy_and_verify(plan.source, plan.staging, cancellation);
+        RestoreStatistics statistics = operations_.copy_and_verify(plan.source, plan.staging, cancellation, progress);
         throw_if_cancelled(cancellation);
 
         if (plan.kind == RestoreKind::Drill) {

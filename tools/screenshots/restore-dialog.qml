@@ -26,9 +26,15 @@ Kirigami.ApplicationWindow {
         id: fakeController
 
         property string sourceName: "report.odt"
+        property string sourceType: "File"
+        property string sourceIcon: "x-office-document"
+        property bool sourceIsDirectory: false
+        property string sourceSize: "2.8 MiB"
+        property string sourceModified: "02.09.2026 16:42"
+        property string snapshotCreated: "02.09.2026 19:00"
+        property bool sourceDetailsAvailable: true
         property string destination: "/home/kamil/report.odt"
         property bool replaceExisting: false
-        property string planSummary: "Plan ready: restore report.odt (2.8 MiB) from the Sep 2, 2026 snapshot, preserve its metadata and verify the result."
         property string errorText: ""
         property string errorCode: ""
         property string errorTechnicalDetails: ""
@@ -37,16 +43,20 @@ Kirigami.ApplicationWindow {
         property int restoredFiles: 0
         property int restoredBytes: 0
         property string restoredSize: "0 B"
+        property real progress: -1
+        property string transferredSize: "0 B"
+        property string transferSpeed: ""
+        property string currentItem: "report.odt"
 
         signal overwriteConfirmationRequested(string destination)
         signal stateChanged()
 
-        function preview() {}
+        function loadDetails() {}
         function chooseDestination() {}
         function execute() {}
         function cancel() {}
         function confirmOverwrite() {}
-        function openRestoredDirectory() {}
+        function openRestoredLocation() {}
     }
 
     pageStack.initialPage: Restore.RestorePage {

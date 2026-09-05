@@ -31,19 +31,26 @@ void test_success_exposes_restore_statistics() {
 
     const std::filesystem::path root = temporary.path().toStdString();
     btrfsbackup::kde::restore::RestoreJob job({
-        .transaction_id = "outcome-test",
-        .snapshot_id = "snapshot",
-        .snapshot_uuid = "uuid",
-        .source = source_path.toStdString(),
-        .destination = root / "restored.txt",
-        .staging = root / ".btrfs-backup-restore-outcome-test.staging",
-        .previous = root / ".btrfs-backup-restore-outcome-test.previous",
-        .kind = btrfsbackup::restore::RestoreKind::Files,
-        .existing_destination = btrfsbackup::restore::ExistingDestinationPolicy::Fail,
-        .destination_exists = false,
-    });
+                                                  .transaction_id = "outcome-test",
+                                                  .snapshot_id = "snapshot",
+                                                  .snapshot_uuid = "uuid",
+                                                  .source = source_path.toStdString(),
+                                                  .destination = root / "restored.txt",
+                                                  .staging = root / ".btrfs-backup-restore-outcome-test.staging",
+                                                  .previous = root / ".btrfs-backup-restore-outcome-test.previous",
+                                                  .kind = btrfsbackup::restore::RestoreKind::Files,
+                                                  .existing_destination = btrfsbackup::restore::ExistingDestinationPolicy::Fail,
+                                                  .destination_exists = false,
+                                              },
+                                              16);
 
     QEventLoop loop;
+    int progress_updates = 0;
+    QObject::connect(
+        &job,
+        &btrfsbackup::kde::restore::RestoreJob::progressChanged,
+        [&] { ++progress_updates; }
+    );
     QObject::connect(&job, &KJob::result, &loop, &QEventLoop::quit);
     job.start();
     loop.exec();
@@ -51,6 +58,9 @@ void test_success_exposes_restore_statistics() {
     expect(job.error() == KJob::NoError, "restore job failed");
     expect(job.restoredFiles() == 1, "restore job did not retain the restored file count");
     expect(job.restoredBytes() == 16, "restore job did not retain the restored byte count");
+    expect(job.totalAmount(KJob::Bytes) == 16, "restore job did not expose the total byte count");
+    expect(job.processedAmount(KJob::Bytes) == 16, "restore job did not expose copied bytes");
+    expect(progress_updates > 0, "restore job did not report progress");
     expect(QFile::exists(temporary.filePath(QStringLiteral("restored.txt"))), "restore destination is missing");
 }
 

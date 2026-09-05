@@ -19,7 +19,8 @@ class PosixRestoreOperations final : public btrfsbackup::restore::IRestoreOperat
     btrfsbackup::restore::RestoreStatistics copy_and_verify(
         const std::filesystem::path& source,
         const std::filesystem::path& destination_root,
-        CancellationToken& cancellation
+        CancellationToken& cancellation,
+        const btrfsbackup::restore::RestoreProgressSink& progress = {}
     ) override;
     void move(const std::filesystem::path& source, const std::filesystem::path& destination) override;
     void remove_owned_tree(const std::filesystem::path& path) override;

@@ -20,7 +20,11 @@ class RestoreJob final : public KJob {
     Q_OBJECT
 
   public:
-    explicit RestoreJob(btrfsbackup::restore::RestorePlan plan, QObject* parent = nullptr);
+    explicit RestoreJob(
+        btrfsbackup::restore::RestorePlan plan,
+        std::uint64_t total_bytes = 0,
+        QObject* parent = nullptr
+    );
     ~RestoreJob() noexcept override;
     void start() override;
     [[nodiscard]] bool hasRestoreError() const noexcept;
@@ -28,6 +32,14 @@ class RestoreJob final : public KJob {
     [[nodiscard]] QString technicalDetails() const;
     [[nodiscard]] std::uint64_t restoredFiles() const noexcept;
     [[nodiscard]] std::uint64_t restoredBytes() const noexcept;
+
+  signals:
+    void progressChanged(
+        qulonglong files,
+        qulonglong bytes,
+        qulonglong bytes_per_second,
+        const QString& current_name
+    );
 
   protected:
     bool doKill() override;
@@ -44,6 +56,7 @@ class RestoreJob final : public KJob {
     QString technical_details_;
     std::uint64_t restored_files_ = 0;
     std::uint64_t restored_bytes_ = 0;
+    std::uint64_t total_bytes_ = 0;
     bool started_ = false;
 };
 
