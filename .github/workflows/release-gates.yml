@@ -9,28 +9,38 @@ permissions:
 jobs:
   packaging:
     runs-on: ubuntu-24.04
+    container: archlinux:base-devel
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install release dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
+          pacman -Syu --noconfirm --needed \
             btrfs-progs \
-            build-essential \
             cmake \
-            libarchive-tools \
-            libblkid-dev \
-            libbtrfsutil-dev \
-            libcryptsetup-dev \
-            libfdisk-dev \
-            libmount-dev \
-            libsystemd-dev \
-            libudev-dev \
-            ninja-build \
-            nlohmann-json3-dev \
-            pkg-config \
-            rpm \
+            dpkg \
+            extra-cmake-modules \
+            git \
+            kcmutils \
+            kcoreaddons \
+            ki18n \
+            kirigami \
+            kio \
+            kjobwidgets \
+            knotifications \
+            kpackage \
+            krunner \
+            kwidgetsaddons \
+            libarchive \
+            libplasma \
+            ninja \
+            nlohmann-json \
+            pkgconf \
+            qt6-base \
+            qt6-declarative \
+            rpm-tools \
+            systemd \
+            util-linux \
             zstd
       - name: Build complete release set
         run: |

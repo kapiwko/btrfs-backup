@@ -93,7 +93,7 @@ class QemuHotplugHost:
              f"BUILD_JOBS={self.build_jobs}", "-e", "HOME=/tmp", "-v", f"{ROOT}:/work:ro",
              "-v", f"{self.package_root}:/artifacts", "-w", "/work", self.build_image,
              "/work/tools/release.py", "--target", "arch-base", "--skip-tests",
-             "--dist-dir", "/artifacts/dist"])
+             "--build-dir", "/artifacts/build", "--dist-dir", "/artifacts/dist"])
 
     def image_id(self, image: str) -> str:
         return run(["docker", "image", "inspect", "--format", "{{.Id}}", image], capture=True).stdout.strip().removeprefix("sha256:")
