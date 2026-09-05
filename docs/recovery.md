@@ -13,6 +13,45 @@ sudo cryptsetup open /dev/disk/by-uuid/<LUKS-UUID> backupdisk
 sudo mount -o ro /dev/mapper/backupdisk /mnt/btrfs-backup/default
 ```
 
+## Back Up The LUKS Header
+
+Keep a header backup for every encrypted target. Use the persistent LUKS UUID
+path and write the backup directly to separate trusted storage:
+
+```bash
+sudo install -d -m 0700 /root/luks-header-backups
+sudo cryptsetup luksHeaderBackup \
+  --header-backup-file /root/luks-header-backups/backupdisk.header \
+  /dev/disk/by-uuid/<LUKS-UUID>
+sudo chmod 0600 /root/luks-header-backups/backupdisk.header
+```
+
+Copy that file to protected offline storage which is not on the backup disk.
+The header contains the keyslot material from the moment it was created. The
+header file together with a passphrase that was valid then can still unlock the
+data even after that passphrase is later removed from the live device. Treat
+every old header copy as a sensitive recovery credential and securely retire
+copies that are no longer part of the recovery plan.
+
+Record the LUKS UUID, physical disk identity, header-backup checksum and backup
+date separately. Repeat the backup after creating or changing keyslots and
+keep at least one verified earlier copy until the replacement has been copied
+off the machine.
+
+Restore a header only after confirming the exact inactive target device and
+making a byte-for-byte image when the damaged media is still readable:
+
+```bash
+sudo cryptsetup luksHeaderRestore \
+  --header-backup-file /path/to/backupdisk.header \
+  /dev/disk/by-id/<EXACT-TARGET-PARTITION>
+```
+
+This replaces every current keyslot with the keyslots stored in the backup.
+After restoration, only passphrases represented by that saved header work.
+Never test this command against the sole copy of the encrypted data; use a
+clone or a disposable recovery drill first.
+
 ## Discover And Browse A Repository
 
 For a format v1 repository, inspect its identity and snapshots before choosing
