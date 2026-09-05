@@ -273,7 +273,7 @@ Transfers always use send protocol v2 with
 write ioctl used by `btrfs receive` for compressed extents.
 
 Source builds additionally need CMake 3.20+, a C++23 compiler, pkg-config,
-nlohmann-json and development files for libmount, libblkid, libcryptsetup,
+nlohmann-json and development files for libmount, libblkid, libacl, libcryptsetup,
 libudev and libbtrfsutil. Build the base package with:
 
 ```bash

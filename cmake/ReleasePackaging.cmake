@@ -23,7 +23,7 @@ set(CPACK_DEBIAN_PACKAGE_SECTION "admin")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
-    "btrfs-progs (>= 6.0), coreutils, cryptsetup, libcryptsetup12, libfdisk1, libmount1, libstdc++6, libsystemd0, libudev1, polkitd, systemd, util-linux"
+    "btrfs-progs (>= 6.0), coreutils, cryptsetup, libacl1, libcryptsetup12, libfdisk1, libmount1, libstdc++6, libsystemd0, libudev1, polkitd, systemd, util-linux"
 )
 set(CPACK_DEBIAN_UNSPECIFIED_PACKAGE_CONTROL_EXTRA
     "${CMAKE_SOURCE_DIR}/packaging/debian/preinst"
@@ -38,7 +38,7 @@ set(CPACK_RPM_SPEC_MORE_DEFINE
     "%define _buildhost reproducible\n%define use_source_date_epoch_as_buildtime 1\n%define clamp_mtime_to_source_date_epoch 1"
 )
 set(CPACK_RPM_PACKAGE_REQUIRES
-    "btrfs-progs >= 6.0, coreutils, cryptsetup, libstdc++, polkit, systemd, systemd-libs, util-linux"
+    "acl-libs, btrfs-progs >= 6.0, coreutils, cryptsetup, libstdc++, polkit, systemd, systemd-libs, util-linux"
 )
 set(CPACK_RPM_UNSPECIFIED_PRE_INSTALL_SCRIPT_FILE
     "${CMAKE_SOURCE_DIR}/packaging/debian/preinst"

@@ -125,9 +125,8 @@ preflight until it reports `READY`.
 
 ### Restore And Repository Access
 
-1. opening repository browse sessions and resolving backup coverage require
-   administrator authentication even from the active local session, with a
-   short-lived authorization cache preventing repeated prompts while browsing;
+1. active local sessions browse without an authentication prompt while the
+   manager enforces the snapshot's stored owner, group, mode and POSIX ACL;
 2. repository discovery verifies format, catalog structure, snapshot identity,
    read-only state and Btrfs UUID relationships before exposing restore data;
 3. restore planning rejects traversal, symlink escapes, special files, nested
