@@ -125,29 +125,32 @@ preflight until it reports `READY`.
 
 ### Restore And Repository Access
 
-1. repository discovery verifies format, catalog structure, snapshot identity,
+1. opening repository browse sessions and resolving backup coverage now require
+   administrator authentication even from the active local session, preventing
+   ordinary users from reading root-opened backup contents;
+2. repository discovery verifies format, catalog structure, snapshot identity,
    read-only state and Btrfs UUID relationships before exposing restore data;
-2. restore planning rejects traversal, symlink escapes, special files, nested
+3. restore planning rejects traversal, symlink escapes, special files, nested
    mount boundaries and unsafe destinations, while execution stages changes
    and either commits the complete result or rolls it back;
-3. the manager opens caller-bound, time-limited, read-only browse sessions in a
+4. the manager opens caller-bound, time-limited, read-only browse sessions in a
    root-owned hierarchy and exposes a pinned root directory descriptor instead
    of a reusable host path;
-4. concurrent browse operations hold independent session leases, so completing
+5. concurrent browse operations hold independent session leases, so completing
    one KIO request cannot allow cleanup while another request is active;
-5. browse-session lifecycle and authorization are covered by unit tests and a
+6. browse-session lifecycle and authorization are covered by unit tests and a
    real system D-Bus integration test, including cleanup after client exit;
-6. `btrfs-backupctl repository rebuild` inspects mounted snapshots, previews
+7. `btrfs-backupctl repository rebuild` inspects mounted snapshots, previews
    the resulting metadata by default and atomically rebuilds repository and
    catalog documents only with explicit `--apply`;
-7. the manager exposes bounded, stable name-sorted directory pages, and KIO
+8. the manager exposes bounded, stable name-sorted directory pages, and KIO
    streams every page instead of rejecting directories above 10,000 entries;
    page selection uses a bounded heap, reducing work on very large directories
    while retaining only the requested page plus one lookahead entry;
-8. restore catalog decoding has a dedicated validated boundary, while restore
+9. restore catalog decoding has a dedicated validated boundary, while restore
    failures expose a friendly message, stable code and optional technical
    details separately;
-9. the restore application finishes with a dedicated outcome view showing the
+10. the restore application finishes with a dedicated outcome view showing the
    restored file count, byte size and destination, with an action to open the
    restored directory.
 
