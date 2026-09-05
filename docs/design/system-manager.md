@@ -52,7 +52,6 @@ DeleteProfile
 SetProfileEnabled
 OpenBrowseSession
 RenewBrowseSession
-SetBrowseSessionActive
 BeginBrowseOperation
 EndBrowseOperation
 CloseBrowseSession

@@ -130,11 +130,6 @@ class BrowseSessionService final {
         const std::string& caller_bus_name,
         const std::string& session_id
     );
-    void set_active(
-        const std::string& caller_bus_name,
-        const std::string& session_id,
-        bool active
-    );
     [[nodiscard]] std::string begin_operation(
         const std::string& caller_bus_name,
         const std::string& session_id
@@ -208,7 +203,6 @@ class BrowseSessionService final {
         std::uint32_t caller_uid;
         std::chrono::steady_clock::time_point deadline;
         std::chrono::system_clock::time_point expires_at;
-        std::size_t legacy_active_operations = 0;
         std::set<std::string> operation_leases;
     };
 

@@ -106,10 +106,6 @@ QDBusPendingCall ManagerClient::renewBrowseSession(const QString& session_id) co
     return call(QLatin1String(manager_protocol::method::renew_browse_session), {session_id});
 }
 
-QDBusPendingCall ManagerClient::setBrowseSessionActive(const QString& session_id, bool active) const {
-    return call(QLatin1String(manager_protocol::method::set_browse_session_active), {session_id, active});
-}
-
 QDBusPendingCall ManagerClient::beginBrowseOperation(const QString& session_id) const {
     return call(QLatin1String(manager_protocol::method::begin_browse_operation), {session_id});
 }

@@ -150,6 +150,11 @@ assert_not_contains(
     "sd_bus_message_read"
     "D-Bus argument parsing in the vtable owner"
 )
+assert_not_contains(
+    "${manager_xml}${manager_bus_policy}${manager_protocol}${manager_vtable}${kde_dbus_contract}"
+    "SetBrowseSessionActive"
+    "removed counted browse-operation API"
+)
 assert_delegated_methods(
     read_methods
     get_capabilities list_profiles get_status get_history_sanitized get_device_state
@@ -165,7 +170,7 @@ assert_delegated_methods(
 )
 assert_delegated_methods(
     browse_methods
-    open_browse_session renew_browse_session set_browse_session_active begin_browse_operation
+    open_browse_session renew_browse_session begin_browse_operation
     end_browse_operation close_browse_session
     list_browse_directory list_browse_directory_page list_previous_versions inspect_browse_entry open_browse_file resolve_backup_coverage
 )
@@ -273,10 +278,6 @@ assert_contains(
 assert_unprivileged_method(
     renew_browse_session RenewBrowseSession s s
     "<methodname=\"RenewBrowseSession\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-)
-assert_unprivileged_method(
-    set_browse_session_active SetBrowseSessionActive sb s
-    "<methodname=\"SetBrowseSessionActive\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"active\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_unprivileged_method(
     begin_browse_operation BeginBrowseOperation s s

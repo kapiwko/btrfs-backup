@@ -68,30 +68,6 @@ int ManagerBrowseMethods::renew_browse_session(sd_bus_message* message, sd_bus_e
     );
 }
 
-int ManagerBrowseMethods::set_browse_session_active(sd_bus_message* message, sd_bus_error* error) noexcept {
-    return invoke_dbus_callback(
-        [&] {
-            const char* session_id = nullptr;
-            int active = 0;
-            const int read_result = sd_bus_message_read(message, "sb", &session_id, &active);
-            if (read_result < 0)
-                return read_result;
-            browse_sessions_.set_active(
-                ManagerMethodSupport::caller_bus_name(message),
-                session_id == nullptr ? "" : session_id,
-                active != 0
-            );
-            return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                 {"schemaVersion", manager_protocol::operation_result_schema_version},
-                                                                 {"operation", "set-browse-session-active"},
-                                                                 {"active", active != 0},
-                                                                 {"accepted", true},
-                                                             }));
-        },
-        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
-    );
-}
-
 int ManagerBrowseMethods::begin_browse_operation(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {

@@ -70,7 +70,6 @@ inline constexpr char delete_profile[] = "DeleteProfile";
 inline constexpr char set_profile_enabled[] = "SetProfileEnabled";
 inline constexpr char open_browse_session[] = "OpenBrowseSession";
 inline constexpr char renew_browse_session[] = "RenewBrowseSession";
-inline constexpr char set_browse_session_active[] = "SetBrowseSessionActive";
 inline constexpr char begin_browse_operation[] = "BeginBrowseOperation";
 inline constexpr char end_browse_operation[] = "EndBrowseOperation";
 inline constexpr char close_browse_session[] = "CloseBrowseSession";
