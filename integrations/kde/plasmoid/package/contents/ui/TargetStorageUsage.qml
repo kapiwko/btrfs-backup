@@ -18,9 +18,6 @@ ColumnLayout {
     required property string usedText
     required property string availableText
     required property int usagePercent
-    required property bool live
-    required property string measuredAt
-    required property string relativeMeasurementTime
     required property bool belowMinimum
 
     readonly property string usageText: usagePercent + "%"
@@ -82,22 +79,6 @@ ColumnLayout {
             font: Kirigami.Theme.smallFont
             opacity: 0.72
         }
-    }
-
-    PlasmaComponents3.Label {
-        Layout.fillWidth: true
-        visible: root.known && !root.live
-        text: translations.i18n("Last measurement: %1", root.relativeMeasurementTime)
-        elide: Text.ElideRight
-        font: Kirigami.Theme.smallFont
-        opacity: 0.7
-
-        HoverHandler {
-            id: measurementHover
-        }
-
-        QQC2.ToolTip.visible: measurementHover.hovered && root.measuredAt.length > 0
-        QQC2.ToolTip.text: root.measuredAt
     }
 
     Kirigami.InlineMessage {

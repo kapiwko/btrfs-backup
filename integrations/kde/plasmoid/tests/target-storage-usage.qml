@@ -22,9 +22,6 @@ Window {
         usedText: "1,2 TiB"
         availableText: "2,5 TiB"
         usagePercent: 32
-        live: false
-        measuredAt: "2026-08-30T12:34:56Z"
-        relativeMeasurementTime: "Just now"
         belowMinimum: true
     }
 
@@ -37,8 +34,7 @@ Window {
                     || usage.capacityText !== "3,6 TiB"
                     || usage.usedText !== "1,2 TiB"
                     || usage.availableText !== "2,5 TiB"
-                    || usage.usageText !== "32%"
-                    || usage.measuredAt !== "2026-08-30T12:34:56Z") {
+                    || usage.usageText !== "32%") {
                 Qt.exit(2)
                 return
             }

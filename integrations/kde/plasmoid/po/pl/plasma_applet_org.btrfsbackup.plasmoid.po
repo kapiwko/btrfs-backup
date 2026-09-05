@@ -171,9 +171,6 @@ msgstr "Wykorzystanie:"
 msgid "Available:"
 msgstr "Dostępne:"
 
-msgid "Last measurement: %1"
-msgstr "Ostatni pomiar: %1"
-
 msgid "Available space is below the configured minimum."
 msgstr "Dostępne miejsce jest poniżej skonfigurowanego minimum."
 
