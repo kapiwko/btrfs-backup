@@ -30,6 +30,39 @@ msgstr "Wybierz miejsce docelowe"
 msgid "Choose restore destination"
 msgstr "Wybierz miejsce przywracania"
 
+msgid "Restore destination"
+msgstr "Miejsce przywracania"
+
+msgid "Restore to"
+msgstr "Przywróć do"
+
+msgid "Choose…"
+msgstr "Wybierz…"
+
+msgid "Type:"
+msgstr "Typ:"
+
+msgid "Size:"
+msgstr "Rozmiar:"
+
+msgid "Modified:"
+msgstr "Zmodyfikowano:"
+
+msgid "Backup date:"
+msgstr "Data kopii:"
+
+msgid "File"
+msgstr "Plik"
+
+msgid "Folder"
+msgstr "Katalog"
+
+msgid "Calculated during restore"
+msgstr "Obliczany podczas przywracania"
+
+msgid "File ownership, permissions and timestamps will be preserved and verified."
+msgstr "Właściciel, uprawnienia i znaczniki czasu zostaną zachowane i zweryfikowane."
+
 msgid "If destination exists:"
 msgstr "Jeśli miejsce docelowe istnieje:"
 

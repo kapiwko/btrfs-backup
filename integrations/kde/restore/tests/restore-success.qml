@@ -18,6 +18,11 @@ TestCase {
         property url sourceUrl: "btrfsbackup:/home/snapshot/Documents"
         property string sourceName: "Documents"
         property string destination: "/tmp/restored/Documents"
+        property string sourceType: "Folder"
+        property string sourceSize: "Calculated during restore"
+        property string sourceModified: "05.09.2026 12:00"
+        property string snapshotCreated: "05.09.2026 12:05"
+        property bool sourceDetailsAvailable: true
         property bool replaceExisting: false
         property string planSummary: ""
         property string errorText: ""
@@ -33,6 +38,7 @@ TestCase {
         signal stateChanged()
         function preview() { return true }
         function chooseDestination() {}
+        function loadDetails() {}
         function confirmOverwrite() { return true }
         function execute() {}
         function cancel() {}
@@ -48,7 +54,7 @@ TestCase {
     function initTestCase() {
         const component = Qt.createComponent("../RestorePage.qml")
         compare(component.status, Component.Ready, component.errorString())
-        page = component.createObject(testCase, {controller: controller})
+        page = component.createObject(testCase, {controller: controller, width: 620, height: 430})
         verify(page !== null)
     }
 
@@ -72,5 +78,21 @@ TestCase {
         compare(controller.openRequests, 1)
         closeButton.clicked()
         compare(closeSpy.count, 1)
+    }
+
+    function test_restoreFormContainsDetailsAndBoundsLongDestination() {
+        controller.completed = false
+        controller.destination = "/home/user/Downloads/a_very_long_restore_destination_that_must_not_expand_the_window.csv"
+        wait(0)
+
+        const sourceName = findChild(page, "restoreSourceName")
+        const sourceDetails = findChild(page, "restoreSourceDetails")
+        const destinationField = findChild(page, "restoreDestinationField")
+        const destinationButton = findChild(page, "chooseRestoreDestinationButton")
+        compare(sourceName.text, controller.sourceName)
+        verify(sourceDetails !== null)
+        compare(destinationField.text, controller.destination)
+        verify(destinationField.x + destinationField.width <= page.width)
+        verify(destinationButton.x + destinationButton.width <= page.width)
     }
 }
