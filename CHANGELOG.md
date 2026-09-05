@@ -44,6 +44,12 @@ weakening the v4-only runtime loader. The export includes canonical profiles,
 the optional global application configuration, and rollback instructions;
 referenced key files remain excluded and must be backed up separately.
 
+Arch, DEB, RPM and Gentoo package upgrades now invoke the installed preflight
+before replacing it whenever profiles exist. The read-only gate fails closed
+for incompatible profiles and for installations too old to provide the 0.3.x
+migration bridge, preventing a direct package upgrade from discovering the
+schema break only after 1.0 is installed.
+
 There is no automatic or in-place 3.x profile migration in 1.0.0. Export schema
 version 4 profiles before upgrading, save them explicitly so all generated
 artifacts and `configurationGeneration` are published together, and repeat the
@@ -193,8 +199,11 @@ preflight until it reports `READY`.
    `btrfs-backup` instead of leaking CPack's internal `Unspecified` component
    name into package metadata;
 7. `TODO.md` now records the explicit 1.0 go/no-go decision, locally verified
-   gates, remaining remote-CI and package-upgrade enforcement work, and the
-   accepted non-blocking P2 hardware-matrix risk.
+   gates, remaining remote-CI work and the accepted non-blocking P2
+   hardware-matrix risk;
+8. release definitions and component packages carry and verify the read-only
+   1.0 pre-upgrade profile gate while leaving normal installation, reloads and
+   profile regeneration declarative.
 
 ## 0.3.3 - 2026-08-30
 

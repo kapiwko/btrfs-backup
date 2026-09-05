@@ -3,14 +3,10 @@
 ## 1.0 Release Gate
 
 Current decision: **NO-GO**. Local implementation and verification are
-complete, but the exact release-candidate commit has not passed remote CI and
-package upgrades do not yet stop before replacing an installed legacy profile.
+complete, but the exact release-candidate commit has not passed remote CI.
 
 ### Open Release Work
 
-- [ ] Add a package-manager pre-upgrade gate that stops before replacing 0.3.3
-  when `btrfs-backupctl upgrade preflight` reports an incompatible profile and
-  prints the exact `profile export-v4 --all` recovery command.
 - [ ] Push the final candidate series and obtain green remote compiler,
   sanitizer, clang-tidy, strict-warnings, D-Bus, KDE, systemd-security,
   packaging, QEMU and real-Btrfs jobs for the same SHA.
@@ -26,7 +22,8 @@ The following are evidence, not active tasks:
 - provisioning requires an explicit destructive scope, explains exclusions
   and reports completed, pending and recovery steps;
 - migration preflight is read-only, bulk v4 export is atomic and
-  non-overwriting, and runtime profile loading remains v4-only;
+  non-overwriting, runtime profile loading remains v4-only, and package
+  upgrades fail closed before replacing an incompatible 0.3.3 installation;
 - untrusted transaction records, occupied block stacks and unsupported target
   layouts are rejected;
 - QEMU verifies provisioning recovery and exact systemd helper device

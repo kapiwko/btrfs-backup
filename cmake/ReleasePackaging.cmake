@@ -25,6 +25,9 @@ set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
     "btrfs-progs (>= 6.0), coreutils, cryptsetup, libcryptsetup12, libfdisk1, libmount1, libstdc++6, libsystemd0, libudev1, polkitd, systemd, util-linux"
 )
+set(CPACK_DEBIAN_UNSPECIFIED_PACKAGE_CONTROL_EXTRA
+    "${CMAKE_SOURCE_DIR}/packaging/debian/preinst"
+)
 set(CPACK_RPM_COMPONENT_INSTALL ON)
 set(CPACK_RPM_UNSPECIFIED_PACKAGE_NAME "btrfs-backup")
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
@@ -36,6 +39,9 @@ set(CPACK_RPM_SPEC_MORE_DEFINE
 )
 set(CPACK_RPM_PACKAGE_REQUIRES
     "btrfs-progs >= 6.0, coreutils, cryptsetup, libstdc++, polkit, systemd, systemd-libs, util-linux"
+)
+set(CPACK_RPM_UNSPECIFIED_PRE_INSTALL_SCRIPT_FILE
+    "${CMAKE_SOURCE_DIR}/packaging/debian/preinst"
 )
 set(CPACK_COMPONENTS_ALL Unspecified)
 if(BUILD_KDE_INTEGRATION)

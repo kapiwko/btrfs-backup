@@ -305,7 +305,10 @@ sudo btrfs-backupctl upgrade preflight
 
 Do not install 1.0 until the final summary is `READY`. After upgrading, retain
 the export until a backup and restore test have both succeeded. `RESTORE.txt`
-inside the export records the recovery command.
+inside the export records the recovery command. Arch, DEB, RPM and Gentoo
+upgrades run the same read-only gate before replacing the installed binary. A
+direct upgrade from a release without the command is stopped and requires the
+latest 0.3.x migration bridge first.
 
 Read the [1.0 changelog](CHANGELOG.md) and the
 [configuration guide](docs/configuration.md) before upgrading an existing
