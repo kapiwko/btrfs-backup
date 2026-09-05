@@ -3,6 +3,8 @@
 
 #include <daemon/control/SystemBrowseSessionBackend.hpp>
 
+#include <daemon/control/BrowseDirectoryPageCollector.hpp>
+
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -512,18 +514,14 @@ BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
         browse_path_error("cannot open browse directory stream");
     }
 
-    std::vector<BrowseEntryInfo> entries;
+    BrowseDirectoryPageCollector entries(maximum_entries);
     errno = 0;
     while (dirent* item = readdir(stream.get())) {
         const std::string name = item->d_name;
         if (name == "." || name == ".." || name == ".incoming" || name <= after_name)
             continue;
         try {
-            BrowseEntryInfo info = entry_info(directory.get(), name);
-            const auto position = std::ranges::lower_bound(entries, info.name, {}, &BrowseEntryInfo::name);
-            entries.insert(position, std::move(info));
-            if (entries.size() > maximum_entries + 1)
-                entries.pop_back();
+            entries.add(entry_info(directory.get(), name));
         } catch (const std::invalid_argument&) {
             continue;
         }
@@ -532,13 +530,7 @@ BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
     if (errno != 0)
         browse_path_error("cannot read browse directory");
 
-    BrowseDirectoryPage page;
-    if (entries.size() > maximum_entries) {
-        entries.resize(maximum_entries);
-        page.continuation_token = entries.back().name;
-    }
-    page.entries = std::move(entries);
-    return page;
+    return entries.finish();
 }
 
 BrowseEntryInfo SystemBrowseSessionBackend::inspect_entry(
