@@ -23,6 +23,10 @@ QString RunStatusModel::runId() const {
     return run_id_;
 }
 
+QString RunStatusModel::operationKind() const {
+    return operation_kind_;
+}
+
 QString RunStatusModel::phase() const {
     return phase_;
 }
@@ -152,6 +156,7 @@ bool RunStatusModel::apply(const QString& payload) {
 
     const bool was_active = btrfsbackup::kde::active_run_state(state_);
     run_id_ = status->run_id;
+    operation_kind_ = status->operation_kind;
     state_ = status->state;
     phase_ = status->phase;
     activity_ = status->activity;
@@ -182,6 +187,7 @@ bool RunStatusModel::apply(const QString& payload) {
 
 void RunStatusModel::reset() {
     run_id_.clear();
+    operation_kind_ = QStringLiteral("backup");
     state_ = QStringLiteral("unknown");
     phase_ = QStringLiteral("idle");
     activity_ = QStringLiteral("idle");

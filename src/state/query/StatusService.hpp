@@ -15,7 +15,7 @@
 namespace btrfsbackup::state {
 
 struct StatusDocument {
-    std::variant<document::PublicRunStatusV3, document::PrivateRunHistoryV2> status;
+    std::variant<document::PublicRunStatusV4, document::PrivateRunHistoryV2> status;
     std::string content;
     std::filesystem::path source;
 };

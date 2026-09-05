@@ -12,6 +12,7 @@ class RunStatusModel : public QObject {
 
     Q_PROPERTY(QString state READ state NOTIFY changed)
     Q_PROPERTY(QString runId READ runId NOTIFY changed)
+    Q_PROPERTY(QString operationKind READ operationKind NOTIFY changed)
     Q_PROPERTY(QString phase READ phase NOTIFY changed)
     Q_PROPERTY(QString activity READ activity NOTIFY changed)
     Q_PROPERTY(bool canCancel READ canCancel NOTIFY changed)
@@ -43,6 +44,7 @@ class RunStatusModel : public QObject {
 
     QString state() const;
     QString runId() const;
+    QString operationKind() const;
     QString phase() const;
     QString activity() const;
     bool canCancel() const;
@@ -80,6 +82,7 @@ class RunStatusModel : public QObject {
   private:
     bool cancel_supported_ = false;
     QString run_id_;
+    QString operation_kind_ = QStringLiteral("backup");
     QString state_ = QStringLiteral("unknown");
     QString phase_ = QStringLiteral("idle");
     QString activity_ = QStringLiteral("idle");

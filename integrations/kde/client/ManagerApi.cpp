@@ -278,7 +278,7 @@ std::optional<RunStatus> parse_status(const QString& payload) {
             return std::nullopt;
         }
     }
-    object[QStringLiteral("schemaVersion")] = 3;
+    object[QStringLiteral("schemaVersion")] = 4;
     const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(
         QJsonDocument(object).toJson(QJsonDocument::Compact).toStdString()
     );
@@ -297,6 +297,9 @@ std::optional<RunStatus> parse_status(const QString& payload) {
         .run_id = status.run_id.has_value()
             ? QString::fromStdString(std::string(status.run_id->value()))
             : QString{},
+        .operation_kind = QString::fromStdString(
+            btrfsbackup::state::document::public_operation_kind_name(status)
+        ),
         .state = QString::fromStdString(btrfsbackup::state::document::public_run_state_name(status)),
         .phase = QString::fromStdString(status.phase.value),
         .activity = QString::fromStdString(btrfsbackup::state::document::public_activity_name(status)),

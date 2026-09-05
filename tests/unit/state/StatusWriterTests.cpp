@@ -192,8 +192,9 @@ void test_build_public_status_json_excludes_diagnostics() {
 
     btrfsbackup::config::json::Json data = btrfsbackup::state::build_public_status_json(record);
 
-    expect_true("public schema", data.at("schemaVersion") == 3, "wrong public schemaVersion");
+    expect_true("public schema", data.at("schemaVersion") == 4, "wrong public schemaVersion");
     expect_true("public run id", data.at("runId") == record.run_id.value(), "wrong public runId");
+    expect_true("public operation kind", data.at("operationKind") == "backup", "wrong public operationKind");
     expect_true("public state", data.at("state") == "failed", "wrong public state");
     expect_true("public phase", data.at("phase") == "failed", "wrong public phase");
     expect_true("public activity", data.at("activity") == "idle", "wrong public activity");
@@ -267,7 +268,7 @@ void test_write_current_status() {
     btrfsbackup::config::json::Json data = btrfsbackup::config::json::load_json_file(current);
     expect_true("current exists", fs::is_regular_file(current), "missing current.json");
     expect_true("current state", data.at("state") == "succeeded", "wrong current state");
-    expect_true("current public schema", data.at("schemaVersion") == 3, "wrong current schema");
+    expect_true("current public schema", data.at("schemaVersion") == 4, "wrong current schema");
     expect_true("current diagnostics absent", !data.contains("details") && !data.contains("message"), "current status exposes diagnostics");
     expect_true("current mode", mode_of(current) == 0644, "current.json should be 0644");
     expect_true("current dir mode", mode_of(current.parent_path()) == 0755, "status profile dir should be 0755");

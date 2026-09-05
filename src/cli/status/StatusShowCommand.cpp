@@ -30,7 +30,7 @@ void print_human_status(const btrfsbackup::state::StatusDocument& document, std:
     std::visit(
         [&](const auto& status) {
             using Status = std::decay_t<decltype(status)>;
-            if constexpr (std::is_same_v<Status, btrfsbackup::state::document::PublicRunStatusV3>) {
+            if constexpr (std::is_same_v<Status, btrfsbackup::state::document::PublicRunStatusV4>) {
                 const std::string profile = document.source.parent_path().filename().string();
                 output << (profile.empty() ? "unknown" : profile) << ": "
                        << btrfsbackup::state::document::public_run_state_name(status) << '\n';

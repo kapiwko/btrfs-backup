@@ -19,6 +19,7 @@ void show_transfer(KUiServerV2JobTracker& tracker) {
         QStringLiteral("home"),
         QStringLiteral("readme-screenshot"),
         QStringLiteral("Home backup"),
+        QStringLiteral("backup"),
         [](const QString&, const QString&) {}
     );
     tracker.registerJob(job);

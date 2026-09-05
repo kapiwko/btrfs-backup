@@ -366,6 +366,9 @@ RunStatus status_for_event(
         .profile_id = event.profile_id,
         .profile_name = context.profile_name,
         .run_id = event.run_id,
+        .operation_kind = event.operation_kind == btrfsbackup::backup::OperationKind::TargetValidation
+            ? OperationKind::TargetValidation
+            : OperationKind::Backup,
         .state = state,
         .phase = phase,
         .message = message_for_event(event),

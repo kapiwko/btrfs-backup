@@ -47,6 +47,7 @@ struct ProfileSummary {
 
 struct RunStatus {
     QString run_id;
+    QString operation_kind;
     QString state;
     QString phase;
     QString activity;

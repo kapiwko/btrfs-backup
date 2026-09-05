@@ -22,8 +22,9 @@ void expect(bool condition, const char* message) {
 
 QString run_payload(const QString& state, bool can_cancel) {
     return QStringLiteral(R"({
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "runId": "run-1",
+        "operationKind": "backup",
         "state": "%1",
         "phase": "transferring",
         "activity": "transferring",
@@ -56,6 +57,7 @@ void test_run_status_and_terminal_transition() {
     model.setCancelSupported(true);
 
     expect(model.apply(run_payload(QStringLiteral("running"), true)), "running status was rejected");
+    expect(model.operationKind() == QStringLiteral("backup"), "operation kind was not exposed");
     expect(model.canCancel(), "cancellable status was not exposed");
     expect(model.overallProgress() == 40 && model.speedBps() == 1024, "run progress was not applied");
     expect(model.bytesProcessed() == 1048576 && model.bytesTotalEstimated() == 4194304, "transfer byte counts were not applied");

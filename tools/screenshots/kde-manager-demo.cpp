@@ -30,7 +30,7 @@ class ScreenshotManager final : public QObject {
 
   public slots:
     QString GetCapabilities() const {
-        return QStringLiteral(R"({"schemaVersion":1,"interface":"io.github.btrfsbackup.Manager1","apiMajor":2,"apiMinor":7,"profileSchemaVersion":4,"publicStatusSchemaVersion":5,"historySchemaVersion":3,"deviceStateSchemaVersion":1,"readOnly":false,"features":["profiles","status","sanitized-history","device-state","target-storage-usage","start-backup","cancel-backup","validate-target","eject-target","change-signals","browse-backups","profile-administration","profile-details","target-credentials","device-provisioning"]})");
+        return QStringLiteral(R"({"schemaVersion":1,"interface":"io.github.btrfsbackup.Manager1","apiMajor":2,"apiMinor":7,"profileSchemaVersion":4,"publicStatusSchemaVersion":6,"historySchemaVersion":3,"deviceStateSchemaVersion":1,"readOnly":false,"features":["profiles","status","sanitized-history","device-state","target-storage-usage","start-backup","cancel-backup","validate-target","eject-target","change-signals","browse-backups","profile-administration","profile-details","target-credentials","device-provisioning"]})");
     }
 
     QString ListProfiles() const {
@@ -41,7 +41,7 @@ class ScreenshotManager final : public QObject {
         if (profile == QStringLiteral("home") && mode_ == QStringLiteral("transferring")) {
             const QString started = now_.addSecs(-(4 * 60 * 60 + 14 * 60)).toString(Qt::ISODate);
             const QString previous = now_.addDays(-3).toString(Qt::ISODate);
-            return QStringLiteral(R"({"schemaVersion":5,"runId":"run-1","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":118111600640,"speedBps":94371840,"etaSeconds":540,"sourceProgress":58,"overallProgress":58,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"%1","updatedAt":"%2","lastSuccessAt":"%3","lastAttemptAt":"%3","lastAttemptState":"succeeded"})")
+            return QStringLiteral(R"({"schemaVersion":6,"runId":"run-1","operationKind":"backup","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":118111600640,"speedBps":94371840,"etaSeconds":540,"sourceProgress":58,"overallProgress":58,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"%1","updatedAt":"%2","lastSuccessAt":"%3","lastAttemptAt":"%3","lastAttemptState":"succeeded"})")
                 .arg(started, now_.toString(Qt::ISODate), previous);
         }
         if (profile == QStringLiteral("home")) {
@@ -51,10 +51,10 @@ class ScreenshotManager final : public QObject {
                 previous.setTime(QTime(21, 14));
             }
             const QString completed = previous.toString(Qt::ISODate);
-            return QStringLiteral(R"({"schemaVersion":5,"runId":"run-0","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":68719476736,"speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"%1","updatedAt":"%2","lastSuccessAt":"%2","lastAttemptAt":"%2","lastAttemptState":"succeeded"})")
+            return QStringLiteral(R"({"schemaVersion":6,"runId":"run-0","operationKind":"backup","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":68719476736,"speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"%1","updatedAt":"%2","lastSuccessAt":"%2","lastAttemptAt":"%2","lastAttemptState":"succeeded"})")
                 .arg(previous.addSecs(-24 * 60).toString(Qt::ISODate), completed);
         }
-        return QStringLiteral(R"({"schemaVersion":5,"runId":"","state":"idle","phase":"idle","activity":"idle","canCancel":false,"errorCode":"","sourceName":"","targetName":"Studio Archive","bytesProcessed":0,"bytesTotalEstimated":0,"speedBps":0,"etaSeconds":-1,"sourceProgress":-1,"overallProgress":-1,"progressAccuracy":"unknown","sourceIndex":0,"sourceCount":1,"startedAt":"","updatedAt":"","lastSuccessAt":"2026-08-27T18:42:00Z","lastAttemptAt":"2026-08-27T18:42:00Z","lastAttemptState":"succeeded"})");
+        return QStringLiteral(R"({"schemaVersion":6,"runId":"","operationKind":"backup","state":"idle","phase":"idle","activity":"idle","canCancel":false,"errorCode":"","sourceName":"","targetName":"Studio Archive","bytesProcessed":0,"bytesTotalEstimated":0,"speedBps":0,"etaSeconds":-1,"sourceProgress":-1,"overallProgress":-1,"progressAccuracy":"unknown","sourceIndex":0,"sourceCount":1,"startedAt":"","updatedAt":"","lastSuccessAt":"2026-08-27T18:42:00Z","lastAttemptAt":"2026-08-27T18:42:00Z","lastAttemptState":"succeeded"})");
     }
 
     QString GetDeviceState(const QString& profile) const {

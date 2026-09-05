@@ -171,15 +171,18 @@ preflight until it reports `READY`.
 
 ### Manager And Desktop Reliability
 
-1. profile administration uses generation and fingerprint preconditions so a
+1. public run status identifies backup and target-validation operations, and
+   KDE progress notifications distinguish completed, validated, skipped,
+   cancelled and failed outcomes while keeping stable error codes visible;
+2. profile administration uses generation and fingerprint preconditions so a
    stale editor cannot overwrite a newer installed profile;
-2. browse-session mount paths remain root-owned, public replies contain no host
+3. browse-session mount paths remain root-owned, public replies contain no host
    root path, and restore resolves content from the manager-provided pinned
    descriptor;
-3. architecture and integration gates cover the expanded KCM, KIO, Dolphin,
+4. architecture and integration gates cover the expanded KCM, KIO, Dolphin,
    restore and KRunner surfaces without adding KDE dependencies to the base
    runtime;
-4. the real target lifecycle test starts and verifies `systemd-udevd` before
+5. the real target lifecycle test starts and verifies `systemd-udevd` before
    managed activation, removing an environment-dependent device-publication
    race from release verification.
 

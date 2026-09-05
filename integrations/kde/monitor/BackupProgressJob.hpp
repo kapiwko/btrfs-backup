@@ -22,6 +22,7 @@ class BackupProgressJob final : public KJob {
         QString profile_id,
         QString run_id,
         QString profile_name,
+        QString operation_kind,
         CancelRequest cancel_request,
         QObject* parent = nullptr
     );
@@ -55,6 +56,7 @@ class BackupProgressJob final : public KJob {
     QString profile_id_;
     QString run_id_;
     QString profile_name_;
+    QString operation_kind_;
     QString source_name_;
     QString target_name_;
     QString activity_;

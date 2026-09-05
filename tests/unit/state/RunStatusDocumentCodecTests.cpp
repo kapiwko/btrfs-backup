@@ -14,12 +14,14 @@ namespace {
 
 using btrfsbackup::config::json::Json;
 using btrfsbackup::state::document::PublicRunState;
+using btrfsbackup::state::document::PublicOperationKind;
 using btrfsbackup::state::document::RunStatusDocumentCodec;
 
 Json public_document() {
     return {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"runId", "run-1"},
+        {"operationKind", "backup"},
         {"state", "running"},
         {"phase", "transferring"},
         {"activity", "transferring"},
@@ -84,6 +86,7 @@ void test_public_round_trip_is_typed() {
     const auto status = codec.parse_public(public_document().dump());
     test_helpers::expect_true("typed state", status.state == PublicRunState::Running, "state was not decoded");
     test_helpers::expect_true("typed run id", status.run_id.has_value(), "run id was not decoded");
+    test_helpers::expect_true("typed operation", status.operation_kind == PublicOperationKind::Backup, "operation kind was not decoded");
     test_helpers::expect_true("typed ETA", status.progress.eta_seconds == 20, "ETA was not decoded");
     test_helpers::expect_true("typed transferred bytes", status.progress.bytes_processed == 1048576, "processed bytes were not decoded");
     test_helpers::expect_true("typed estimated bytes", status.progress.bytes_total_estimated == 4194304, "estimated bytes were not decoded");
@@ -95,6 +98,7 @@ void test_public_requires_every_contract_field() {
     for (const char* field : {
              "schemaVersion",
              "runId",
+             "operationKind",
              "state",
              "phase",
              "activity",
@@ -118,6 +122,7 @@ void test_public_rejects_wrong_types_and_ranges() {
     for (const char* field : {
              "schemaVersion",
              "runId",
+             "operationKind",
              "state",
              "phase",
              "activity",
@@ -176,6 +181,19 @@ void test_public_is_forward_compatible() {
     const auto future_state = RunStatusDocumentCodec{}.parse_public(input.dump());
     test_helpers::expect_true("unknown state typed", future_state.state == PublicRunState::Unknown, "state was rejected");
     test_helpers::expect_eq("unknown state retained", future_state.unknown_state, "future-state");
+
+    input["operationKind"] = "future-operation";
+    const auto future_operation = RunStatusDocumentCodec{}.parse_public(input.dump());
+    test_helpers::expect_true(
+        "unknown operation typed",
+        future_operation.operation_kind == PublicOperationKind::Unknown,
+        "operation kind was rejected"
+    );
+    test_helpers::expect_eq(
+        "unknown operation retained",
+        future_operation.unknown_operation_kind,
+        "future-operation"
+    );
 }
 
 void test_private_history_round_trip_and_validation() {

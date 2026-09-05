@@ -39,6 +39,12 @@ enum class PublicActivity {
     Unknown,
 };
 
+enum class PublicOperationKind {
+    Backup,
+    TargetValidation,
+    Unknown,
+};
+
 enum class PublicErrorCode {
     None,
     Failed,
@@ -60,8 +66,9 @@ struct TransferProgress {
     ProgressAccuracy accuracy = ProgressAccuracy::Indeterminate;
 };
 
-struct PublicRunStatusV3 {
+struct PublicRunStatusV4 {
     std::optional<RunId> run_id;
+    PublicOperationKind operation_kind = PublicOperationKind::Backup;
     PublicRunState state = PublicRunState::Unavailable;
     ExtensibleValue phase{"idle", true};
     PublicActivity activity = PublicActivity::Idle;
@@ -72,6 +79,7 @@ struct PublicRunStatusV3 {
     TransferProgress progress;
     std::string unknown_state;
     std::string unknown_activity;
+    std::string unknown_operation_kind;
 };
 
 struct PrivateRunHistoryV2 {
@@ -103,18 +111,19 @@ struct PrivateRunHistoryV2 {
 
 class RunStatusDocumentCodec {
   public:
-    [[nodiscard]] PublicRunStatusV3 parse_public(std::string_view document) const;
-    [[nodiscard]] std::optional<PublicRunStatusV3> try_parse_public(std::string_view document) const noexcept;
+    [[nodiscard]] PublicRunStatusV4 parse_public(std::string_view document) const;
+    [[nodiscard]] std::optional<PublicRunStatusV4> try_parse_public(std::string_view document) const noexcept;
     [[nodiscard]] PrivateRunHistoryV2 parse_private(std::string_view document) const;
 
-    [[nodiscard]] std::string serialize_public(const PublicRunStatusV3& status) const;
+    [[nodiscard]] std::string serialize_public(const PublicRunStatusV4& status) const;
     [[nodiscard]] std::string serialize_private(const PrivateRunHistoryV2& history) const;
 };
 
-[[nodiscard]] PublicRunStatusV3 make_public_status(const RunStatus& status);
+[[nodiscard]] PublicRunStatusV4 make_public_status(const RunStatus& status);
 [[nodiscard]] PrivateRunHistoryV2 make_private_history(const RunStatus& status);
-[[nodiscard]] std::string public_run_state_name(const PublicRunStatusV3& status);
-[[nodiscard]] std::string public_activity_name(const PublicRunStatusV3& status);
+[[nodiscard]] std::string public_run_state_name(const PublicRunStatusV4& status);
+[[nodiscard]] std::string public_activity_name(const PublicRunStatusV4& status);
+[[nodiscard]] std::string public_operation_kind_name(const PublicRunStatusV4& status);
 [[nodiscard]] std::string public_error_code_name(PublicErrorCode code);
 
 } // namespace document
