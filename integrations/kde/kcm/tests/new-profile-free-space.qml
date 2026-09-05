@@ -20,6 +20,11 @@ Item {
         return null
     }
 
+    function fitsInside(item, container) {
+        const position = item.mapToItem(container, 0, 0)
+        return position.x >= -1 && position.x + item.width <= container.width + 1
+    }
+
     readonly property var partition: ({
         kind: "existing-partition",
         candidateId: "partition-1",
@@ -174,6 +179,11 @@ Item {
                 Qt.exit(1)
                 return
             }
+            if (unavailableToggle.width >= page.width / 2) {
+                console.error("Unavailable storage device toggle is too prominent")
+                Qt.exit(1)
+                return
+            }
             unavailableToggle.checked = true
             if (!unavailableView.visible) {
                 console.error("Unavailable storage devices cannot be expanded")
@@ -183,6 +193,27 @@ Item {
             unavailableToggle.checked = false
             if (unavailableView.visible) {
                 console.error("Unavailable storage devices cannot be collapsed again")
+                Qt.exit(1)
+                return
+            }
+            const profileDetailsForm = root.findObject(page, "profileDetailsForm")
+            const encryptionForm = root.findObject(page, "encryptionForm")
+            const profileIdentifierHelp = root.findObject(page, "profileIdentifierHelp")
+            const automaticKeyField = root.findObject(page, "automaticKeyField")
+            const automaticKeyExplanation = root.findObject(page, "automaticKeyExplanation")
+            const passphraseField = root.findObject(page, "passphraseField")
+            const confirmationField = root.findObject(page, "confirmationField")
+            if (profileDetailsForm === null || encryptionForm === null
+                    || profileIdentifierHelp === null || profileIdentifierHelp.text.length === 0
+                    || automaticKeyField === null || automaticKeyExplanation === null
+                    || passphraseField === null || confirmationField === null
+                    || profileDetailsForm.width > page.width
+                    || encryptionForm.width > page.width
+                    || !root.fitsInside(automaticKeyField, encryptionForm)
+                    || !root.fitsInside(automaticKeyExplanation, encryptionForm)
+                    || !root.fitsInside(passphraseField, encryptionForm)
+                    || !root.fitsInside(confirmationField, encryptionForm)) {
+                console.error("Provisioning forms are not bounded or documented")
                 Qt.exit(1)
                 return
             }

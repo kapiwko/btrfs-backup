@@ -1103,11 +1103,23 @@ msgstr "Nie znaleziono odpowiednich urządzeń kopii zapasowej"
 msgid "Profile name:"
 msgstr "Nazwa profilu:"
 
+msgid "The name shown in the application. It can contain spaces and can be changed later."
+msgstr "Nazwa wyświetlana w aplikacji. Może zawierać spacje i można ją później zmienić."
+
 msgid "Profile identifier:"
 msgstr "Identyfikator profilu:"
 
+msgid "A permanent technical name used in configuration. Enter 1–63 lowercase letters, digits, or hyphens; start with a letter or digit."
+msgstr "Stała nazwa techniczna używana w konfiguracji. Wpisz od 1 do 63 małych liter, cyfr lub łączników; zacznij od litery albo cyfry."
+
 msgid "Backup source:"
 msgstr "Źródło kopii zapasowej:"
+
+msgid "The Btrfs subvolume whose data will be included in this backup profile."
+msgstr "Podwolumin Btrfs, którego dane zostaną objęte tym profilem kopii zapasowej."
+
+msgid "Temporary local snapshots are created here before they are copied to the backup device."
+msgstr "Tutaj tworzone są tymczasowe migawki lokalne przed skopiowaniem ich na urządzenie kopii zapasowej."
 
 msgid "Encryption"
 msgstr "Szyfrowanie"
