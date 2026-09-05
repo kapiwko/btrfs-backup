@@ -23,6 +23,7 @@ namespace {
 
 constexpr std::size_t maximum_browse_page_entries = 512;
 constexpr std::size_t maximum_browse_token_size = 32768;
+constexpr std::chrono::seconds browse_reopen_delay{2};
 
 char hex_digit(unsigned int value) {
     return value < 10 ? static_cast<char>('0' + value) : static_cast<char>('a' + value - 10);
@@ -215,6 +216,14 @@ BrowseSessionInfo BrowseSessionService::open(
             dbus::ManagerErrorCode::Busy,
             "backup target is being ejected"
         );
+    if (const auto delayed = browse_reopen_after_.find(profile); delayed != browse_reopen_after_.end()) {
+        if (steady_clock_() < delayed->second)
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Busy,
+                "backup browsing is settling after target eject"
+            );
+        browse_reopen_after_.erase(delayed);
+    }
     if (sessions_.size() >= global_limit_)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "browse session limit reached");
     const auto caller_sessions = std::ranges::count_if(sessions_, [&](const auto& item) {
@@ -483,6 +492,7 @@ void BrowseSessionService::close_for_caller(const std::string& caller_bus_name) 
 void BrowseSessionService::begin_target_eject(const ProfileId& profile_id) {
     if (!ejecting_profiles_.insert(profile_id).second)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "backup target is already being ejected");
+    browse_reopen_after_.erase(profile_id);
     const bool active_operation = std::ranges::any_of(sessions_, [&](const auto& item) {
         return item.second.profile_id == profile_id && !item.second.operation_leases.empty();
     });
@@ -510,6 +520,11 @@ void BrowseSessionService::begin_target_eject(const ProfileId& profile_id) {
 
 void BrowseSessionService::end_target_eject(const ProfileId& profile_id) noexcept {
     ejecting_profiles_.erase(profile_id);
+    try {
+        browse_reopen_after_[profile_id] = steady_clock_() + browse_reopen_delay;
+    } catch (...) {
+        browse_reopen_after_.erase(profile_id);
+    }
 }
 
 void BrowseSessionService::expire() noexcept {
