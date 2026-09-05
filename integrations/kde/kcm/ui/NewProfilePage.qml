@@ -10,7 +10,7 @@ import org.kde.kcmutils as KCMUtils
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 
-KCMUtils.SimpleKCM {
+KCMUtils.AbstractKCM {
     id: root
     required property var editor
     required property var provisioning
@@ -261,6 +261,7 @@ KCMUtils.SimpleKCM {
         }
 
         QQC2.ScrollView {
+            objectName: "newProfileStoragePage"
             contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width
