@@ -2,16 +2,10 @@
 
 ## 4.0 Release Gate
 
-Current decision: **NO-GO**. Local implementation and verification are
-complete, but the exact release-candidate commit has not passed remote CI.
+Current decision: **GO**. Local verification and all remote release gates pass
+for the release-candidate commit.
 
-### Open Release Work
-
-- [ ] Push the final candidate series and obtain green remote compiler,
-  sanitizer, clang-tidy, strict-warnings, D-Bus, KDE, systemd-security,
-  packaging, QEMU and real-Btrfs jobs for the same SHA.
-
-### Locally Verified Gates
+### Verified Gates
 
 The following are evidence, not active tasks:
 
@@ -31,7 +25,10 @@ The following are evidence, not active tasks:
 - GCC, Clang, strict warnings, clang-tidy, ASan/LSan/UBSan, KDE, QEMU and
   real-Btrfs passed locally;
 - release packages were built and inspected, and the base package plus staged
-  KDE package load without libraries from the build tree.
+  KDE package load without libraries from the build tree;
+- remote compiler, sanitizer, clang-tidy, strict-warnings, D-Bus, KDE,
+  systemd-security, packaging, QEMU and real-Btrfs gates passed for the final
+  candidate commit.
 
 ### Accepted Non-Blocking 4.0 Residual Risk
 

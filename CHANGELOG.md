@@ -209,7 +209,10 @@ preflight until it reports `READY`.
 10. a manually dispatched release-gate workflow builds every package format
     and runs the privileged real-Btrfs and QEMU suites for one candidate SHA;
 11. container-based integration package builders keep their CMake trees in the
-    writable artifact volume while the checked-out source remains read-only.
+    writable artifact volume while the checked-out source remains read-only;
+12. the compiler, sanitizer, static-analysis, KDE/D-Bus, systemd-security,
+    packaging, real-Btrfs and QEMU release gates pass remotely for the 4.0
+    candidate tree.
 
 ## 3.2.0 - 2026-08-30
 
