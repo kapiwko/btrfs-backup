@@ -105,30 +105,59 @@ ColumnLayout {
         visible: root.workflow.unavailableDevices.length > 0
         spacing: Kirigami.Units.smallSpacing
 
-        Kirigami.Heading {
+        QQC2.Button {
+            id: unavailableDevicesToggle
+
+            objectName: "unavailableDevicesToggle"
+            Layout.fillWidth: true
+            checkable: true
+            icon.name: checked ? "arrow-up" : "arrow-down"
             text: root.translations.i18np(
                 "%1 unavailable device",
                 "%1 unavailable devices",
                 root.workflow.unavailableDevices.length
             )
-            level: 3
+            Accessible.description: checked
+                ? root.translations.i18n("Hide unavailable devices")
+                : root.translations.i18n("Show unavailable devices")
         }
-        Repeater {
-            model: root.workflow.unavailableDevices
-            QQC2.ItemDelegate {
-                id: unavailableDeviceRow
-                required property var modelData
-                Layout.fillWidth: true
-                enabled: false
-                contentItem: Kirigami.TitleSubtitle {
-                    title: root.translations.i18n(
-                        "Storage device %1",
-                        unavailableDeviceRow.modelData.displayIndex
-                    ) + " — " + root.workflow.provisioning.formatBytes(
-                        unavailableDeviceRow.modelData.sizeBytes
-                    )
-                    subtitle: root.workflow.unavailableReason(unavailableDeviceRow.modelData)
-                    selected: false
+
+        QQC2.ScrollView {
+            id: unavailableDevicesView
+
+            objectName: "unavailableDevicesView"
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(
+                unavailableDevicesList.contentHeight,
+                Kirigami.Units.gridUnit * 12
+            )
+            visible: unavailableDevicesToggle.checked
+            clip: true
+
+            ListView {
+                id: unavailableDevicesList
+
+                objectName: "unavailableDevicesList"
+                model: root.workflow.unavailableDevices
+                boundsBehavior: Flickable.StopAtBounds
+                spacing: Kirigami.Units.smallSpacing
+
+                delegate: QQC2.ItemDelegate {
+                    id: unavailableDeviceRow
+
+                    required property var modelData
+                    width: ListView.view.width
+                    enabled: false
+                    contentItem: Kirigami.TitleSubtitle {
+                        title: root.translations.i18n(
+                            "Storage device %1",
+                            unavailableDeviceRow.modelData.displayIndex
+                        ) + " — " + root.workflow.provisioning.formatBytes(
+                            unavailableDeviceRow.modelData.sizeBytes
+                        )
+                        subtitle: root.workflow.unavailableReason(unavailableDeviceRow.modelData)
+                        selected: false
+                    }
                 }
             }
         }

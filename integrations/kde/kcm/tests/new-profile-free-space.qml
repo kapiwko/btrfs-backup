@@ -167,6 +167,25 @@ Item {
                 Qt.exit(1)
                 return
             }
+            const unavailableToggle = root.findObject(page, "unavailableDevicesToggle")
+            const unavailableView = root.findObject(page, "unavailableDevicesView")
+            if (unavailableToggle === null || unavailableView === null || unavailableView.visible) {
+                console.error("Unavailable storage devices are not collapsed initially")
+                Qt.exit(1)
+                return
+            }
+            unavailableToggle.checked = true
+            if (!unavailableView.visible) {
+                console.error("Unavailable storage devices cannot be expanded")
+                Qt.exit(1)
+                return
+            }
+            unavailableToggle.checked = false
+            if (unavailableView.visible) {
+                console.error("Unavailable storage devices cannot be collapsed again")
+                Qt.exit(1)
+                return
+            }
             if (page.confirmationToken !== "CREATE") {
                 console.error("Free-space preparation page bindings are invalid")
                 Qt.exit(1)
