@@ -240,6 +240,7 @@ class BrowseSessionService final {
     BrowseOperationLeaseIdGenerator operation_lease_ids_;
     std::map<std::string, Session> sessions_;
     std::set<ProfileId> ejecting_profiles_;
+    std::map<ProfileId, std::chrono::steady_clock::time_point> browse_reopen_after_;
 };
 
 } // namespace btrfsbackup::daemon::control

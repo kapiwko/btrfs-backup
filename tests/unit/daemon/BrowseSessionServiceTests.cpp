@@ -272,13 +272,14 @@ void test_target_eject_closes_idle_profile_sessions() {
     Authorizer authorizer;
     Backend backend;
     std::vector<BrowseSessionEvent> events;
+    auto now = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
     int next = 0;
     BrowseSessionService service(
         authorizer,
         backend,
         std::chrono::minutes{15},
         [&] { return BrowseSessionId{"browse-eject-" + std::to_string(++next)}; },
-        {},
+        [&] { return now; },
         {},
         [&](const BrowseSessionEvent& event) { events.push_back(event); }
     );
@@ -293,6 +294,10 @@ void test_target_eject_closes_idle_profile_sessions() {
     });
     (void)service.open(":1.43", 1001, "archive");
     service.end_target_eject(ProfileId{"default"});
+    expect_error("stale browse reopen after eject", ManagerErrorCode::Busy, [&] {
+        (void)service.open(":1.42", 1000, "default");
+    });
+    now += std::chrono::seconds{3};
     (void)service.open(":1.42", 1000, "default");
 
     test_helpers::expect_true(
