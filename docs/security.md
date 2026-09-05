@@ -14,7 +14,7 @@ the active user's Btrfs mount paths and filesystem UUIDs so that the user can
 choose a source. The active local session may invoke already configured
 operational controls through their separate polkit actions; inactive callers
 still require administrator authentication. Repository browsing and local-path
-coverage queries require administrator authentication even from an active
+coverage queries require cached administrator authentication even from an active
 session because the root manager can expose files that the caller could not
 otherwise read. Run history, profile state, key
 material, complete storage identity, and trusted runtime configuration are
