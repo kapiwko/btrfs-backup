@@ -142,6 +142,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-daemon-control
         btrfsbackup-platform-linux-filesystem
     PRIVATE
+        PkgConfig::ACL
         btrfsbackup-config-json
         btrfsbackup-config-wizard
         btrfsbackup-backup-planning

@@ -4,6 +4,7 @@ pkgbase = btrfs-backup
 	pkgrel = 1
 	url = https://github.com/kamil/btrfs-backup
 	arch = @ARCH@
+	makedepends = acl
 	license = GPL-3.0-or-later
 	makedepends = cmake
 	makedepends = extra-cmake-modules
@@ -23,6 +24,7 @@ pkgbase = btrfs-backup
 	sha256sums = @SOURCE_SHA256@
 
 pkgname = btrfs-backup
+	depends = acl
 	install = btrfs-backup.install
 	depends = btrfs-progs>=6.0
 	depends = coreutils

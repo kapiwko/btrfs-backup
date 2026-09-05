@@ -4,6 +4,8 @@
 #include <daemon/control/SystemBrowseSessionBackend.hpp>
 
 #include <fcntl.h>
+#include <grp.h>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -11,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <limits>
 #include <set>
 #include <stdexcept>
 #include <system_error>
@@ -34,6 +37,27 @@ using btrfsbackup::platform::linux::OwnedFileDescriptor;
 
 [[noreturn]] void target_error(const std::string& message) {
     throw dbus::ManagerOperationError(dbus::ManagerErrorCode::TargetUnavailable, message);
+}
+
+BrowseAccessIdentity access_identity(std::uint32_t uid) {
+    if (uid > static_cast<std::uint32_t>(std::numeric_limits<uid_t>::max()))
+        target_error("browse caller UID is outside the platform range");
+    struct passwd account{};
+    struct passwd* found = nullptr;
+    std::vector<char> buffer(16384);
+    const int lookup = getpwuid_r(static_cast<uid_t>(uid), &account, buffer.data(), buffer.size(), &found);
+    if (lookup != 0 || found == nullptr)
+        target_error("cannot resolve browse caller groups");
+    int count = 0;
+    (void)getgrouplist(account.pw_name, account.pw_gid, nullptr, &count);
+    std::vector<gid_t> native_groups(static_cast<std::size_t>(std::max(count, 1)));
+    if (getgrouplist(account.pw_name, account.pw_gid, native_groups.data(), &count) < 0)
+        target_error("cannot resolve browse caller groups");
+    BrowseAccessIdentity result{.uid = uid, .groups = {}};
+    result.groups.reserve(static_cast<std::size_t>(count));
+    for (int index = 0; index < count; ++index)
+        result.groups.push_back(static_cast<std::uint32_t>(native_groups[static_cast<std::size_t>(index)]));
+    return result;
 }
 
 } // namespace
@@ -169,6 +193,7 @@ void SystemBrowseSessionBackend::open(
             btrfsbackup::config::target_mount_unit_name(loaded.profile.target.mount_point),
             target.mounted_by_backend
         ),
+        .identity = access_identity(caller_uid),
         .repository_cached = false,
         .repository_document = {},
         .snapshots = {},
@@ -266,6 +291,7 @@ void SystemBrowseSessionBackend::cleanup_stale() {
     for (auto& [id, record] : stored_records) {
         records.emplace_back(std::move(id), SessionMount{
                                                 .mount = std::move(record),
+                                                .identity = {},
                                                 .repository_cached = false,
                                                 .repository_document = {},
                                                 .snapshots = {},
@@ -298,10 +324,11 @@ std::vector<BrowseEntryInfo> SystemBrowseSessionBackend::list_directory(
     const fs::path& relative_path,
     std::size_t maximum_entries
 ) {
-    const auto session = sessions_.find(std::string(session_id.value()));
+    auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    return filesystem_access_.list_directory(session->second.mount.view, relative_path, maximum_entries);
+    const auto [root, path] = authorized_snapshot_path(session->second, relative_path);
+    return filesystem_access_.list_directory(root, path, maximum_entries, &session->second.identity);
 }
 
 BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
@@ -310,14 +337,16 @@ BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
     const std::string& after_name,
     std::size_t maximum_entries
 ) {
-    const auto session = sessions_.find(std::string(session_id.value()));
+    auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
+    const auto [root, path] = authorized_snapshot_path(session->second, relative_path);
     return filesystem_access_.list_directory_page(
-        session->second.mount.view,
-        relative_path,
+        root,
+        path,
         after_name,
-        maximum_entries
+        maximum_entries,
+        &session->second.identity
     );
 }
 
@@ -375,6 +404,31 @@ void SystemBrowseSessionBackend::ensure_repository_cache(SessionMount& mount) {
     mount.repository_cached = true;
 }
 
+std::pair<fs::path, fs::path> SystemBrowseSessionBackend::authorized_snapshot_path(
+    SessionMount& mount,
+    const fs::path& relative_path
+) {
+    ensure_repository_cache(mount);
+    const fs::path normalized = BrowseFilesystemAccess::normalize_relative_path(relative_path);
+    const CachedSnapshot* selected = nullptr;
+    for (const CachedSnapshot& snapshot : mount.snapshots) {
+        if (!snapshot.verified ||
+            !btrfsbackup::config::path_is_within(normalized, snapshot.repository_path))
+            continue;
+        if (selected == nullptr || snapshot.repository_path.native().size() > selected->repository_path.native().size())
+            selected = &snapshot;
+    }
+    if (selected == nullptr)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotAuthorized,
+            "browse path is outside a verified snapshot"
+        );
+    fs::path within = normalized.lexically_relative(selected->repository_path);
+    if (within.empty())
+        within = ".";
+    return {mount.mount.view / selected->repository_path, within};
+}
+
 PreviousVersionsPage SystemBrowseSessionBackend::list_previous_versions(
     const BrowseSessionId& session_id,
     const std::string& profile_id,
@@ -410,7 +464,8 @@ PreviousVersionsPage SystemBrowseSessionBackend::list_previous_versions(
             if (normalized_path != ".")
                 entry_path /= normalized_path;
             try {
-                BrowseEntryInfo entry = filesystem_access_.inspect_entry(session->second.mount.view, entry_path);
+                const auto [root, path] = authorized_snapshot_path(session->second, entry_path);
+                BrowseEntryInfo entry = filesystem_access_.inspect_entry(root, path, &session->second.identity);
                 result.entries.push_back({
                     snapshot.snapshot_id,
                     snapshot.created_at,
@@ -445,20 +500,22 @@ BrowseEntryInfo SystemBrowseSessionBackend::inspect_entry(
     const BrowseSessionId& session_id,
     const fs::path& relative_path
 ) {
-    const auto session = sessions_.find(std::string(session_id.value()));
+    auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    return filesystem_access_.inspect_entry(session->second.mount.view, relative_path);
+    const auto [root, path] = authorized_snapshot_path(session->second, relative_path);
+    return filesystem_access_.inspect_entry(root, path, &session->second.identity);
 }
 
 OwnedFileDescriptor SystemBrowseSessionBackend::open_file(
     const BrowseSessionId& session_id,
     const fs::path& relative_path
 ) {
-    const auto session = sessions_.find(std::string(session_id.value()));
+    auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    return filesystem_access_.open_file(session->second.mount.view, relative_path);
+    const auto [root, path] = authorized_snapshot_path(session->second, relative_path);
+    return filesystem_access_.open_file(root, path, &session->second.identity);
 }
 
 OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId& session_id) {
