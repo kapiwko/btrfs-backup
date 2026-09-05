@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cctype>
 #include <cerrno>
 #include <ctime>
@@ -51,19 +52,24 @@ std::string page_binding(const BrowseSessionId& session_id, const std::string& r
         std::filesystem::path(relative_path).lexically_normal().generic_string() + '\0';
 }
 
-std::string make_continuation_token(
+std::string previous_versions_binding(
     const BrowseSessionId& session_id,
-    const std::string& relative_path,
-    const std::string& last_name
+    const std::string& profile_id,
+    const std::string& source_id,
+    const std::string& relative_path
 ) {
-    return "v1:" + hex_encode(page_binding(session_id, relative_path) + last_name);
+    std::string normalized_path = std::filesystem::path(relative_path).lexically_normal().generic_string();
+    if (normalized_path.empty())
+        normalized_path = ".";
+    return std::string(session_id.value()) + '\0' + profile_id + '\0' + source_id + '\0' +
+        normalized_path + '\0';
 }
 
-std::string continuation_name(
-    const BrowseSessionId& session_id,
-    const std::string& relative_path,
-    const std::string& token
-) {
+std::string encode_bound_token(std::string_view binding, std::string_view cursor) {
+    return "v1:" + hex_encode(std::string(binding) + std::string(cursor));
+}
+
+std::string decode_bound_token(std::string_view binding, const std::string& token) {
     if (token.empty())
         return {};
     if (!token.starts_with("v1:") || token.size() > maximum_browse_token_size || (token.size() - 3) % 2 != 0)
@@ -77,14 +83,52 @@ std::string continuation_name(
             throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "invalid browse continuation token");
         decoded.push_back(static_cast<char>((high << 4) | low));
     }
-    const std::string binding = page_binding(session_id, relative_path);
     if (!decoded.starts_with(binding))
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "browse continuation token does not match the session and path");
-    const std::string name = decoded.substr(binding.size());
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "browse continuation token does not match the session and query");
+    return decoded.substr(binding.size());
+}
+
+std::string make_continuation_token(
+    const BrowseSessionId& session_id,
+    const std::string& relative_path,
+    const std::string& last_name
+) {
+    return encode_bound_token(page_binding(session_id, relative_path), last_name);
+}
+
+std::string continuation_name(
+    const BrowseSessionId& session_id,
+    const std::string& relative_path,
+    const std::string& token
+) {
+    if (token.empty())
+        return {};
+    const std::string binding = page_binding(session_id, relative_path);
+    const std::string name = decode_bound_token(binding, token);
     if (name.empty() || name == "." || name == ".." || name.find('/') != std::string::npos ||
         name.find('\0') != std::string::npos)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "invalid browse continuation token");
     return name;
+}
+
+std::size_t previous_versions_offset(
+    const BrowseSessionId& session_id,
+    const std::string& profile_id,
+    const std::string& source_id,
+    const std::string& relative_path,
+    const std::string& token
+) {
+    if (token.empty())
+        return 0;
+    const std::string value = decode_bound_token(
+        previous_versions_binding(session_id, profile_id, source_id, relative_path),
+        token
+    );
+    std::size_t result = 0;
+    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
+    if (value.empty() || parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || result == 0)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "invalid previous-versions continuation token");
+    return result;
 }
 
 BrowseSessionId random_session_id() {
@@ -272,6 +316,51 @@ BrowseEntryInfo BrowseSessionService::inspect_entry(
     auto session = owned_session(caller_bus_name, session_id);
     extend(session->second);
     return backend_.inspect_entry(session->second.id, relative_path);
+}
+
+PreviousVersionsPage BrowseSessionService::list_previous_versions(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& profile_id,
+    const std::string& source_id,
+    const std::string& relative_path,
+    const std::string& continuation_token,
+    std::size_t requested_entries
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    if (profile_id != session->second.profile_id.value())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "profile does not match browse session");
+    if (source_id.empty())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "source identifier is required");
+    if (requested_entries == 0 || requested_entries > maximum_browse_page_entries)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "previous-versions page size must be between 1 and 512");
+    const std::size_t offset = previous_versions_offset(
+        session->second.id,
+        profile_id,
+        source_id,
+        relative_path,
+        continuation_token
+    );
+    extend(session->second);
+    PreviousVersionsPage page = backend_.list_previous_versions(
+        session->second.id,
+        profile_id,
+        source_id,
+        relative_path,
+        offset,
+        requested_entries
+    );
+    if (page.has_more) {
+        if (page.next_offset <= offset)
+            throw std::runtime_error("previous-versions backend returned a non-advancing page");
+        page.continuation_token = encode_bound_token(
+            previous_versions_binding(session->second.id, profile_id, source_id, relative_path),
+            std::to_string(page.next_offset)
+        );
+    } else {
+        page.continuation_token.clear();
+    }
+    return page;
 }
 
 btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_file(

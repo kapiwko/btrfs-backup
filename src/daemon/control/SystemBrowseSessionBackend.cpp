@@ -299,6 +299,10 @@ std::optional<SystemBrowseSessionBackend::SessionMount> SystemBrowseSessionBacke
             .view_mounted = document.at("viewMounted").get<bool>(),
             .target_mounted_by_backend = document.at("targetMountedByBackend").get<bool>(),
             .target_released = document.at("targetReleased").get<bool>(),
+            .repository_cached = false,
+            .repository_document = {},
+            .snapshots = {},
+            .previous_versions = {},
         };
     } catch (...) {
         return std::nullopt;
@@ -328,6 +332,10 @@ void SystemBrowseSessionBackend::open(
         .marker = state_root / (std::string(session_id.value()) + ".json"),
         .caller_uid = caller_uid,
         .target_mounted_by_backend = target.mounted_by_backend,
+        .repository_cached = false,
+        .repository_document = {},
+        .snapshots = {},
+        .previous_versions = {},
     };
     auto [session, inserted] = sessions_.emplace(std::string(session_id.value()), record);
     if (!inserted) {
@@ -533,6 +541,142 @@ BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
     return entries.finish();
 }
 
+void SystemBrowseSessionBackend::ensure_repository_cache(SessionMount& mount) {
+    if (mount.repository_cached)
+        return;
+    btrfsbackup::restore::RepositoryDiscoveryService discovery([](const fs::path& path) {
+        const auto value = btrfsbackup::platform::linux::storage::read_btrfs_snapshot_metadata(path);
+        if (!value)
+            return std::optional<btrfsbackup::restore::DiscoveredSnapshotMetadata>{};
+        return std::optional{btrfsbackup::restore::DiscoveredSnapshotMetadata{
+            value->is_subvolume,
+            value->readonly,
+            value->uuid.value(),
+            value->received_uuid.value(),
+        }};
+    });
+    const auto catalog = discovery.discover(mount.view);
+    config::json::Json snapshots = config::json::Json::array();
+    std::vector<CachedSnapshot> cached_snapshots;
+    cached_snapshots.reserve(catalog.snapshots().size());
+    for (const auto& snapshot : catalog.snapshots()) {
+        const std::string created_at = format_utc_iso_timestamp(snapshot.created_at);
+        snapshots.push_back({
+            {"snapshotId", snapshot.snapshot_id},
+            {"hostId", snapshot.host_id},
+            {"profileId", snapshot.profile_id},
+            {"sourceId", snapshot.source_id},
+            {"relativePath", snapshot.repository_path.value().string()},
+            {"createdAt", created_at},
+            {"uuid", snapshot.uuid},
+            {"receivedUuid", snapshot.received_uuid},
+            {"parentUuid", snapshot.parent_uuid},
+            {"verified", snapshot.verified},
+        });
+        cached_snapshots.push_back({
+            snapshot.snapshot_id,
+            snapshot.profile_id,
+            snapshot.source_id,
+            snapshot.repository_path.value(),
+            created_at,
+            snapshot.verified,
+        });
+    }
+    mount.repository_document = config::json::dump_json({
+        {"schemaVersion", 1},
+        {"repositoryId", catalog.identity().repository_id},
+        {"targetFilesystemUuid", catalog.identity().target_filesystem_uuid},
+        {"createdAt", format_utc_iso_timestamp(catalog.identity().created_at)},
+        {"features", catalog.identity().features},
+        {"generation", catalog.generation()},
+        {"snapshots", std::move(snapshots)},
+    });
+    mount.snapshots = std::move(cached_snapshots);
+    mount.repository_cached = true;
+}
+
+PreviousVersionsPage SystemBrowseSessionBackend::list_previous_versions(
+    const BrowseSessionId& session_id,
+    const std::string& profile_id,
+    const std::string& source_id,
+    const fs::path& relative_path,
+    std::size_t offset,
+    std::size_t maximum_entries
+) {
+    auto session = sessions_.find(std::string(session_id.value()));
+    if (session == sessions_.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
+
+    fs::path normalized_path;
+    for (const auto& component : validated_components(relative_path))
+        normalized_path /= component;
+    if (normalized_path.empty())
+        normalized_path = ".";
+    const std::string cache_key = profile_id + '\0' + source_id + '\0' + normalized_path.generic_string();
+    ensure_repository_cache(session->second);
+    auto cached = session->second.previous_versions.find(cache_key);
+    if (cached == session->second.previous_versions.end()) {
+        OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+        if (!root.valid())
+            browse_path_error("cannot open browse session view");
+        std::vector<CachedSnapshot> candidates;
+        for (const CachedSnapshot& snapshot : session->second.snapshots) {
+            if (snapshot.verified && snapshot.profile_id == profile_id && snapshot.source_id == source_id)
+                candidates.push_back(snapshot);
+        }
+        std::ranges::sort(candidates, [](const CachedSnapshot& left, const CachedSnapshot& right) {
+            if (left.created_at != right.created_at)
+                return left.created_at > right.created_at;
+            return left.snapshot_id < right.snapshot_id;
+        });
+
+        PreviousVersionsCacheEntry result;
+        result.entries.reserve(candidates.size());
+        for (const CachedSnapshot& snapshot : candidates) {
+            fs::path entry_path = snapshot.repository_path;
+            if (normalized_path != ".")
+                entry_path /= normalized_path;
+            try {
+                OwnedFileDescriptor entry = open_beneath(root.get(), entry_path, O_PATH);
+                struct stat status{};
+                if (fstat(entry.get(), &status) != 0)
+                    browse_path_error("cannot inspect previous version");
+                if (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode))
+                    continue;
+                result.entries.push_back({
+                    snapshot.snapshot_id,
+                    snapshot.created_at,
+                    {
+                        normalized_path.filename().string(),
+                        S_ISDIR(status.st_mode),
+                        S_ISREG(status.st_mode) ? static_cast<std::uint64_t>(status.st_size) : 0,
+                        static_cast<std::uint32_t>(status.st_mode),
+                        status.st_mtim.tv_sec,
+                    },
+                });
+            } catch (const std::system_error& error) {
+                if (error.code().value() != ENOENT && error.code().value() != ENOTDIR)
+                    throw;
+            }
+        }
+        cached = session->second.previous_versions.emplace(cache_key, std::move(result)).first;
+    }
+
+    if (offset > cached->second.entries.size())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "previous-versions continuation is out of range");
+    const std::size_t remaining = cached->second.entries.size() - offset;
+    const std::size_t end = offset + std::min(remaining, maximum_entries);
+    PreviousVersionsPage page;
+    page.entries.insert(
+        page.entries.end(),
+        cached->second.entries.begin() + static_cast<std::ptrdiff_t>(offset),
+        cached->second.entries.begin() + static_cast<std::ptrdiff_t>(end)
+    );
+    page.next_offset = end;
+    page.has_more = end < cached->second.entries.size();
+    return page;
+}
+
 BrowseEntryInfo SystemBrowseSessionBackend::inspect_entry(
     const BrowseSessionId& session_id,
     const fs::path& relative_path
@@ -588,45 +732,11 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId&
 }
 
 std::string SystemBrowseSessionBackend::inspect_repository(const BrowseSessionId& session_id) {
-    const auto session = sessions_.find(std::string(session_id.value()));
+    auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    btrfsbackup::restore::RepositoryDiscoveryService discovery([](const fs::path& path) {
-        const auto value = btrfsbackup::platform::linux::storage::read_btrfs_snapshot_metadata(path);
-        if (!value)
-            return std::optional<btrfsbackup::restore::DiscoveredSnapshotMetadata>{};
-        return std::optional{btrfsbackup::restore::DiscoveredSnapshotMetadata{
-            value->is_subvolume,
-            value->readonly,
-            value->uuid.value(),
-            value->received_uuid.value(),
-        }};
-    });
-    const auto catalog = discovery.discover(session->second.view);
-    config::json::Json snapshots = config::json::Json::array();
-    for (const auto& snapshot : catalog.snapshots()) {
-        snapshots.push_back({
-            {"snapshotId", snapshot.snapshot_id},
-            {"hostId", snapshot.host_id},
-            {"profileId", snapshot.profile_id},
-            {"sourceId", snapshot.source_id},
-            {"relativePath", snapshot.repository_path.value().string()},
-            {"createdAt", format_utc_iso_timestamp(snapshot.created_at)},
-            {"uuid", snapshot.uuid},
-            {"receivedUuid", snapshot.received_uuid},
-            {"parentUuid", snapshot.parent_uuid},
-            {"verified", snapshot.verified},
-        });
-    }
-    return config::json::dump_json({
-        {"schemaVersion", 1},
-        {"repositoryId", catalog.identity().repository_id},
-        {"targetFilesystemUuid", catalog.identity().target_filesystem_uuid},
-        {"createdAt", format_utc_iso_timestamp(catalog.identity().created_at)},
-        {"features", catalog.identity().features},
-        {"generation", catalog.generation()},
-        {"snapshots", std::move(snapshots)},
-    });
+    ensure_repository_cache(session->second);
+    return session->second.repository_document;
 }
 
 std::vector<BackupCoverage> SystemBrowseSessionBackend::resolve_coverage(
