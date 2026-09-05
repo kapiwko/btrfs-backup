@@ -158,7 +158,11 @@ preflight until it reports `READY`.
    details separately;
 12. the restore application finishes with a dedicated outcome view showing the
    restored file count, byte size and destination, with an action to open the
-   restored directory.
+   restored directory;
+13. browse filesystem traversal and marker persistence now have dedicated,
+   unit-tested components while target lease and mount orchestration remain in
+   the system browse backend; marker schema v1 and cleanup ordering are
+   unchanged.
 
 ### KDE Desktop Integration
 
