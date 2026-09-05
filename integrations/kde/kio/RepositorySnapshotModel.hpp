@@ -50,6 +50,7 @@ struct PreviousVersionsPage {
     const QString& snapshot_id,
     const QString& requested_path
 );
+[[nodiscard]] QString previous_versions_stat_name(const QString& relative_path);
 [[nodiscard]] std::optional<PreviousVersionsPage> parse_previous_versions_page(const QString& payload);
 [[nodiscard]] bool previous_versions_method_unavailable(const QString& dbus_error_name);
 

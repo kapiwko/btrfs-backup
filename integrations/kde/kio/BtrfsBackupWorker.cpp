@@ -604,7 +604,9 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
         const QString name = parsed->profile.isEmpty()
             ? u"."_s
             : parsed->snapshot.isEmpty() ? parsed->profile
-                                         : parsed->snapshot;
+                                         : btrfsbackup::kde::kio::previous_versions_stat_name(
+                                               parsed->relative_path
+                                           );
         statEntry(directory_entry(name));
         return KIO::WorkerResult::pass();
     }

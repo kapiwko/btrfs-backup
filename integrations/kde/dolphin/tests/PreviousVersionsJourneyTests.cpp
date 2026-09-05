@@ -111,6 +111,22 @@ int main() {
         );
         expect(launch.urls == QList<QUrl>{*restore_url}, "the restore launch changed the snapshot URL");
 
+        const QUrl reported_row_url(
+            u"btrfsbackup:/default/home-2026-08-29T232016Z/kamil/"
+            "_select_es_numer_skladowej_as_numer_es_nazwa_skladowej_as_nazwa__202507011505.csv"_s
+        );
+        const auto reported_source = btrfsbackup::kde::restore::parse_restore_source(reported_row_url);
+        expect(reported_source.has_value(), "restore rejected the reported Dolphin row URL");
+        expect(
+            reported_source->snapshot_id == u"home-2026-08-29T232016Z"_s,
+            "restore changed the reported snapshot identifier"
+        );
+        expect(
+            reported_source->relative_path ==
+                u"kamil/_select_es_numer_skladowej_as_numer_es_nazwa_skladowej_as_nazwa__202507011505.csv"_s,
+            "restore changed the reported file path"
+        );
+
         std::cout << "ok - local path to previous-version restore journey\n";
         return 0;
     } catch (const std::exception& error) {

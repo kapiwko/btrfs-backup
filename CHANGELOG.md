@@ -189,7 +189,9 @@ preflight until it reports `READY`.
    persistent per-profile models fetch only their own status, device state and
    history instead of creating duplicate profile probes for every delegate;
 10. desktop actions resolve KDE services and URLs through KIO launcher jobs,
-   preserving desktop activation and reporting asynchronous launch failures.
+   preserving desktop activation and reporting asynchronous launch failures;
+11. previous-version breadcrumbs show the selected source path, and restore
+   launches preserve `btrfsbackup:` row URLs instead of copying them locally.
 
 ### Manager And Desktop Reliability
 
