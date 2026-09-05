@@ -164,6 +164,12 @@ add_test(
 )
 set_tests_properties(release-builder-arch-tests PROPERTIES RUN_SERIAL TRUE)
 
+add_test(
+    NAME release-builder-arch-order-tests
+    COMMAND ${PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/workflow/release_arch_order_tests.py
+)
+
 set_tests_properties(
     bash-syntax-tests
     real-btrfs-runner-cli-tests
