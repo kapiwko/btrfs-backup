@@ -344,6 +344,7 @@ target_link_libraries(btrfsbackup_kde_models
         Qt6::DBus
         Qt6::Qml
         KF6::I18n
+        btrfsbackup_kde_desktop_launcher
         btrfsbackup_kde_manager_client
 )
 
