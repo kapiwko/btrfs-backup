@@ -46,6 +46,7 @@ class Backend final : public IBrowseSessionBackend {
     std::vector<std::string> opened;
     std::vector<std::string> closed;
     std::string page_after_name;
+    std::vector<std::filesystem::path> coverage_paths;
     void open(const ProfileId& profile, const BrowseSessionId& id, std::uint32_t uid) override {
         opened.push_back(std::string(profile.value()) + ":" + std::string(id.value()) + ":" + std::to_string(uid));
     }
@@ -94,9 +95,10 @@ class Backend final : public IBrowseSessionBackend {
         return R"({"schemaVersion":1,"repositoryId":"test"})";
     }
     std::vector<btrfsbackup::daemon::BackupCoverage> resolve_coverage(
-        const std::filesystem::path&,
+        const std::filesystem::path& path,
         const std::vector<ProfileId>&
     ) override {
+        coverage_paths.push_back(path);
         return {};
     }
 };
@@ -141,6 +143,47 @@ void test_denied_and_disconnected_callers_do_not_open() {
     authorizer.active = false;
     expect_error("inactive open", ManagerErrorCode::NotAuthorized, [&] { (void)service.open(":1.20", 1000, "default"); });
     test_helpers::expect_true("denied backend", backend.opened.empty(), "unauthorized caller reached backend");
+}
+
+void test_coverage_requires_browse_authorization() {
+    Authorizer authorizer;
+    Backend backend;
+    BrowseSessionService service(authorizer, backend);
+
+    authorizer.allowed = false;
+    expect_error("denied coverage", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.resolve_coverage(":1.21", "/home/other-user/private", {});
+    });
+    authorizer.allowed = true;
+    authorizer.active = false;
+    expect_error("inactive coverage", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.resolve_coverage(":1.21", "/root", {});
+    });
+    authorizer.active = true;
+    expect_error("relative coverage", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.resolve_coverage(":1.21", "home/other-user", {});
+    });
+    test_helpers::expect_true(
+        "unauthorized coverage backend",
+        backend.coverage_paths.empty(),
+        "unauthorized coverage query reached the privileged backend"
+    );
+
+    (void)service.resolve_coverage(":1.21", "/home/../root", {});
+    test_helpers::expect_true(
+        "coverage authorization action",
+        authorizer.actions == std::vector{
+                                  ManagerAuthorizationAction::OpenBrowseSession,
+                                  ManagerAuthorizationAction::OpenBrowseSession,
+                                  ManagerAuthorizationAction::OpenBrowseSession,
+                              },
+        "coverage query used the wrong authorization action"
+    );
+    test_helpers::expect_true(
+        "normalized authorized coverage",
+        backend.coverage_paths == std::vector<std::filesystem::path>{"/root"},
+        "authorized coverage query was not normalized"
+    );
 }
 
 void test_foreign_caller_cannot_close_session() {
@@ -359,6 +402,7 @@ void test_directory_pages_bind_tokens_to_session_and_path() {
 int main() {
     test_authorized_open_and_owned_close();
     test_denied_and_disconnected_callers_do_not_open();
+    test_coverage_requires_browse_authorization();
     test_foreign_caller_cannot_close_session();
     test_disconnect_only_closes_callers_sessions();
     test_expiration_and_cleanup_failure_are_contained();
