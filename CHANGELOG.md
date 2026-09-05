@@ -205,7 +205,9 @@ preflight until it reports `READY`.
    4.0 pre-upgrade profile gate while leaving normal installation, reloads and
    profile regeneration declarative;
 9. C++ changes across the release series follow the enforced formatting
-   contract when checked together against their remote base commit.
+   contract when checked together against their remote base commit;
+10. a manually dispatched release-gate workflow builds every package format
+    and runs the privileged real-Btrfs and QEMU suites for one candidate SHA.
 
 ## 3.2.0 - 2026-08-30
 
