@@ -45,10 +45,11 @@ the optional global application configuration, and rollback instructions;
 referenced key files remain excluded and must be backed up separately.
 
 Arch, DEB, RPM and Gentoo package upgrades now invoke the installed preflight
-before replacing it whenever profiles exist. The read-only gate fails closed
-for incompatible profiles and for installations too old to provide the 0.3.x
-migration bridge, preventing a direct package upgrade from discovering the
-schema break only after 1.0 is installed.
+whenever profiles exist. DEB, RPM and Gentoo fail closed for incompatible
+profiles and installations too old to provide the migration command. Pacman
+does not abort an Arch transaction when `pre_upgrade` fails, so Arch users must
+complete preflight and the v4 export before invoking `pacman -U`; direct Arch
+upgrades from 0.3.3 with installed profiles are unsupported.
 
 There is no automatic or in-place 3.x profile migration in 1.0.0. Export schema
 version 4 profiles before upgrading, save them explicitly so all generated
