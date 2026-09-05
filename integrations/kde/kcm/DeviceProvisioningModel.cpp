@@ -4,6 +4,7 @@
 #include "DeviceProvisioningModel.hpp"
 
 #include "ManagerErrorMessage.hpp"
+#include "ByteFormatting.hpp"
 
 #include <ManagerApi.hpp>
 #include <core/ManagerProtocol.hpp>
@@ -82,6 +83,10 @@ bool DeviceProvisioningModel::busy() const {
 }
 QString DeviceProvisioningModel::errorMessage() const {
     return error_message_;
+}
+
+QString DeviceProvisioningModel::formatBytes(qint64 bytes) const {
+    return btrfsbackup::kde::format_byte_size(bytes);
 }
 
 void DeviceProvisioningModel::refresh() {
