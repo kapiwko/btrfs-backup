@@ -46,11 +46,11 @@ KCMUtils.AbstractKCM {
     readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(device => root.deviceAvailable(device))
     readonly property var unavailableDevices: (root.provisioning.devices ?? []).filter(device => !root.deviceAvailable(device))
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
-    readonly property var selectedSourceCandidate: sourcePath.currentIndex >= 0
-        ? root.provisioning.sourceCandidates[sourcePath.currentIndex] : null
+    readonly property var selectedSourceCandidate: setupPage.sourceCurrentIndex >= 0
+        ? root.provisioning.sourceCandidates[setupPage.sourceCurrentIndex] : null
     readonly property string localSnapshotDirectory: {
         const snapshotRoot = root.selectedSourceCandidate?.localSnapshotRoot ?? ""
-        const id = profileId.text.trim()
+        const id = setupPage.profileIdentifier.trim()
         if (snapshotRoot === "" || id === "")
             return ""
         return snapshotRoot.endsWith("/") ? snapshotRoot + id : snapshotRoot + "/" + id
@@ -176,12 +176,12 @@ KCMUtils.AbstractKCM {
             : root.freeSpace ? translations.i18n("Create and prepare") : translations.i18n("Erase and prepare")
         visible: root.step === 1
         enabled: root.selectedTargetSafe
-            && passphrase.text.length > 0
+            && setupPage.passphrase.length > 0
             && (root.adoption && !root.hasPlan
-                || profileId.acceptableInput
-                    && profileName.text.length > 0 && sourcePath.currentIndex >= 0
-                    && (root.adoption || passphrase.text === confirmation.text)
-                    && (root.adoption || eraseConfirmation.text === root.confirmationToken)
+                || setupPage.profileIdentifierAcceptable
+                    && setupPage.profileName.length > 0 && setupPage.sourceCurrentIndex >= 0
+                    && (root.adoption || setupPage.passphrase === setupPage.confirmation)
+                    && (root.adoption || setupPage.eraseConfirmation === root.confirmationToken)
                     && root.hasPlan
                     && (root.provisioning.plan.mode === "erase-whole-device"
                         || root.provisioning.plan.mode === "reformat-existing-partition"
@@ -191,14 +191,14 @@ KCMUtils.AbstractKCM {
             && !root.provisioning.busy
         onTriggered: {
             if (root.adoption && !root.hasPlan) {
-                root.provisioning.inspectExistingTarget(root.selectedTarget, passphrase.text)
+                root.provisioning.inspectExistingTarget(root.selectedTarget, setupPage.passphrase)
                 return
             }
             root.step = 2;
             root.provisioning.start(
-                profileId.text, profileName.text, sourcePath.currentValue,
-                passphrase.text, root.adoption ? passphrase.text : confirmation.text,
-                root.adoption ? false : automaticKey.checked
+                setupPage.profileIdentifier, setupPage.profileName, setupPage.sourceCurrentValue,
+                setupPage.passphrase, root.adoption ? setupPage.passphrase : setupPage.confirmation,
+                root.adoption ? false : setupPage.automaticKey
             );
         }
     }
@@ -207,309 +207,15 @@ KCMUtils.AbstractKCM {
         anchors.fill: parent
         currentIndex: root.step
 
-        Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            ColumnLayout {
-                objectName: "newProfileWelcomeContent"
-                anchors.centerIn: parent
-                width: Math.min(
-                    Math.max(0, parent.width - Kirigami.Units.largeSpacing * 2),
-                    Kirigami.Units.gridUnit * 34
-                )
-                spacing: Kirigami.Units.largeSpacing
-
-                Kirigami.Icon {
-                    Layout.alignment: Qt.AlignHCenter
-                    source: "drive-removable-media"
-                    implicitWidth: Kirigami.Units.iconSizes.huge
-                    implicitHeight: implicitWidth
-                }
-                Kirigami.Heading {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: translations.i18n("Add backup profile")
-                    level: 1
-                }
-                QQC2.Label {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.Wrap
-                    text: translations.i18n("Choose how the backup device should be configured.")
-                    opacity: 0.75
-                }
-                QQC2.ItemDelegate {
-                    Layout.fillWidth: true
-                    contentItem: RowLayout {
-                        spacing: Kirigami.Units.largeSpacing
-                        Kirigami.Icon {
-                            source: "document-import"
-                            implicitWidth: Kirigami.Units.iconSizes.large
-                            implicitHeight: implicitWidth
-                        }
-                        Kirigami.TitleSubtitle {
-                            Layout.fillWidth: true
-                            title: translations.i18n("Use a prepared backup device")
-                            subtitle: translations.i18n("Assign an existing LUKS2 and Btrfs repository. Nothing will be erased.")
-                            selected: false
-                        }
-                        Kirigami.Icon {
-                            source: "go-next-symbolic"
-                            implicitWidth: Kirigami.Units.iconSizes.smallMedium
-                            implicitHeight: implicitWidth
-                        }
-                    }
-                    onClicked: {
-                        root.workflowMode = "adopt"
-                        root.step = 1
-                        root.provisioning.refresh()
-                    }
-                }
-                QQC2.ItemDelegate {
-                    Layout.fillWidth: true
-                    contentItem: RowLayout {
-                        spacing: Kirigami.Units.largeSpacing
-                        Kirigami.Icon {
-                            source: "tools-wizard"
-                            implicitWidth: Kirigami.Units.iconSizes.large
-                            implicitHeight: implicitWidth
-                        }
-                        Kirigami.TitleSubtitle {
-                            Layout.fillWidth: true
-                            title: translations.i18n("Prepare a new backup device")
-                            subtitle: translations.i18n("Create an encrypted target. The selected disk or partition will be modified.")
-                            selected: false
-                        }
-                        Kirigami.Icon {
-                            source: "go-next-symbolic"
-                            implicitWidth: Kirigami.Units.iconSizes.smallMedium
-                            implicitHeight: implicitWidth
-                        }
-                    }
-                    onClicked: {
-                        root.workflowMode = "prepare"
-                        root.step = 1;
-                        root.provisioning.refresh();
-                    }
-                }
-            }
+        ProvisioningWelcomePage {
+            workflow: root
+            translations: translations
         }
 
-        QQC2.ScrollView {
-            objectName: "newProfileStoragePage"
-            contentWidth: availableWidth
-            ColumnLayout {
-                width: parent.width
-                spacing: Kirigami.Units.largeSpacing
-
-                Kirigami.InlineMessage {
-                    Layout.fillWidth: true
-                    type: Kirigami.MessageType.Error
-                    visible: root.provisioning.errorMessage.length > 0
-                    text: root.provisioning.errorMessage
-                    showCloseButton: true
-                    onVisibleChanged: if (!visible) root.provisioning.clearError()
-                }
-
-                StorageTargetSelection {
-                    Layout.fillWidth: true
-                    workflow: root
-                    translations: translations
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: root.provisioning.plan.planId !== undefined
-                    spacing: Kirigami.Units.smallSpacing
-
-                    Kirigami.Heading { text: translations.i18n("Before"); level: 3 }
-                    StorageLayout {
-                        Layout.fillWidth: true
-                        regions: root.provisioning.plan.before?.regions ?? []
-                        selectedRegionId: root.provisioning.plan.partitionId
-                            ?? root.provisioning.plan.freeRegionId ?? ""
-                        preview: false
-                        logicalSectorSize: root.provisioning.plan.before?.logicalSectorSize ?? 512
-                        formatBytes: value => root.provisioning.formatBytes(value)
-                    }
-                    Kirigami.Heading {
-                        text: root.adoption ? translations.i18n("After adoption") : translations.i18n("After preparation")
-                        level: 3
-                    }
-                    StorageLayout {
-                        Layout.fillWidth: true
-                        regions: root.provisioning.plan.after?.regions ?? []
-                        selectedRegionId: root.provisioning.plan.partitionId ?? "planned-backup-partition"
-                        preview: true
-                        logicalSectorSize: root.provisioning.plan.after?.logicalSectorSize ?? 512
-                        formatBytes: value => root.provisioning.formatBytes(value)
-                    }
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        text: root.provisioning.plan.mode === "adopt-existing-target"
-                            ? translations.i18n("The existing repository and all data on this partition will remain unchanged.")
-                            : root.provisioning.plan.mode === "reformat-existing-partition"
-                            ? translations.i18n("Only data on the selected partition will be removed. Other partitions will remain unchanged.")
-                            : root.provisioning.plan.mode === "create-partition-in-unallocated-space"
-                            ? translations.i18n("A new LUKS2 and Btrfs backup partition will be created in the selected free space. Existing partitions will remain unchanged.")
-                            : translations.i18n("All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs.")
-                    }
-                }
-
-                Kirigami.Separator { Layout.fillWidth: true }
-                Kirigami.Heading {
-                    text: translations.i18n("Profile details")
-                    level: 2
-                }
-                Kirigami.FormLayout {
-                    Layout.fillWidth: true
-                    QQC2.TextField {
-                        id: profileName
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: translations.i18n("Profile name:")
-                        placeholderText: translations.i18n("Profile name")
-                        onTextEdited: if (!profileId.modified) profileId.text = root.slug(text)
-                    }
-                    QQC2.TextField {
-                        id: profileId
-                        property bool modified: false
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: translations.i18n("Profile identifier:")
-                        placeholderText: translations.i18n("Profile identifier")
-                        validator: RegularExpressionValidator { regularExpression: /^[a-z0-9][a-z0-9-]{0,62}$/ }
-                        onTextEdited: modified = true
-                    }
-                    QQC2.ComboBox {
-                        id: sourcePath
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: translations.i18n("Backup source:")
-                        model: root.provisioning.sourceCandidates
-                        textRole: "displayName"
-                        valueRole: "id"
-                        editable: false
-                        displayText: currentIndex >= 0 ? currentText : translations.i18n("Select source Btrfs subvolume")
-                    }
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: translations.i18n("Local snapshots:")
-                        text: root.localSnapshotDirectory
-                        visible: text.length > 0
-                        elide: Text.ElideMiddle
-                    }
-                }
-
-                Kirigami.Heading {
-                    text: translations.i18n("Encryption")
-                    level: 2
-                }
-                Kirigami.FormLayout {
-                    Layout.fillWidth: true
-                    QQC2.CheckBox {
-                        id: automaticKey
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: translations.i18n("Automatic backups:")
-                        checked: true
-                        visible: !root.adoption
-                        text: translations.i18n("Create a protected key for automatic backups")
-                    }
-                    QQC2.Label {
-                        Layout.fillWidth: true
-                        visible: automaticKey.visible && automaticKey.checked
-                        wrapMode: Text.Wrap
-                        text: translations.i18n("The key is stored in a root-only system directory and allows backups to unlock the target without a prompt. The recovery passphrase remains available if the key is lost or removed.")
-                        opacity: 0.75
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: root.adoption
-                            ? translations.i18n("Existing passphrase:")
-                            : translations.i18n("Recovery passphrase:")
-                        QQC2.TextField {
-                            id: passphrase
-                            Layout.fillWidth: true
-                            placeholderText: root.adoption
-                                ? translations.i18n("Existing target passphrase")
-                                : translations.i18n("Recovery passphrase")
-                            echoMode: root.passwordVisible ? TextInput.Normal : TextInput.Password
-                        }
-                        QQC2.ToolButton {
-                            icon.name: root.passwordVisible ? "view-hidden-symbolic" : "view-visible-symbolic"
-                            text: root.passwordVisible
-                                ? translations.i18n("Hide password")
-                                : translations.i18n("Show password")
-                            display: QQC2.AbstractButton.IconOnly
-                            QQC2.ToolTip.visible: hovered
-                            QQC2.ToolTip.text: text
-                            onClicked: root.passwordVisible = !root.passwordVisible
-                        }
-                    }
-                    QQC2.TextField {
-                        id: confirmation
-                        Layout.fillWidth: true
-                        Kirigami.FormData.label: translations.i18n("Confirm passphrase:")
-                        visible: !root.adoption
-                        placeholderText: translations.i18n("Confirm recovery passphrase")
-                        echoMode: root.passwordVisible ? TextInput.Normal : TextInput.Password
-                    }
-                }
-
-                Kirigami.InlineMessage {
-                    Layout.fillWidth: true
-                    visible: !root.adoption && confirmation.text.length > 0
-                        && passphrase.text !== confirmation.text
-                    type: Kirigami.MessageType.Error
-                    text: translations.i18n("The passphrases do not match.")
-                }
-
-                Kirigami.InlineMessage {
-                    Layout.fillWidth: true
-                    visible: root.selectedTarget !== null
-                    type: root.adoption && (root.inspectionClassification === "" || root.hasPlan)
-                        ? Kirigami.MessageType.Information : Kirigami.MessageType.Warning
-                    text: root.adoption
-                        ? (root.inspectionClassification === "empty-filesystem"
-                            ? translations.i18n("This encrypted Btrfs filesystem is empty and does not contain a backup repository.")
-                            : root.inspectionClassification === "legacy-repository"
-                            ? translations.i18n("This target uses an older backup layout and cannot be adopted automatically.")
-                            : root.inspectionClassification === "unsupported-repository"
-                            ? translations.i18n("This repository format is not supported by this version of btrfs-backup.")
-                            : root.inspectionClassification === "foreign-or-invalid-repository"
-                            ? translations.i18n("This target does not contain a valid btrfs-backup repository.")
-                            : root.inspectionClassification === "not-btrfs-filesystem"
-                            ? translations.i18n("The encrypted target does not contain a Btrfs filesystem.")
-                            : root.provisioning.inspection.repositoryId
-                            ? translations.i18np(
-                                "Repository %2 contains %1 snapshot. No data will be modified.",
-                                "Repository %2 contains %1 snapshots. No data will be modified.",
-                                Number(root.provisioning.inspection.snapshotCount),
-                                root.provisioning.inspection.repositoryId
-                            )
-                            : translations.i18n("The target will be opened read-only and verified before it can be assigned."))
-                        : root.provisioning.plan.mode === "reformat-existing-partition"
-                        ? translations.i18n(
-                            "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type %2 to confirm.",
-                            root.selectedTarget?.partitionNumber ?? "",
-                            root.confirmationToken
-                        )
-                        : root.freeSpace
-                        ? translations.i18n(
-                            "A new partition will be created in the selected free space. Existing partitions will remain unchanged. Type CREATE to confirm."
-                        )
-                        : translations.i18n(
-                            "All data on %1 will be permanently erased. Type %2 to confirm.",
-                            translations.i18n("the selected storage device"),
-                            root.confirmationToken
-                        )
-                }
-                QQC2.TextField {
-                    id: eraseConfirmation
-                    Layout.fillWidth: true
-                    visible: root.selectedDevice !== null && !root.adoption
-                    Accessible.name: translations.i18n("Destructive operation confirmation")
-                    placeholderText: root.confirmationToken
-                }
-            }
+        ProvisioningSetupPage {
+            id: setupPage
+            workflow: root
+            translations: translations
         }
 
         ProvisioningProgressPage {
