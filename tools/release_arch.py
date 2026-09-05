@@ -70,9 +70,9 @@ def build_arch_package(root: Path, stage: Path, destination: Path, version: str,
     normalize_tree(stage, epoch)
     write_mtree(stage, epoch)
     os.utime(stage / ".MTREE", (epoch, epoch))
-    entries = sorted(path.name for path in stage.iterdir())
+    entries = sorted(path.relative_to(stage).as_posix() for path in stage.rglob("*"))
     subprocess.run([
         "bsdtar", "--uid", "0", "--gid", "0", "--uname", "root", "--gname", "root",
-        "--zstd", "-cf", str(destination), *entries,
-    ], cwd=stage, check=True)
+        "--zstd", "--no-recursion", "-cf", str(destination), "-T", "-",
+    ], cwd=stage, check=True, input="\n".join(entries) + "\n", text=True)
     return destination
