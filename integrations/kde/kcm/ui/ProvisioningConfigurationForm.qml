@@ -17,8 +17,7 @@ ColumnLayout {
     readonly property alias profileName: profileNameField.text
     readonly property alias profileIdentifier: profileIdentifierField.text
     readonly property alias profileIdentifierAcceptable: profileIdentifierField.acceptableInput
-    readonly property alias sourceCurrentIndex: sourcePathField.currentIndex
-    readonly property alias sourceCurrentValue: sourcePathField.currentValue
+    readonly property alias sources: provisioningSources.selectedSources
     readonly property alias passphrase: passphraseField.text
     readonly property alias confirmation: confirmationField.text
     readonly property alias automaticKey: automaticKeyField.checked
@@ -78,40 +77,14 @@ ColumnLayout {
             text: root.translations.i18n("A permanent technical name used in configuration. Enter 1–63 lowercase letters, digits, or hyphens; start with a letter or digit.")
             opacity: 0.75
         }
-        QQC2.ComboBox {
-            id: sourcePathField
+        ProvisioningSources {
+            id: provisioningSources
+            objectName: "provisioningSources"
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            Kirigami.FormData.label: root.translations.i18n("Backup source:")
-            model: root.workflow.provisioning.sourceCandidates
-            textRole: "displayName"
-            valueRole: "id"
-            editable: false
-            displayText: currentIndex >= 0
-                ? currentText : root.translations.i18n("Select source Btrfs subvolume")
-        }
-        QQC2.Label {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            wrapMode: Text.Wrap
-            text: root.translations.i18n("The Btrfs subvolume whose data will be included in this backup profile.")
-            opacity: 0.75
-        }
-        QQC2.Label {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            Kirigami.FormData.label: root.translations.i18n("Local snapshots:")
-            text: root.workflow.localSnapshotDirectory
-            visible: text.length > 0
-            elide: Text.ElideMiddle
-        }
-        QQC2.Label {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            visible: root.workflow.localSnapshotDirectory.length > 0
-            wrapMode: Text.Wrap
-            text: root.translations.i18n("Temporary local snapshots are created here before they are copied to the backup device.")
-            opacity: 0.75
+            Kirigami.FormData.label: root.translations.i18n("Sources:")
+            workflow: root.workflow
+            translations: root.translations
         }
     }
 

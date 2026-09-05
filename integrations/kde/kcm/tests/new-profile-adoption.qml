@@ -127,6 +127,7 @@ Item {
         property var sourceCandidates: [{
             id: "source-home",
             path: "/home",
+            displayName: "Home folder — /home",
             filesystemUuid: "source-fs",
             mountRoot: "/home",
             localSnapshotRoot: "/home/.snapshots/btrfs-backup"
@@ -138,7 +139,7 @@ Item {
         function buildPlan(selection, mode) {}
         function inspectExistingTarget(selection, passphrase) {}
         function clearSelection() {}
-        function start(profileId, profileName, source, passphrase, confirmation, automaticKey) {}
+        function start(profileId, profileName, sources, passphrase, confirmation, automaticKey) {}
         function poll() {}
         function cancel() {}
         function clearError() {}
@@ -164,7 +165,8 @@ Item {
             if (!page.adoption || !page.hasPlan || page.selectedTarget.partitionNumber !== 1
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
-                    || page.selectedSourceCandidate?.id !== "source-home") {
+                    || page.selectedSources.length !== 1
+                    || page.selectedSources[0].candidateId !== "source-home") {
                 console.error("Existing target adoption page bindings are invalid")
                 Qt.exit(1)
                 return

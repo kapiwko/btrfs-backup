@@ -16,6 +16,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -160,7 +161,7 @@ void DeviceProvisioningModel::clearSelection() {
 void DeviceProvisioningModel::start(
     const QString& profile_id,
     const QString& profile_name,
-    const QString& source_candidate_id,
+    const QVariantList& sources,
     const QString& passphrase,
     const QString& confirmation,
     bool automatic_key
@@ -176,6 +177,31 @@ void DeviceProvisioningModel::start(
         setError(i18nd("kcm_btrfsbackup", "Refresh the storage layout and review the preparation plan again."));
         return;
     }
+    if (sources.isEmpty() || sources.size() > 64) {
+        setError(i18nd("kcm_btrfsbackup", "Add at least one valid backup source."));
+        return;
+    }
+    QJsonArray encoded_sources;
+    QSet<QString> candidate_ids;
+    for (const auto& value : sources) {
+        const QVariantMap source = value.toMap();
+        const QString candidate_id = source.value(QStringLiteral("candidateId")).toString().trimmed();
+        const QString name = source.value(QStringLiteral("name")).toString().trimmed();
+        const int local_retention = source.value(QStringLiteral("localRetention")).toInt();
+        const int remote_retention = source.value(QStringLiteral("remoteRetention")).toInt();
+        if (candidate_id.isEmpty() || name.isEmpty() || local_retention < 1 || local_retention > 100000 ||
+            remote_retention < 0 || remote_retention > 100000 || candidate_ids.contains(candidate_id)) {
+            setError(i18nd("kcm_btrfsbackup", "Add at least one valid backup source."));
+            return;
+        }
+        candidate_ids.insert(candidate_id);
+        encoded_sources.push_back(QJsonObject{
+            {QStringLiteral("candidateId"), candidate_id},
+            {QStringLiteral("name"), name},
+            {QStringLiteral("localRetention"), local_retention},
+            {QStringLiteral("remoteRetention"), remote_retention},
+        });
+    }
     const auto secret = secret_descriptor(passphrase);
     if (!secret.isValid()) {
         setError(i18nd("kcm_btrfsbackup", "A passphrase must contain between 1 and 4096 bytes."));
@@ -185,7 +211,7 @@ void DeviceProvisioningModel::start(
         {QStringLiteral("profileId"), profile_id.trimmed()},
         {QStringLiteral("profileName"), profile_name.trimmed()},
         {QStringLiteral("planId"), plan_id},
-        {QStringLiteral("sourceCandidateId"), source_candidate_id.trimmed()},
+        {QStringLiteral("sources"), encoded_sources},
         {QStringLiteral("passphraseLabel"), i18nd("kcm_btrfsbackup", "Recovery passphrase")},
         {QStringLiteral("createAutomaticKey"), automatic_key},
     };
