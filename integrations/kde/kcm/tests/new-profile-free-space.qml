@@ -122,6 +122,13 @@ Item {
         })
         property var operation: ({})
         property var sourceCandidates: [{
+            id: "source-root",
+            path: "/",
+            displayName: "System root — /",
+            filesystemUuid: "root-fs",
+            mountRoot: "/",
+            localSnapshotRoot: "/.snapshots/btrfs-backup"
+        }, {
             id: "source-home",
             path: "/home",
             displayName: "Home folder — /home",
@@ -174,8 +181,9 @@ Item {
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
                     || page.unavailableDevices.length !== 3
-                    || page.selectedSources.length !== 1
-                    || page.selectedSources[0].candidateId !== "source-home") {
+                    || page.selectedSources.length !== 2
+                    || page.selectedSources[0].candidateId !== "source-root"
+                    || page.selectedSources[1].candidateId !== "source-home") {
                 console.error("Free-space source candidate bindings are invalid")
                 Qt.exit(1)
                 return
@@ -237,10 +245,10 @@ Item {
                 return
             }
             provisioningSources.addSource("Work", "/srv/work", 7, 14, "source-work")
-            if (page.selectedSources.length !== 2
-                    || page.selectedSources[1].candidateId !== "source-work"
-                    || page.selectedSources[1].localRetention !== 7
-                    || page.selectedSources[1].remoteRetention !== 14) {
+            if (page.selectedSources.length !== 3
+                    || page.selectedSources[2].candidateId !== "source-work"
+                    || page.selectedSources[2].localRetention !== 7
+                    || page.selectedSources[2].remoteRetention !== 14) {
                 console.error("Multiple provisioning sources cannot be selected")
                 Qt.exit(1)
                 return
