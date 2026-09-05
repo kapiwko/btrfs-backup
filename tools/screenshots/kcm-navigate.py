@@ -37,3 +37,5 @@ elif page in {"profile-details", "profile-settings", "history"}:
         click(800, 95)
     elif page == "history":
         click(680, 95)
+elif page == "notification-settings":
+    click(380, 700)
