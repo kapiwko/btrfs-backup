@@ -23,6 +23,7 @@ pkgbase = btrfs-backup
 	sha256sums = @SOURCE_SHA256@
 
 pkgname = btrfs-backup
+	install = btrfs-backup.install
 	depends = btrfs-progs>=6.0
 	depends = coreutils
 	depends = cryptsetup

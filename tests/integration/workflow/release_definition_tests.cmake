@@ -36,3 +36,26 @@ foreach(target IN ITEMS nix ebuild pkgbuild)
         message(FATAL_ERROR "Invalid ${target} definition archive")
     endif()
 endforeach()
+
+file(GLOB pkgbuild_archives "${root}/pkgbuild/*-pkgbuild*.tar.gz")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E tar tf "${pkgbuild_archives}"
+    OUTPUT_VARIABLE pkgbuild_entries
+    RESULT_VARIABLE pkgbuild_list_result
+)
+if(NOT pkgbuild_list_result EQUAL 0 OR
+   NOT pkgbuild_entries MATCHES "btrfs-backup[.]install")
+    message(FATAL_ERROR "Arch definition is missing the pre-upgrade gate")
+endif()
+
+foreach(gate IN ITEMS
+        "packaging/arch/btrfs-backup.install"
+        "packaging/debian/preinst"
+        "packaging/gentoo/btrfs-backup.ebuild.in"
+        "packaging/rpm/btrfs-backup.spec.in")
+    file(READ "${SOURCE_DIR}/${gate}" gate_content)
+    if(NOT gate_content MATCHES "btrfs-backupctl upgrade preflight" OR
+       NOT gate_content MATCHES "profile export-v4 --all")
+        message(FATAL_ERROR "${gate} is missing the migration preflight contract")
+    endif()
+endforeach()

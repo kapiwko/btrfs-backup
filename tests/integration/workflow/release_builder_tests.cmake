@@ -77,8 +77,10 @@ foreach(expected IN ITEMS
         "CPACK_ARCHIVE_COMPONENT_INSTALL \"ON\""
         "CPACK_DEB_COMPONENT_INSTALL \"ON\""
         "CPACK_DEBIAN_UNSPECIFIED_PACKAGE_NAME \"btrfs-backup\""
+        "CPACK_DEBIAN_UNSPECIFIED_PACKAGE_CONTROL_EXTRA"
         "CPACK_RPM_COMPONENT_INSTALL \"ON\""
         "CPACK_RPM_UNSPECIFIED_PACKAGE_NAME \"btrfs-backup\""
+        "CPACK_RPM_UNSPECIFIED_PRE_INSTALL_SCRIPT_FILE"
         "CPACK_SET_DESTDIR \"ON\"")
     string(FIND "${cpack_config}" "${expected}" position)
     if(position EQUAL -1)

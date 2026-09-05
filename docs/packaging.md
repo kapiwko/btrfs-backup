@@ -137,11 +137,12 @@ wizard --apply` and `profile save` write active profiles, udev rules, native
 profile-specific mount units, and mount-dependency drop-ins after an explicit
 user command.
 
-Packages contain no lifecycle shell scriptlets. Standard state and runtime
-directory modes are declared through `systemd-tmpfiles`; distribution-native
-hooks handle cache and manager reloads. Profile regeneration is an explicit
-administrator operation after upgrades that change generated artifacts. The
-complete inventory and migration command are documented in
+Packages keep lifecycle code to one read-only, fail-closed 4.0 profile
+preflight. Standard state and runtime directory modes are declared through
+`systemd-tmpfiles`; distribution-native hooks handle cache and manager reloads.
+Profile regeneration remains an explicit administrator operation after
+upgrades that change generated artifacts. The complete inventory and migration
+commands are documented in
 [package lifecycle inventory](packaging-scriptlets.md).
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under
