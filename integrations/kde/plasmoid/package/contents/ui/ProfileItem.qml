@@ -38,7 +38,7 @@ PlasmaExtras.ExpandableListItem {
     readonly property bool failed: profileStatus.run.state === "failed"
     readonly property int progress: profileStatus.run.overallProgress
 
-    signal summaryUpdated(string profileId, int priority, bool isRunning, bool isFailed, int profileProgress,
+    signal summaryUpdated(string profileId, string profileName, int priority, bool isRunning, bool isFailed, int profileProgress,
                           int attentionPriority, string attentionIcon, string subtitle)
     signal summaryRemoved(string profileId)
 
@@ -157,7 +157,8 @@ PlasmaExtras.ExpandableListItem {
     onRefreshRevisionChanged: profileStatus.refreshNow()
 
     function publishSummary() {
-        root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress,
+        root.summaryUpdated(root.profileId, root.profileName || root.profileId,
+                           root.summaryPriority(), root.running, root.failed, root.progress,
                            BtrfsBackup.ProfilePresentation.attentionPriority(profileStatus),
                            BtrfsBackup.ProfilePresentation.attentionIcon(profileStatus), root.subtitleText())
     }

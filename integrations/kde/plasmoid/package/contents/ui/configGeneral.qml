@@ -18,6 +18,7 @@ Kirigami.FormLayout {
     property alias cfg_autoExpandFailed: autoExpandFailed.checked
     property alias cfg_showStorage: showStorage.checked
     property alias cfg_hideSourceNamesInTooltip: hideSourceNames.checked
+    property alias cfg_hiddenProfilesAffectStatus: hiddenProfilesAffectStatus.checked
 
     readonly property var configuredVisibleProfiles: root.cfg_visibleProfiles !== "*" && root.cfg_visibleProfiles.length > 0
         ? root.cfg_visibleProfiles.split(",")
@@ -132,6 +133,12 @@ Kirigami.FormLayout {
         id: hideSourceNames
         Kirigami.FormData.label: i18n("Privacy:")
         text: i18n("Hide source names in the panel tooltip")
+    }
+
+    QQC2.CheckBox {
+        id: hiddenProfilesAffectStatus
+        Kirigami.FormData.label: i18n("Status icon:")
+        text: i18n("Hidden profiles still affect the status icon")
     }
 
     QQC2.Button {
