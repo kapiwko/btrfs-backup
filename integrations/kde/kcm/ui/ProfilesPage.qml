@@ -15,12 +15,12 @@ Item {
     required property var directory
     required property var profileStatusOverrides
     required property var profileSummaryFor
-    required property var reminderSettings
 
     signal profileRequested(string profileId)
     signal editProfileRequested(string profileId)
     signal systemLogRequested()
     signal supportRequested()
+    signal reminderSettingsRequested()
 
     KI18n.KI18nContext {
         id: translations
@@ -74,71 +74,6 @@ Item {
             }
         }
 
-        Kirigami.Separator { Layout.fillWidth: true }
-
-        ColumnLayout {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.maximumWidth: Kirigami.Units.gridUnit * 30
-            Layout.fillWidth: true
-            Layout.leftMargin: Kirigami.Units.largeSpacing
-            Layout.rightMargin: Kirigami.Units.largeSpacing
-            Layout.topMargin: Kirigami.Units.largeSpacing
-            spacing: Kirigami.Units.smallSpacing
-
-            Kirigami.Heading {
-                Layout.fillWidth: true
-                level: 3
-                text: translations.i18n("Backup reminders")
-            }
-
-            QQC2.CheckBox {
-                id: remindersEnabled
-
-                Layout.fillWidth: true
-                text: translations.i18n("Notify me when a backup is overdue")
-                checked: root.reminderSettings?.enabled ?? true
-                enabled: root.reminderSettings !== null
-                onToggled: if (root.reminderSettings !== null)
-                    root.reminderSettings.enabled = checked
-            }
-
-            Kirigami.FormLayout {
-                Layout.fillWidth: true
-                enabled: remindersEnabled.checked && root.reminderSettings !== null
-
-                QQC2.SpinBox {
-                    Kirigami.FormData.label: translations.i18n("Warning after:")
-                    from: 1
-                    to: Math.max(from, criticalDays.value - 1)
-                    value: root.reminderSettings?.warningDays ?? 7
-                    textFromValue: value => translations.i18np("%1 day", "%1 days", value)
-                    valueFromText: text => parseInt(text)
-                    onValueModified: root.reminderSettings.warningDays = value
-                }
-
-                QQC2.SpinBox {
-                    id: criticalDays
-
-                    Kirigami.FormData.label: translations.i18n("Critical after:")
-                    from: (root.reminderSettings?.warningDays ?? 7) + 1
-                    to: 3650
-                    value: root.reminderSettings?.criticalDays ?? 14
-                    textFromValue: value => translations.i18np("%1 day", "%1 days", value)
-                    valueFromText: text => parseInt(text)
-                    onValueModified: root.reminderSettings.criticalDays = value
-                }
-            }
-
-            QQC2.Label {
-                Layout.fillWidth: true
-                text: translations.i18n("The background monitor sends a desktop notification asking you to connect the backup disk.")
-                wrapMode: Text.Wrap
-                opacity: 0.75
-            }
-        }
-
-        Kirigami.Separator { Layout.fillWidth: true }
-
         QQC2.Label {
             Layout.fillWidth: true
             Layout.leftMargin: Kirigami.Units.largeSpacing
@@ -154,6 +89,11 @@ Item {
             Layout.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
 
+            QQC2.Button {
+                icon.name: "appointment-reminder-symbolic"
+                text: translations.i18n("Reminders")
+                onClicked: root.reminderSettingsRequested()
+            }
             QQC2.Button {
                 icon.name: "preferences-desktop-notification-symbolic"
                 text: translations.i18n("Notifications")

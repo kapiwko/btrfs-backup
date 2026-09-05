@@ -503,3 +503,15 @@ msgstr "Podłącz dysk kopii zapasowej, aby ją utworzyć."
 
 msgid "Connect “%1” to create one."
 msgstr "Podłącz „%1”, aby ją utworzyć."
+
+msgid "Backup target space is critical"
+msgstr "Miejsce na celu kopii osiągnęło poziom krytyczny"
+
+msgid "Backup target space is running low"
+msgstr "Na celu kopii zaczyna brakować miejsca"
+
+msgid "backup target"
+msgstr "cel kopii"
+
+msgid "%1% (%2) is available on “%3” for backup “%4”. Free some space or adjust retention."
+msgstr "Na „%3” dla kopii „%4” jest dostępne %1% (%2). Zwolnij miejsce albo dostosuj retencję."

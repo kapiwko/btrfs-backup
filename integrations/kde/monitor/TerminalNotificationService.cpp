@@ -6,8 +6,10 @@
 
 #include "BackupReminderPolicy.hpp"
 #include "DesktopLauncher.hpp"
+#include "TargetStorageNotificationPolicy.hpp"
 
 #include <KLocalizedString>
+#include <KFormat>
 #include <KNotification>
 
 #include <utility>
@@ -134,6 +136,54 @@ void TerminalNotificationService::publish_backup_reminder(
 
     if (!deduplicator_.claim(profile_id, reminder.baseline_key, message.event_id))
         return;
+    publisher_(message);
+}
+
+void TerminalNotificationService::publish_target_storage(
+    const QString& profile_id,
+    const QString& profile_name,
+    const QString& target_name,
+    const TargetStorageNotification& storage
+) {
+    constexpr auto warning_event = "targetSpaceLow";
+    constexpr auto critical_event = "targetSpaceCritical";
+    if (profile_id.isEmpty())
+        return;
+    if (storage.level == TargetStorageNotificationLevel::none) {
+        deduplicator_.clear(profile_id, QLatin1String(warning_event));
+        deduplicator_.clear(profile_id, QLatin1String(critical_event));
+        return;
+    }
+
+    TerminalNotificationMessage message;
+    message.profile_id = profile_id;
+    if (storage.level == TargetStorageNotificationLevel::critical) {
+        message.event_id = QLatin1String(critical_event);
+        message.title = i18n("Backup target space is critical");
+        static_cast<void>(deduplicator_.claim(
+            profile_id,
+            QStringLiteral("current-low-space-state"),
+            QLatin1String(warning_event)
+        ));
+    } else {
+        message.event_id = QLatin1String(warning_event);
+        message.title = i18n("Backup target space is running low");
+    }
+    const QString target = target_name.isEmpty() ? i18n("backup target") : target_name;
+    message.text = i18n(
+        "%1% (%2) is available on “%3” for backup “%4”. Free some space or adjust retention.",
+        storage.available_percent,
+        KFormat{}.formatByteSize(storage.available_bytes),
+        target,
+        display_name(profile_id, profile_name)
+    );
+    if (!deduplicator_.claim(
+            profile_id,
+            QStringLiteral("current-low-space-state"),
+            message.event_id
+        )) {
+        return;
+    }
     publisher_(message);
 }
 
