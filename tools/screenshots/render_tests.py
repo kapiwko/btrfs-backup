@@ -30,12 +30,17 @@ class ScenarioSpecsTests(unittest.TestCase):
         })
         outputs = [spec["output"] for spec in specs]
         self.assertEqual(len(outputs), len(set(outputs)))
-        self.assertEqual(len(outputs), 18)
+        self.assertEqual(len(outputs), 19)
 
     def test_filters_kcm_page(self) -> None:
         self.assertEqual(scenario_specs("kcm", "history"), [{
             "kind": "system-settings", "mode": "connected", "page": "history",
             "output": "system-settings-history.png",
+        }])
+
+        self.assertEqual(scenario_specs("kcm", "notification-settings"), [{
+            "kind": "system-settings", "mode": "connected", "page": "notification-settings",
+            "output": "system-settings-notification-settings.png",
         }])
 
     def test_filters_top_level_group(self) -> None:

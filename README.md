@@ -216,6 +216,11 @@ notification without requiring the KCM to remain open.
 
 [![Successful, cancelled and failed backup runs in System Settings](docs/images/system-settings-history.png)](docs/images/system-settings-history.png)
 
+Overdue-backup reminders and low-space warning and critical thresholds are
+configured globally on a dedicated notifications page.
+
+[![Configuring overdue backup and target free-space notifications](docs/images/system-settings-notification-settings.png)](docs/images/system-settings-notification-settings.png)
+
 [![A completed backup notification in Plasma](docs/images/notification-completed.png)](docs/images/notification-completed.png)
 
 ### Browse And Restore
