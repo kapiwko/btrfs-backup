@@ -11,7 +11,7 @@
     "Description": "Status and progress for independent system Btrfs backups",
     "Description[pl]": "Stan i postęp niezależnych systemowych kopii zapasowych Btrfs",
     "EnabledByDefault": true,
-    "Icon": "drive-harddisk",
+    "Icon": "backup",
     "Id": "org.btrfsbackup.plasmoid",
     "License": "GPL-3.0-or-later",
     "Name": "Btrfs Backup",
