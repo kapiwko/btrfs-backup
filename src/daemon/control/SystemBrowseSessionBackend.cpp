@@ -3,9 +3,6 @@
 
 #include <daemon/control/SystemBrowseSessionBackend.hpp>
 
-#include <daemon/control/BrowseDirectoryPageCollector.hpp>
-
-#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -13,7 +10,6 @@
 #include <cerrno>
 #include <algorithm>
 #include <chrono>
-#include <fstream>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -26,7 +22,6 @@
 #include <config/domain/Validation.hpp>
 #include <core/RuntimeTime.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
-#include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
 
@@ -41,103 +36,6 @@ using btrfsbackup::platform::linux::OwnedFileDescriptor;
     throw dbus::ManagerOperationError(dbus::ManagerErrorCode::TargetUnavailable, message);
 }
 
-void require_root_directory(const fs::path& path) {
-    std::error_code error;
-    fs::create_directories(path, error);
-    if (error)
-        target_error("cannot create browse session directory");
-    struct stat status{};
-    if (lstat(path.c_str(), &status) != 0 || !S_ISDIR(status.st_mode) || status.st_uid != 0)
-        target_error("browse session root is not a trusted root-owned directory");
-    chmod(path.c_str(), 0711);
-}
-
-void require_private_directory(const fs::path& path, mode_t mode, uid_t owner) {
-    std::error_code error;
-    fs::create_directories(path, error);
-    if (error)
-        target_error("cannot create browse session directory");
-    struct stat status{};
-    if (lstat(path.c_str(), &status) != 0 || !S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode))
-        target_error("browse session directory is not trusted");
-    if (status.st_uid != owner && chown(path.c_str(), owner, static_cast<gid_t>(-1)) != 0)
-        target_error("cannot assign browse session directory owner");
-    if (chmod(path.c_str(), mode) != 0)
-        target_error("cannot set browse session directory permissions");
-}
-
-[[noreturn]] void browse_path_error(const char* operation) {
-    throw std::system_error(errno, std::generic_category(), operation);
-}
-
-std::vector<std::string> validated_components(const fs::path& relative) {
-    if (relative.is_absolute())
-        throw std::invalid_argument("browse path must be relative");
-    std::vector<std::string> result;
-    for (const fs::path& component : relative) {
-        const std::string value = component.string();
-        if (value.empty() || value == ".")
-            continue;
-        if (value == ".." || value.find('/') != std::string::npos || value.find('\0') != std::string::npos)
-            throw std::invalid_argument("browse path contains an unsafe component");
-        result.push_back(value);
-    }
-    return result;
-}
-
-OwnedFileDescriptor open_beneath(int root, const fs::path& relative, int final_flags) {
-    OwnedFileDescriptor current(openat(root, ".", O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!current.valid())
-        browse_path_error("cannot open browse root");
-    const auto components = validated_components(relative);
-    if (components.empty()) {
-        OwnedFileDescriptor result(openat(current.get(), ".", final_flags | O_CLOEXEC | O_NOFOLLOW));
-        if (!result.valid())
-            browse_path_error("cannot open browse entry");
-        return result;
-    }
-    for (std::size_t index = 0; index + 1 < components.size(); ++index) {
-        OwnedFileDescriptor next(openat(
-            current.get(),
-            components[index].c_str(),
-            O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
-        ));
-        if (!next.valid())
-            browse_path_error("cannot traverse browse entry");
-        current = std::move(next);
-    }
-    OwnedFileDescriptor result(openat(
-        current.get(),
-        components.back().c_str(),
-        final_flags | O_CLOEXEC | O_NOFOLLOW
-    ));
-    if (!result.valid())
-        browse_path_error("cannot open browse entry");
-    return result;
-}
-
-struct DirectoryCloser {
-    void operator()(DIR* directory) const noexcept {
-        if (directory != nullptr)
-            closedir(directory);
-    }
-};
-
-BrowseEntryInfo entry_info(int parent, const std::string& name) {
-    struct stat status{};
-    if (fstatat(parent, name.c_str(), &status, AT_SYMLINK_NOFOLLOW) != 0)
-        browse_path_error("cannot inspect browse entry");
-    if (S_ISLNK(status.st_mode) || (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode)))
-        throw std::invalid_argument("browse entry has an unsupported type");
-    return {
-        name,
-        S_ISDIR(status.st_mode),
-        S_ISREG(status.st_mode) ? static_cast<std::uint64_t>(status.st_size) : 0,
-        static_cast<std::uint32_t>(status.st_mode),
-        status.st_mtim.tv_sec,
-    };
-}
-
 } // namespace
 
 SystemBrowseSessionBackend::SystemBrowseSessionBackend(
@@ -146,7 +44,7 @@ SystemBrowseSessionBackend::SystemBrowseSessionBackend(
     ISystemdUnitController& units,
     fs::path session_root,
     fs::path lock_root
-) : profiles_(profiles), mounts_(mounts), units_(units), session_root_(std::move(session_root)), lock_root_(std::move(lock_root)) {
+) : profiles_(profiles), mounts_(mounts), units_(units), mount_store_(std::move(session_root)), lock_root_(std::move(lock_root)) {
 }
 
 SystemBrowseSessionBackend::~SystemBrowseSessionBackend() noexcept {
@@ -254,84 +152,23 @@ void SystemBrowseSessionBackend::unmount(const BrowseSessionId& session_id, cons
         target_error("cannot unmount browse session");
 }
 
-void SystemBrowseSessionBackend::write_marker(const BrowseSessionId& id, const SessionMount& mount) {
-    platform::linux::filesystem::atomic_write(
-        mount.marker,
-        config::json::dump_json({
-            {"schemaVersion", 1},
-            {"sessionId", id.value()},
-            {"callerUid", mount.caller_uid},
-            {"targetKey", mount.target_key},
-            {"targetUnit", mount.target_unit},
-            {"directory", mount.directory.string()},
-            {"view", mount.view.string()},
-            {"viewMounted", mount.view_mounted},
-            {"targetMountedByBackend", mount.target_mounted_by_backend},
-            {"targetReleased", mount.target_released},
-        }),
-        0600
-    );
-}
-
-std::optional<SystemBrowseSessionBackend::SessionMount> SystemBrowseSessionBackend::read_marker(
-    const fs::path& marker
-) const {
-    try {
-        struct stat status{};
-        if (lstat(marker.c_str(), &status) != 0 || !S_ISREG(status.st_mode) || status.st_uid != 0)
-            return std::nullopt;
-        const config::json::Json document = config::json::load_json_file(marker);
-        if (document.at("schemaVersion").get<int>() != 1)
-            return std::nullopt;
-        const std::uint32_t uid = document.at("callerUid").get<std::uint32_t>();
-        const fs::path expected_directory = session_root_ / std::to_string(uid) / marker.stem();
-        const fs::path directory = fs::path(document.at("directory").get<std::string>()).lexically_normal();
-        const fs::path view = fs::path(document.at("view").get<std::string>()).lexically_normal();
-        if (directory != expected_directory || view != directory / "repository")
-            return std::nullopt;
-        return SessionMount{
-            .target_key = document.at("targetKey").get<std::string>(),
-            .target_unit = document.at("targetUnit").get<std::string>(),
-            .directory = directory,
-            .view = view,
-            .marker = marker,
-            .caller_uid = uid,
-            .view_mounted = document.at("viewMounted").get<bool>(),
-            .target_mounted_by_backend = document.at("targetMountedByBackend").get<bool>(),
-            .target_released = document.at("targetReleased").get<bool>(),
-            .repository_cached = false,
-            .repository_document = {},
-            .snapshots = {},
-            .previous_versions = {},
-        };
-    } catch (...) {
-        return std::nullopt;
-    }
-}
-
 void SystemBrowseSessionBackend::open(
     const ProfileId& profile_id,
     const BrowseSessionId& session_id,
     std::uint32_t caller_uid
 ) {
-    require_root_directory(session_root_);
-    const fs::path state_root = session_root_ / ".state";
-    require_private_directory(state_root, 0700, 0);
+    mount_store_.prepare_root();
     const auto loaded = profiles_.get(profile_id);
     const TargetLease& target = acquire_target(loaded.profile);
     const std::string key{loaded.profile.target.luks_uuid.value()};
-    const fs::path uid_root = session_root_ / std::to_string(caller_uid);
-    require_private_directory(uid_root, 0700, 0);
-    const fs::path directory = uid_root / std::string(session_id.value());
-    const fs::path view = directory / "repository";
     SessionMount record{
-        .target_key = key,
-        .target_unit = btrfsbackup::config::target_mount_unit_name(loaded.profile.target.mount_point),
-        .directory = directory,
-        .view = view,
-        .marker = state_root / (std::string(session_id.value()) + ".json"),
-        .caller_uid = caller_uid,
-        .target_mounted_by_backend = target.mounted_by_backend,
+        .mount = mount_store_.make_record(
+            session_id,
+            caller_uid,
+            key,
+            btrfsbackup::config::target_mount_unit_name(loaded.profile.target.mount_point),
+            target.mounted_by_backend
+        ),
         .repository_cached = false,
         .repository_document = {},
         .snapshots = {},
@@ -343,17 +180,17 @@ void SystemBrowseSessionBackend::open(
         target_error("browse session already exists");
     }
     try {
-        if (fs::exists(directory))
+        if (fs::exists(session->second.mount.directory))
             target_error("browse session directory already exists");
-        fs::create_directories(view);
-        if (chown(directory.c_str(), 0, static_cast<gid_t>(-1)) != 0 ||
-            chown(view.c_str(), 0, static_cast<gid_t>(-1)) != 0 ||
-            chmod(directory.c_str(), 0700) != 0 || chmod(view.c_str(), 0700) != 0)
+        fs::create_directories(session->second.mount.view);
+        if (chown(session->second.mount.directory.c_str(), 0, static_cast<gid_t>(-1)) != 0 ||
+            chown(session->second.mount.view.c_str(), 0, static_cast<gid_t>(-1)) != 0 ||
+            chmod(session->second.mount.directory.c_str(), 0700) != 0 || chmod(session->second.mount.view.c_str(), 0700) != 0)
             target_error("cannot secure browse session directory");
-        write_marker(session_id, session->second);
-        session->second.view_mounted = true;
-        write_marker(session_id, session->second);
-        mount_read_only(session_id, loaded.profile.paths.remote_root.value(), view);
+        mount_store_.write(session_id, session->second.mount);
+        session->second.mount.view_mounted = true;
+        mount_store_.write(session_id, session->second.mount);
+        mount_read_only(session_id, loaded.profile.paths.remote_root.value(), session->second.mount.view);
         return;
     } catch (...) {
         try {
@@ -387,30 +224,26 @@ void SystemBrowseSessionBackend::cleanup_record(
     SessionMount& mount,
     bool release_live_target
 ) {
-    if (mount.view_mounted) {
-        unmount(session_id, mount.view);
-        mount.view_mounted = false;
-        write_marker(session_id, mount);
+    if (mount.mount.view_mounted) {
+        unmount(session_id, mount.mount.view);
+        mount.mount.view_mounted = false;
+        mount_store_.write(session_id, mount.mount);
     }
-    std::error_code error;
-    fs::remove_all(mount.directory, error);
-    if (error)
-        target_error("cannot remove browse session directory");
-    if (!mount.target_released) {
+    mount_store_.remove_session_directory(mount.mount);
+    if (!mount.mount.target_released) {
         if (release_live_target) {
-            release_target(mount.target_key);
-        } else if (mount.target_mounted_by_backend) {
-            if (targets_.contains(mount.target_key))
+            release_target(mount.mount.target_key);
+        } else if (mount.mount.target_mounted_by_backend) {
+            if (targets_.contains(mount.mount.target_key))
                 target_error("stale target cleanup is deferred while the target is in use");
-            const auto result = units_.stop_unit({mount.target_unit, std::chrono::minutes(2)});
+            const auto result = units_.stop_unit({mount.mount.target_unit, std::chrono::minutes(2)});
             if (!result)
                 target_error("cannot unmount backup target after stale browse session");
         }
-        mount.target_released = true;
-        write_marker(session_id, mount);
+        mount.mount.target_released = true;
+        mount_store_.write(session_id, mount.mount);
     }
-    if (!fs::remove(mount.marker, error) || error)
-        target_error("cannot remove browse session cleanup marker");
+    mount_store_.remove_marker(mount.mount);
 }
 
 void SystemBrowseSessionBackend::close(const BrowseSessionId& session_id) {
@@ -422,36 +255,37 @@ void SystemBrowseSessionBackend::close(const BrowseSessionId& session_id) {
 }
 
 void SystemBrowseSessionBackend::cleanup_stale() {
-    if (!fs::exists(session_root_))
-        return;
-    require_root_directory(session_root_);
-    const fs::path state_root = session_root_ / ".state";
-    require_private_directory(state_root, 0700, 0);
+    std::set<std::string> live_session_ids;
+    for (const auto& [id, session] : sessions_) {
+        (void)session;
+        live_session_ids.insert(id);
+    }
+    auto stored_records = mount_store_.stale_records(live_session_ids);
     std::vector<std::pair<BrowseSessionId, SessionMount>> records;
-    for (const auto& entry : fs::directory_iterator(state_root)) {
-        if (entry.is_symlink() || !entry.is_regular_file() || entry.path().extension() != ".json")
-            continue;
-        if (sessions_.contains(entry.path().stem().string()))
-            continue;
-        auto record = read_marker(entry.path());
-        if (!record.has_value())
-            continue;
-        records.emplace_back(BrowseSessionId{entry.path().stem().string()}, std::move(*record));
+    records.reserve(stored_records.size());
+    for (auto& [id, record] : stored_records) {
+        records.emplace_back(std::move(id), SessionMount{
+                                                .mount = std::move(record),
+                                                .repository_cached = false,
+                                                .repository_document = {},
+                                                .snapshots = {},
+                                                .previous_versions = {},
+                                            });
     }
     std::set<std::string> targets_with_mounted_views;
     for (auto& [id, record] : records) {
-        if (record.view_mounted) {
+        if (record.mount.view_mounted) {
             try {
-                unmount(id, record.view);
-                record.view_mounted = false;
-                write_marker(id, record);
+                unmount(id, record.mount.view);
+                record.mount.view_mounted = false;
+                mount_store_.write(id, record.mount);
             } catch (...) {}
         }
-        if (record.view_mounted)
-            targets_with_mounted_views.insert(record.target_key);
+        if (record.mount.view_mounted)
+            targets_with_mounted_views.insert(record.mount.target_key);
     }
     for (auto& [id, record] : records) {
-        if (record.view_mounted || targets_with_mounted_views.contains(record.target_key))
+        if (record.mount.view_mounted || targets_with_mounted_views.contains(record.mount.target_key))
             continue;
         try {
             cleanup_record(id, record, false);
@@ -467,37 +301,7 @@ std::vector<BrowseEntryInfo> SystemBrowseSessionBackend::list_directory(
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!root.valid())
-        browse_path_error("cannot open browse session view");
-    OwnedFileDescriptor directory = open_beneath(root.get(), relative_path, O_RDONLY | O_DIRECTORY);
-    const int duplicate = dup(directory.get());
-    if (duplicate < 0)
-        browse_path_error("cannot duplicate browse directory");
-    std::unique_ptr<DIR, DirectoryCloser> stream(fdopendir(duplicate));
-    if (!stream) {
-        ::close(duplicate);
-        browse_path_error("cannot open browse directory stream");
-    }
-    std::vector<BrowseEntryInfo> result;
-    errno = 0;
-    while (dirent* item = readdir(stream.get())) {
-        const std::string name = item->d_name;
-        if (name == "." || name == ".." || name == ".incoming")
-            continue;
-        try {
-            BrowseEntryInfo info = entry_info(directory.get(), name);
-            if (result.size() >= maximum_entries)
-                throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "browse directory exceeds the safe entry limit");
-            result.push_back(std::move(info));
-        } catch (const std::invalid_argument&) {
-            continue;
-        }
-        errno = 0;
-    }
-    if (errno != 0)
-        browse_path_error("cannot read browse directory");
-    return result;
+    return filesystem_access_.list_directory(session->second.mount.view, relative_path, maximum_entries);
 }
 
 BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
@@ -509,36 +313,12 @@ BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!root.valid())
-        browse_path_error("cannot open browse session view");
-    OwnedFileDescriptor directory = open_beneath(root.get(), relative_path, O_RDONLY | O_DIRECTORY);
-    const int duplicate = dup(directory.get());
-    if (duplicate < 0)
-        browse_path_error("cannot duplicate browse directory");
-    std::unique_ptr<DIR, DirectoryCloser> stream(fdopendir(duplicate));
-    if (!stream) {
-        ::close(duplicate);
-        browse_path_error("cannot open browse directory stream");
-    }
-
-    BrowseDirectoryPageCollector entries(maximum_entries);
-    errno = 0;
-    while (dirent* item = readdir(stream.get())) {
-        const std::string name = item->d_name;
-        if (name == "." || name == ".." || name == ".incoming" || name <= after_name)
-            continue;
-        try {
-            entries.add(entry_info(directory.get(), name));
-        } catch (const std::invalid_argument&) {
-            continue;
-        }
-        errno = 0;
-    }
-    if (errno != 0)
-        browse_path_error("cannot read browse directory");
-
-    return entries.finish();
+    return filesystem_access_.list_directory_page(
+        session->second.mount.view,
+        relative_path,
+        after_name,
+        maximum_entries
+    );
 }
 
 void SystemBrowseSessionBackend::ensure_repository_cache(SessionMount& mount) {
@@ -555,7 +335,7 @@ void SystemBrowseSessionBackend::ensure_repository_cache(SessionMount& mount) {
             value->received_uuid.value(),
         }};
     });
-    const auto catalog = discovery.discover(mount.view);
+    const auto catalog = discovery.discover(mount.mount.view);
     config::json::Json snapshots = config::json::Json::array();
     std::vector<CachedSnapshot> cached_snapshots;
     cached_snapshots.reserve(catalog.snapshots().size());
@@ -607,18 +387,11 @@ PreviousVersionsPage SystemBrowseSessionBackend::list_previous_versions(
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
 
-    fs::path normalized_path;
-    for (const auto& component : validated_components(relative_path))
-        normalized_path /= component;
-    if (normalized_path.empty())
-        normalized_path = ".";
+    const fs::path normalized_path = BrowseFilesystemAccess::normalize_relative_path(relative_path);
     const std::string cache_key = profile_id + '\0' + source_id + '\0' + normalized_path.generic_string();
     ensure_repository_cache(session->second);
     auto cached = session->second.previous_versions.find(cache_key);
     if (cached == session->second.previous_versions.end()) {
-        OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-        if (!root.valid())
-            browse_path_error("cannot open browse session view");
         std::vector<CachedSnapshot> candidates;
         for (const CachedSnapshot& snapshot : session->second.snapshots) {
             if (snapshot.verified && snapshot.profile_id == profile_id && snapshot.source_id == source_id)
@@ -637,26 +410,17 @@ PreviousVersionsPage SystemBrowseSessionBackend::list_previous_versions(
             if (normalized_path != ".")
                 entry_path /= normalized_path;
             try {
-                OwnedFileDescriptor entry = open_beneath(root.get(), entry_path, O_PATH);
-                struct stat status{};
-                if (fstat(entry.get(), &status) != 0)
-                    browse_path_error("cannot inspect previous version");
-                if (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode))
-                    continue;
+                BrowseEntryInfo entry = filesystem_access_.inspect_entry(session->second.mount.view, entry_path);
                 result.entries.push_back({
                     snapshot.snapshot_id,
                     snapshot.created_at,
-                    {
-                        normalized_path.filename().string(),
-                        S_ISDIR(status.st_mode),
-                        S_ISREG(status.st_mode) ? static_cast<std::uint64_t>(status.st_size) : 0,
-                        static_cast<std::uint32_t>(status.st_mode),
-                        status.st_mtim.tv_sec,
-                    },
+                    std::move(entry),
                 });
             } catch (const std::system_error& error) {
                 if (error.code().value() != ENOENT && error.code().value() != ENOTDIR)
                     throw;
+            } catch (const std::invalid_argument&) {
+                continue;
             }
         }
         cached = session->second.previous_versions.emplace(cache_key, std::move(result)).first;
@@ -684,22 +448,7 @@ BrowseEntryInfo SystemBrowseSessionBackend::inspect_entry(
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!root.valid())
-        browse_path_error("cannot open browse session view");
-    OwnedFileDescriptor entry = open_beneath(root.get(), relative_path, O_PATH);
-    struct stat status{};
-    if (fstat(entry.get(), &status) != 0)
-        browse_path_error("cannot inspect browse entry");
-    if (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode))
-        throw std::invalid_argument("browse entry has an unsupported type");
-    return {
-        relative_path.filename().string(),
-        S_ISDIR(status.st_mode),
-        S_ISREG(status.st_mode) ? static_cast<std::uint64_t>(status.st_size) : 0,
-        static_cast<std::uint32_t>(status.st_mode),
-        status.st_mtim.tv_sec,
-    };
+    return filesystem_access_.inspect_entry(session->second.mount.view, relative_path);
 }
 
 OwnedFileDescriptor SystemBrowseSessionBackend::open_file(
@@ -709,26 +458,14 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_file(
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!root.valid())
-        browse_path_error("cannot open browse session view");
-    OwnedFileDescriptor result = open_beneath(root.get(), relative_path, O_RDONLY | O_NONBLOCK);
-    struct stat status{};
-    if (fstat(result.get(), &status) != 0)
-        browse_path_error("cannot inspect browse file");
-    if (!S_ISREG(status.st_mode))
-        throw std::invalid_argument("browse entry is not a regular file");
-    return result;
+    return filesystem_access_.open_file(session->second.mount.view, relative_path);
 }
 
 OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId& session_id) {
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!root.valid())
-        browse_path_error("cannot open browse session root");
-    return root;
+    return filesystem_access_.open_root(session->second.mount.view);
 }
 
 std::string SystemBrowseSessionBackend::inspect_repository(const BrowseSessionId& session_id) {

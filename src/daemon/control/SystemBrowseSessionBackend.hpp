@@ -12,6 +12,8 @@
 #include <backup/ports/IMountInspector.hpp>
 #include <config/ports/IProfileRepository.hpp>
 #include <daemon/control/BrowseSessionService.hpp>
+#include <daemon/control/BrowseFilesystemAccess.hpp>
+#include <daemon/control/BrowseSessionMountStore.hpp>
 #include <daemon/control/SystemdUnitController.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 
@@ -90,15 +92,7 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         bool mounted_by_backend = false;
     };
     struct SessionMount {
-        std::string target_key;
-        std::string target_unit;
-        std::filesystem::path directory;
-        std::filesystem::path view;
-        std::filesystem::path marker;
-        std::uint32_t caller_uid = 0;
-        bool view_mounted = false;
-        bool target_mounted_by_backend = false;
-        bool target_released = false;
+        BrowseSessionMountRecord mount;
         bool repository_cached = false;
         std::string repository_document;
         std::vector<CachedSnapshot> snapshots;
@@ -113,15 +107,14 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         const std::filesystem::path& target
     );
     void unmount(const BrowseSessionId& session_id, const std::filesystem::path& target);
-    void write_marker(const BrowseSessionId& id, const SessionMount& mount);
-    [[nodiscard]] std::optional<SessionMount> read_marker(const std::filesystem::path& marker) const;
     void cleanup_record(const BrowseSessionId& session_id, SessionMount& mount, bool release_live_target);
     void ensure_repository_cache(SessionMount& mount);
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::backup::IMountInspector& mounts_;
     ISystemdUnitController& units_;
-    std::filesystem::path session_root_;
+    BrowseFilesystemAccess filesystem_access_;
+    BrowseSessionMountStore mount_store_;
     std::filesystem::path lock_root_;
     std::map<std::string, std::unique_ptr<TargetLease>> targets_;
     std::map<std::string, SessionMount> sessions_;

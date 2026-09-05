@@ -77,6 +77,21 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-browse-filesystem-access-tests
+    BrowseFilesystemAccessTests.cpp
+    browse-filesystem-access-tests
+    btrfsbackup-daemon-system-control
+)
+
+add_btrfsbackup_test(
+    btrfsbackup-browse-session-mount-store-tests
+    BrowseSessionMountStoreTests.cpp
+    browse-session-mount-store-tests
+    btrfsbackup-daemon-system-control
+    btrfsbackup-config-json
+)
+
+add_btrfsbackup_test(
     btrfsbackup-profile-administration-service-tests
     ProfileAdministrationServiceTests.cpp
     profile-administration-service-tests

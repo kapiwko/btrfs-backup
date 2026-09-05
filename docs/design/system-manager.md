@@ -58,6 +58,7 @@ EndBrowseOperation
 CloseBrowseSession
 ListBrowseDirectory
 ListBrowseDirectoryPage
+ListPreviousVersions
 InspectBrowseEntry
 OpenBrowseFile
 OpenBrowseRoot
@@ -88,6 +89,14 @@ structured details cross the bus; presentation text remains a client concern.
 Capabilities independently advertise D-Bus API, profile schema, public status
 schema, history schema and optional features. Clients reject incompatible
 major versions and tolerate unknown optional fields.
+
+Browse-session orchestration is split across three focused components.
+`SystemBrowseSessionBackend` owns target locking plus bind-mount and unmount
+ordering. `BrowseFilesystemAccess` owns descriptor-relative path validation and
+read-only list, inspect and open operations. `BrowseSessionMountStore` owns the
+unchanged marker schema v1, trusted session directories and stale-record
+enumeration. This keeps persisted cleanup recovery separate from filesystem
+entry access while preserving the existing marker paths and cleanup sequence.
 
 ## State Ownership
 
