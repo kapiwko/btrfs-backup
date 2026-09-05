@@ -56,6 +56,7 @@ def scenario_specs(only: str, kcm_page: str) -> list[dict[str, str]]:
             "profile-details": (("connected", "system-settings-profile-details.png"),),
             "profile-settings": (("connected", "system-settings-profile-settings.png"),),
             "history": (("connected", "system-settings-history.png"),),
+            "notification-settings": (("connected", "system-settings-notification-settings.png"),),
             "new-profile": (("connected", "system-settings-new-profile.png"),),
             "new-profile-adopt": (("connected", "system-settings-new-profile-adopt.png"),),
             "new-profile-adopt-partition": (("connected", "system-settings-new-profile-adopt-partition.png"),),
