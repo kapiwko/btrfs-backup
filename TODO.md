@@ -2,12 +2,10 @@
 
 ## 4.0 Release Gate
 
-Current decision: **NO-GO** because pacman does not abort an upgrade when an
-Arch `pre_upgrade` install scriptlet fails. A real `v3.2.0` to 4.0 transaction
-with an installed legacy profile returned success and replaced the package.
-The runtime rejected the profile without modifying it, but the documented
-package-level fail-closed guarantee cannot be met by an incoming Arch
-install scriptlet.
+Current decision: **NO-GO** until the last 3.2.x bridge release ships the ALPM
+pre-transaction migration hook and the three real upgrade paths pass. The 4.0
+package definition now preserves that `AbortOnFail` hook, but an incoming
+package cannot install a hook early enough to guard its own transaction.
 
 ### Verified Gates
 
@@ -44,11 +42,11 @@ The following are evidence, not active tasks:
 
 ### Required Before 4.0
 
-Provide an Arch pre-transaction guard from a 3.2.x bridge package, or change
-the Arch upgrade design so pacman can reject incompatible installed profiles
-before file replacement. Then verify both the successful exported-v4 path and
-the rejected legacy path in real pacman transactions, and rerun the remote
-release gates for the final candidate.
+Backport `upgrade preflight` and `profile export-v4` plus
+`90-btrfs-backup-v4-migration.hook` to the final 3.2.x bridge package. Verify
+legacy rejection, exported-and-saved v4 success, and no-profile success in real
+pacman transactions. Then rerun the remote release gates for the final
+candidate.
 
 ### Accepted Non-Blocking 4.0 Residual Risk
 

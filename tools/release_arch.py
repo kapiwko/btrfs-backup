@@ -47,7 +47,9 @@ def build_arch_package(root: Path, stage: Path, destination: Path, version: str,
                        arch: str, epoch: int, *, kde: bool = False) -> Path:
     package_name = "btrfs-backup-kde" if kde else "btrfs-backup"
     if not kde:
-        shutil.copy2(root / "packaging/arch/btrfs-backup.install", stage / ".INSTALL")
+        hook = stage / "usr/share/libalpm/hooks/90-btrfs-backup-v4-migration.hook"
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(root / "packaging/arch/90-btrfs-backup-v4-migration.hook", hook)
     installed_size = sum(path.stat().st_size for path in stage.rglob("*") if path.is_file())
     dependencies = (
         [f"btrfs-backup={version}-1", "kcoreaddons", "ki18n", "kirigami", "kjobwidgets",

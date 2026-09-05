@@ -46,10 +46,10 @@ referenced key files remain excluded and must be backed up separately.
 
 Arch, DEB, RPM and Gentoo package upgrades now invoke the installed preflight
 whenever profiles exist. DEB, RPM and Gentoo fail closed for incompatible
-profiles and installations too old to provide the migration command. Pacman
-does not abort an Arch transaction when `pre_upgrade` fails, so Arch users must
-complete preflight and the v4 export before invoking `pacman -U`; direct Arch
-upgrades from 3.2.0 with installed profiles are unsupported.
+profiles and installations too old to provide the migration command. Arch uses
+an ALPM `PreTransaction` hook with `AbortOnFail`; it must be installed first by
+the final 3.2.x bridge release. Direct Arch upgrades from 3.2.0 remain
+unsupported because an incoming package cannot guard its own transaction.
 
 There is no automatic or in-place 3.x profile migration in 4.0.0. Export schema
 version 4 profiles before upgrading, save them explicitly so all generated

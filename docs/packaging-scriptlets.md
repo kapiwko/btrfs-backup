@@ -8,7 +8,7 @@ check is read-only and never edits administrator configuration.
 
 | Package path | Lifecycle code | Replacement or reason |
 |---|---|---|
-| Arch base package | `pre_upgrade` | Runs the installed migration preflight and emits a diagnostic; pacman does not abort on a failing install scriptlet |
+| Arch base package | ALPM `PreTransaction` hook with `AbortOnFail` | Runs the installed migration preflight before package replacement; it must arrive in the 3.2.x bridge package |
 | Arch KDE package | None | Standard Plasma and desktop database hooks; session restart is a user choice |
 | CPack DEB/RPM | `preinst`/`%pre` | Runs the installed migration preflight when profiles exist |
 | RPM and Gentoo definitions | `%pre`/`pkg_preinst` | Runs the installed migration preflight when profiles exist |
@@ -36,12 +36,13 @@ sudo btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-bef
 An exit status of `1` from preflight blocks DEB, RPM and Gentoo package
 transactions. If the installed binary predates the migration command, those
 transactions also stop and request installation of the latest 3.2.x bridge
-release. Pacman treats a nonzero `pre_upgrade` result as a scriptlet warning and
-continues the transaction, so Arch upgrades must run the two commands above
-before `pacman -U`; a direct 3.2.0 to 4.0 transaction with installed profiles is
-unsupported. The 4.0 runtime still rejects legacy profiles and does not mutate
-them. Legacy profiles are exported explicitly, saved as v4 while the old
-installation is still active, and checked again.
+release. On Arch, that bridge installs
+`90-btrfs-backup-v4-migration.hook`; its `AbortOnFail` stops the transaction
+before replacement when the installed preflight rejects a profile. A direct
+3.2.0 to 4.0 transaction remains unsupported because an incoming package's
+hook is not visible before its own transaction. The 4.0 runtime still rejects
+legacy profiles and does not mutate them. Legacy profiles are exported
+explicitly, saved as v4 while the bridge is active, and checked again.
 
 After an upgrade that changes generated artifacts, the administrator performs
 the regeneration explicitly:
