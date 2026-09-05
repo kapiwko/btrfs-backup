@@ -83,12 +83,23 @@ Item {
         blockers: [],
         regions: []
     })
+    readonly property var blockedDevice: ({
+        candidateId: "blocked-device",
+        displayIndex: 4,
+        sizeBytes: 536870912,
+        logicalSectorSize: 512,
+        systemDevice: false,
+        mounted: false,
+        containsData: true,
+        blockers: [{code: "unsupported-block-stack"}],
+        regions: []
+    })
 
     QtObject { id: editor }
 
     QtObject {
         id: provisioning
-        property var devices: [root.systemDevice, root.mountedDataDevice, root.device]
+        property var devices: [root.systemDevice, root.mountedDataDevice, root.blockedDevice, root.device]
         property var topology: ({generation: "topology-1", devices: devices})
         property var inspection: ({})
         property var plan: ({
@@ -122,6 +133,7 @@ Item {
         function poll() {}
         function cancel() {}
         function clearError() {}
+        function formatBytes(bytes) { return String(bytes) + " B" }
     }
 
     UI.NewProfilePage {
@@ -143,9 +155,15 @@ Item {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
-                    || page.unavailableDevices.length !== 2
+                    || page.unavailableDevices.length !== 3
                     || page.selectedSourceCandidate?.id !== "source-home") {
                 console.error("Free-space source candidate bindings are invalid")
+                Qt.exit(1)
+                return
+            }
+            if (page.unavailableReason(root.blockedDevice)
+                    === page.blockerReason({code: "unknown"})) {
+                console.error("Blocked storage device reason is not presented")
                 Qt.exit(1)
                 return
             }
