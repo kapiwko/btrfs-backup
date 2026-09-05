@@ -61,6 +61,7 @@ class RecordingBackend final : public IOperationalControlBackend {
     };
     std::vector<std::string> effects;
     std::vector<AuthorizedOperationContext> contexts;
+    bool fail_eject = false;
 
     OperationalResourceVersion inspect_profile(const ProfileId&) const override {
         return version;
@@ -95,6 +96,8 @@ class RecordingBackend final : public IOperationalControlBackend {
 
     void eject_target(const AuthorizedOperationContext& context) override {
         require_version(context);
+        if (fail_eject)
+            throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, "eject failed");
         contexts.push_back(context);
         effects.push_back("eject:" + std::string(context.profile_id.value()));
     }
@@ -223,6 +226,7 @@ void test_eject_preparation_runs_after_authorization() {
     RecordingAuthorizer authorizer;
     RecordingBackend backend;
     std::vector<std::string> prepared;
+    std::vector<std::string> completed;
     OperationalControlService service(
         authorizer,
         backend,
@@ -234,13 +238,14 @@ void test_eject_preparation_runs_after_authorization() {
                 backend.effects.empty(),
                 "eject backend ran before browse sessions were prepared"
             );
-        }
+        },
+        [&](const ProfileId& profile_id) { completed.emplace_back(profile_id.value()); }
     );
 
     (void)service.eject_target(":1.55", "default");
     test_helpers::expect_true(
         "eject preparation",
-        prepared == std::vector<std::string>{"default"} &&
+        prepared == std::vector<std::string>{"default"} && completed == prepared &&
             backend.effects == std::vector<std::string>{"eject:default"},
         "authorized eject did not prepare browse sessions before the backend effect"
     );
@@ -253,6 +258,28 @@ void test_eject_preparation_runs_after_authorization() {
         "denied eject preparation skipped",
         prepared.size() == 1,
         "unauthorized eject closed browse sessions"
+    );
+}
+
+void test_eject_completion_runs_after_backend_failure() {
+    RecordingAuthorizer authorizer;
+    RecordingBackend backend;
+    backend.fail_eject = true;
+    std::vector<std::string> lifecycle;
+    OperationalControlService service(
+        authorizer,
+        backend,
+        {},
+        [&](const ProfileId&) { lifecycle.emplace_back("prepare"); },
+        [&](const ProfileId&) { lifecycle.emplace_back("complete"); }
+    );
+    expect_manager_error("failed eject", ManagerErrorCode::TargetUnavailable, [&] {
+        (void)service.eject_target(":1.57", "default");
+    });
+    test_helpers::expect_true(
+        "failed eject completes lifecycle",
+        lifecycle == std::vector<std::string>{"prepare", "complete"},
+        "failed eject left browse opening suspended"
     );
 }
 
@@ -283,6 +310,7 @@ int main() {
     test_authorization_is_caller_bound_and_not_cached();
     test_caller_disconnect_during_authorization();
     test_eject_preparation_runs_after_authorization();
+    test_eject_completion_runs_after_backend_failure();
     test_profile_change_during_authorization();
     return test_helpers::finish("operational control service tests");
 }

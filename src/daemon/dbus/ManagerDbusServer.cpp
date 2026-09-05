@@ -226,7 +226,8 @@ int run_dbus_server(
         authorizer,
         operational_backend,
         {},
-        [&](const ProfileId& profile_id) { browse_sessions.close_for_profile(profile_id); }
+        [&](const ProfileId& profile_id) { browse_sessions.begin_target_eject(profile_id); },
+        [&](const ProfileId& profile_id) { browse_sessions.end_target_eject(profile_id); }
     );
     ManagerDbusObject object(
         service,

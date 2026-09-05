@@ -210,6 +210,11 @@ BrowseSessionInfo BrowseSessionService::open(
     if (caller_bus_name.empty() || !authorizer_.authorize(caller_bus_name, ManagerAuthorizationAction::OpenBrowseSession) ||
         !authorizer_.caller_is_active(caller_bus_name))
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, "browse session is not authorized");
+    if (ejecting_profiles_.contains(profile))
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Busy,
+            "backup target is being ejected"
+        );
     if (sessions_.size() >= global_limit_)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "browse session limit reached");
     const auto caller_sessions = std::ranges::count_if(sessions_, [&](const auto& item) {
@@ -475,23 +480,36 @@ void BrowseSessionService::close_for_caller(const std::string& caller_bus_name) 
     }
 }
 
-void BrowseSessionService::close_for_profile(const ProfileId& profile_id) {
+void BrowseSessionService::begin_target_eject(const ProfileId& profile_id) {
+    if (!ejecting_profiles_.insert(profile_id).second)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "backup target is already being ejected");
     const bool active_operation = std::ranges::any_of(sessions_, [&](const auto& item) {
         return item.second.profile_id == profile_id && !item.second.operation_leases.empty();
     });
-    if (active_operation)
+    if (active_operation) {
+        ejecting_profiles_.erase(profile_id);
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::Busy,
             "backup browsing operation is active"
         );
-    for (auto session = sessions_.begin(); session != sessions_.end();) {
-        if (session->second.profile_id != profile_id) {
-            ++session;
-            continue;
-        }
-        auto current = session++;
-        close_session(current, BrowseSessionCloseReason::TargetEject);
     }
+    try {
+        for (auto session = sessions_.begin(); session != sessions_.end();) {
+            if (session->second.profile_id != profile_id) {
+                ++session;
+                continue;
+            }
+            auto current = session++;
+            close_session(current, BrowseSessionCloseReason::TargetEject);
+        }
+    } catch (...) {
+        ejecting_profiles_.erase(profile_id);
+        throw;
+    }
+}
+
+void BrowseSessionService::end_target_eject(const ProfileId& profile_id) noexcept {
+    ejecting_profiles_.erase(profile_id);
 }
 
 void BrowseSessionService::expire() noexcept {
