@@ -1151,6 +1151,12 @@ msgstr[0] "%1 niedostępne urządzenie"
 msgstr[1] "%1 niedostępne urządzenia"
 msgstr[2] "%1 niedostępnych urządzeń"
 
+msgid "Show unavailable devices"
+msgstr "Pokaż niedostępne urządzenia"
+
+msgid "Hide unavailable devices"
+msgstr "Ukryj niedostępne urządzenia"
+
 msgid "How do you want to use this device?"
 msgstr "Jak chcesz użyć tego urządzenia?"
 
