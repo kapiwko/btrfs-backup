@@ -19,6 +19,7 @@
 #include <QJsonObject>
 #include <QLocale>
 #include <QMimeDatabase>
+#include <QScopeGuard>
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -338,6 +339,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_snapshots(const QString& profile) {
 }
 
 KIO::WorkerResult BtrfsBackupWorker::listDir(const QUrl& url) {
+    const auto session_cleanup = qScopeGuard([this] { close_sessions(); });
     const auto parsed = parse(url);
     if (!parsed)
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
@@ -482,6 +484,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
 }
 
 KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
+    const auto session_cleanup = qScopeGuard([this] { close_sessions(); });
     const auto parsed = parse(url);
     Session* active = parsed ? session(parsed->profile) : nullptr;
     if (active == nullptr)
@@ -526,6 +529,11 @@ KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
 }
 
 KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode mode) {
+    bool keep_session = false;
+    const auto session_cleanup = qScopeGuard([this, &keep_session] {
+        if (!keep_session)
+            close_sessions();
+    });
     if (mode != QIODevice::ReadOnly)
         return read_only_failure();
     close_open_file();
@@ -553,6 +561,7 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
             return KIO::WorkerResult::fail(KIO::ERR_CANNOT_READ);
         }
         totalSize(status.st_size);
+        keep_session = true;
         return KIO::WorkerResult::pass();
     } catch (...) {
         (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(active->id, *operation_lease);
@@ -593,10 +602,12 @@ KIO::WorkerResult BtrfsBackupWorker::seek(KIO::filesize_t offset) {
 
 KIO::WorkerResult BtrfsBackupWorker::close() {
     close_open_file();
+    close_sessions();
     return KIO::WorkerResult::pass();
 }
 
 KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
+    const auto session_cleanup = qScopeGuard([this] { close_sessions(); });
     const auto parsed = parse(url);
     if (!parsed)
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
@@ -634,6 +645,7 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
 }
 
 KIO::WorkerResult BtrfsBackupWorker::mimetype(const QUrl& url) {
+    const auto session_cleanup = qScopeGuard([this] { close_sessions(); });
     const auto parsed = parse(url);
     if (!parsed)
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
