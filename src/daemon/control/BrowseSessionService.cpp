@@ -30,7 +30,8 @@ char hex_digit(unsigned int value) {
 std::string hex_encode(std::string_view value) {
     std::string result;
     result.reserve(value.size() * 2);
-    for (const unsigned char byte : value) {
+    for (const char character : value) {
+        const auto byte = static_cast<unsigned char>(character);
         result.push_back(hex_digit(byte >> 4));
         result.push_back(hex_digit(byte & 0x0f));
     }
