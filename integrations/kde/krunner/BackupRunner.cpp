@@ -3,6 +3,7 @@
 
 #include "BackupRunner.hpp"
 
+#include "DesktopLauncher.hpp"
 #include "ManagerApi.hpp"
 #include "RunnerCommandParser.hpp"
 
@@ -14,11 +15,12 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QFileInfo>
-#include <QProcess>
 #include <QUrl>
 #include <QVariantMap>
 
 #include <core/ManagerProtocol.hpp>
+
+#include <utility>
 
 using Qt::StringLiterals::operator""_s;
 
@@ -35,11 +37,16 @@ std::optional<QString> payload(QDBusPendingCall call) {
 QString operation_name(btrfsbackup::kde::krunner::CommandKind kind) {
     using btrfsbackup::kde::krunner::CommandKind;
     switch (kind) {
-    case CommandKind::Start: return u"start"_s;
-    case CommandKind::Status: return u"status"_s;
-    case CommandKind::Browse: return u"browse"_s;
-    case CommandKind::Versions: return u"versions"_s;
-    case CommandKind::Eject: return u"eject"_s;
+    case CommandKind::Start:
+        return u"start"_s;
+    case CommandKind::Status:
+        return u"status"_s;
+    case CommandKind::Browse:
+        return u"browse"_s;
+    case CommandKind::Versions:
+        return u"versions"_s;
+    case CommandKind::Eject:
+        return u"eject"_s;
     }
     return {};
 }
@@ -66,23 +73,28 @@ void BackupRunner::match(KRunner::RunnerContext& context) {
     QString required_feature;
     using btrfsbackup::kde::krunner::CommandKind;
     switch (command->kind) {
-    case CommandKind::Start: required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::start_backup); break;
-    case CommandKind::Status: required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::status); break;
+    case CommandKind::Start:
+        required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::start_backup);
+        break;
+    case CommandKind::Status:
+        required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::status);
+        break;
     case CommandKind::Browse:
-    case CommandKind::Versions: required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::browse_backups); break;
-    case CommandKind::Eject: required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::eject_target); break;
+    case CommandKind::Versions:
+        required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::browse_backups);
+        break;
+    case CommandKind::Eject:
+        required_feature = QLatin1String(btrfsbackup::manager_protocol::feature::eject_target);
+        break;
     }
     if (!capabilities->features.contains(required_feature))
         return;
     if (command->kind == btrfsbackup::kde::krunner::CommandKind::Status ||
         command->kind == btrfsbackup::kde::krunner::CommandKind::Versions) {
         KRunner::QueryMatch result(this);
-        result.setIconName(command->kind == btrfsbackup::kde::krunner::CommandKind::Status
-            ? u"drive-harddisk-symbolic"_s : u"view-history"_s);
-        result.setText(command->kind == btrfsbackup::kde::krunner::CommandKind::Status
-            ? i18n("Show backup status") : i18n("Find previous backup versions"));
-        result.setSubtext(command->kind == btrfsbackup::kde::krunner::CommandKind::Status
-            ? i18n("Open the backup control module") : command->argument);
+        result.setIconName(command->kind == btrfsbackup::kde::krunner::CommandKind::Status ? u"drive-harddisk-symbolic"_s : u"view-history"_s);
+        result.setText(command->kind == btrfsbackup::kde::krunner::CommandKind::Status ? i18n("Show backup status") : i18n("Find previous backup versions"));
+        result.setSubtext(command->kind == btrfsbackup::kde::krunner::CommandKind::Status ? i18n("Open the backup control module") : command->argument);
         result.setData(QVariantMap{{u"operation"_s, operation_name(command->kind)}, {u"argument"_s, command->argument}});
         context.addMatch(result);
         return;
@@ -97,8 +109,7 @@ void BackupRunner::match(KRunner::RunnerContext& context) {
             !profile.name.contains(command->argument, Qt::CaseInsensitive))
             continue;
         KRunner::QueryMatch result(this);
-        result.setIconName(command->kind == btrfsbackup::kde::krunner::CommandKind::Browse
-            ? u"folder-open-symbolic"_s : u"drive-harddisk-symbolic"_s);
+        result.setIconName(command->kind == btrfsbackup::kde::krunner::CommandKind::Browse ? u"folder-open-symbolic"_s : u"drive-harddisk-symbolic"_s);
         if (command->kind == btrfsbackup::kde::krunner::CommandKind::Start)
             result.setText(i18n("Start backup: %1", profile.name));
         else if (command->kind == btrfsbackup::kde::krunner::CommandKind::Browse)
@@ -116,12 +127,18 @@ void BackupRunner::run(const KRunner::RunnerContext&, const KRunner::QueryMatch&
     const QString operation = data.value(u"operation"_s).toString();
     const QString profile = data.value(u"profile"_s).toString();
     if (operation == u"status"_s) {
-        (void)QProcess::startDetached(u"systemsettings"_s, {u"kcm_btrfsbackup"_s});
+        btrfsbackup::kde::launcher::launch(
+            btrfsbackup::kde::launcher::open_backup_settings(),
+            this
+        );
     } else if (operation == u"browse"_s) {
         QUrl url;
         url.setScheme(u"btrfsbackup"_s);
         url.setPath(u"/"_s + profile);
-        (void)QProcess::startDetached(u"dolphin"_s, {url.toString(QUrl::FullyEncoded)});
+        btrfsbackup::kde::launcher::launch(
+            btrfsbackup::kde::launcher::open_backup_directory(std::move(url)),
+            this
+        );
     } else if (operation == u"versions"_s) {
         resolve_versions(data.value(u"argument"_s).toString());
     } else {
@@ -140,7 +157,7 @@ void BackupRunner::resolve_versions(const QString& value) {
         btrfsbackup::kde::ManagerClient{}.resolveBackupCoverage(local_path),
         this
     );
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [watcher](QDBusPendingCallWatcher*) {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
         const auto coverage = reply.isError() ? std::nullopt : btrfsbackup::kde::parse_backup_coverage(reply.value());
@@ -153,7 +170,10 @@ void BackupRunner::resolve_versions(const QString& value) {
         if (item.relative_path != u"."_s)
             path += u"/"_s + item.relative_path;
         url.setPath(path);
-        (void)QProcess::startDetached(u"dolphin"_s, {url.toString(QUrl::FullyEncoded)});
+        btrfsbackup::kde::launcher::launch(
+            btrfsbackup::kde::launcher::open_backup_directory(std::move(url)),
+            this
+        );
     });
 }
 

@@ -32,6 +32,7 @@ target_link_libraries(
         Qt6::DBus
         KF6::KCMUtilsQuick
         KF6::I18n
+        btrfsbackup_kde_desktop_launcher
         btrfsbackup_kde_manager_client
         btrfsbackup_kde_models
 )
