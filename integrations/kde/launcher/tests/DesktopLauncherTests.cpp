@@ -8,7 +8,13 @@
 using Qt::StringLiterals::operator""_s;
 
 int main() {
-    using namespace btrfsbackup::kde::launcher;
+    using btrfsbackup::kde::launcher::LaunchMethod;
+    using btrfsbackup::kde::launcher::LaunchRequest;
+    using btrfsbackup::kde::launcher::open_backup_directory;
+    using btrfsbackup::kde::launcher::open_backup_settings;
+    using btrfsbackup::kde::launcher::open_partition_manager;
+    using btrfsbackup::kde::launcher::open_restore_application;
+    using btrfsbackup::kde::launcher::open_system_log;
     int failures = 0;
     const auto expect = [&](bool condition, const char* message) {
         if (!condition) {
