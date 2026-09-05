@@ -37,6 +37,26 @@
       }
     },
     {
+      "name": "gcc-manager-disabled",
+      "displayName": "GCC debug build without the system manager",
+      "inherits": "gcc-debug",
+      "binaryDir": "${sourceDir}/build/gcc-manager-disabled",
+      "cacheVariables": {
+        "BUILD_KDE_INTEGRATION": "OFF",
+        "BUILD_SYSTEM_MANAGER": "OFF"
+      }
+    },
+    {
+      "name": "clang-manager-disabled",
+      "displayName": "Clang debug build without the system manager",
+      "inherits": "clang-debug",
+      "binaryDir": "${sourceDir}/build/clang-manager-disabled",
+      "cacheVariables": {
+        "BUILD_KDE_INTEGRATION": "OFF",
+        "BUILD_SYSTEM_MANAGER": "OFF"
+      }
+    },
+    {
       "name": "architecture",
       "displayName": "Clang architecture contract",
       "inherits": "clang-debug",
@@ -119,6 +139,14 @@
       "configurePreset": "clang-debug"
     },
     {
+      "name": "gcc-manager-disabled",
+      "configurePreset": "gcc-manager-disabled"
+    },
+    {
+      "name": "clang-manager-disabled",
+      "configurePreset": "clang-manager-disabled"
+    },
+    {
       "name": "asan-ubsan",
       "configurePreset": "asan-ubsan"
     },
@@ -187,6 +215,20 @@
     {
       "name": "clang-debug",
       "configurePreset": "clang-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-manager-disabled",
+      "configurePreset": "gcc-manager-disabled",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-manager-disabled",
+      "configurePreset": "clang-manager-disabled",
       "output": {
         "outputOnFailure": true
       }
