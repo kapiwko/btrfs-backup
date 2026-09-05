@@ -32,12 +32,12 @@ TestCase {
     }
 
     function test_priority() {
-        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: true, unlocked: true}})),
-                "emblem-unlocked")
+        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: true, unlocked: true}})), "")
         compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: true, spaceBelowMinimum: true}})),
                 "emblem-warning")
-        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: false}})),
-                "emblem-unavailable")
+        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: false}})), "")
+        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({run: {state: "running"}})),
+                "emblem-synchronizing")
         compare(BtrfsBackup.ProfilePresentation.statusIcon(status({lastError: "failed", target: {connected: false}})),
                 "emblem-error")
     }
@@ -47,8 +47,7 @@ TestCase {
         compare(BtrfsBackup.ProfilePresentation.attentionIcon(status({target: {connected: true, unlocked: true}})), "")
         compare(BtrfsBackup.ProfilePresentation.attentionIcon(status({target: {connected: true, spaceBelowMinimum: true}})),
                 "emblem-warning")
-        compare(BtrfsBackup.ProfilePresentation.attentionIcon(status({profileEnabled: true, target: {connected: false}})),
-                "emblem-unavailable")
+        compare(BtrfsBackup.ProfilePresentation.attentionIcon(status({profileEnabled: true, target: {connected: false}})), "")
         compare(BtrfsBackup.ProfilePresentation.attentionIcon(status({lastError: "failed"})), "emblem-error")
     }
 
