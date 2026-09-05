@@ -11,6 +11,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -98,6 +99,77 @@ void throw_if_cancelled(CancellationToken& cancellation) {
     }
 }
 
+[[noreturn]] void throw_copy_failure(
+    const std::string& message,
+    int error_number = errno
+) {
+    if (error_number == 0)
+        error_number = EIO;
+    throw btrfsbackup::restore::RestoreError(
+        error_number == ENOSPC
+            ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+            : btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+        message + ": " + std::strerror(error_number)
+    );
+}
+
+std::uint64_t add_required_bytes(std::uint64_t total, std::uint64_t amount) {
+    if (amount > std::numeric_limits<std::uint64_t>::max() - total)
+        return std::numeric_limits<std::uint64_t>::max();
+    return total + amount;
+}
+
+std::uint64_t required_restore_bytes(
+    const std::filesystem::path& source,
+    const SourceIdentity& identity,
+    CancellationToken& cancellation
+) {
+    throw_if_cancelled(cancellation);
+    const struct stat status = lstat_or_throw(source);
+    if (status.st_dev != identity.device) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::MountBoundaryRejected,
+            "restore source crosses a mount boundary: " + source.string()
+        );
+    }
+    if (S_ISLNK(status.st_mode)) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::SymlinkRejected,
+            "symbolic links are not restored: " + source.string()
+        );
+    }
+    if (S_ISREG(status.st_mode))
+        return status.st_size < 0 ? 0 : static_cast<std::uint64_t>(status.st_size);
+    if (!S_ISDIR(status.st_mode)) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::PathInvalid,
+            "unsupported restore entry type: " + source.string()
+        );
+    }
+
+    std::uint64_t total = 0;
+    for (const std::filesystem::directory_entry& child : std::filesystem::directory_iterator(source))
+        total = add_required_bytes(total, required_restore_bytes(child.path(), identity, cancellation));
+    return total;
+}
+
+std::filesystem::path existing_destination_ancestor(std::filesystem::path path) {
+    std::error_code error;
+    while (!path.empty() && !std::filesystem::exists(path, error)) {
+        if (error) {
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
+                "could not inspect restore destination: " + error.message()
+            );
+        }
+        const std::filesystem::path parent = path.parent_path();
+        if (parent == path)
+            break;
+        path = parent;
+    }
+    return path.empty() ? std::filesystem::path{"/"} : path;
+}
+
 void verify_regular_file(
     const std::filesystem::path& source,
     const std::filesystem::path& destination,
@@ -159,12 +231,8 @@ void copy_extended_attributes(const std::filesystem::path& source, const std::fi
                 "extended attribute changed while restoring: " + name
             );
         }
-        if (::setxattr(destination.c_str(), name.c_str(), value.data(), value.size(), 0) != 0) {
-            throw btrfsbackup::restore::RestoreError(
-                btrfsbackup::restore::RestoreErrorCode::CopyFailed,
-                "could not preserve extended attribute " + name + ": " + std::strerror(errno)
-            );
-        }
+        if (::setxattr(destination.c_str(), name.c_str(), value.data(), value.size(), 0) != 0)
+            throw_copy_failure("could not preserve extended attribute " + name);
     }
 }
 
@@ -209,27 +277,37 @@ void copy_regular_file(
     const btrfsbackup::restore::RestoreProgressSink& progress
 ) {
     std::ifstream input(source, std::ios::binary);
+    errno = 0;
     std::ofstream output(destination, std::ios::binary | std::ios::trunc);
-    if (!input || !output) {
+    const int open_error = errno;
+    if (!input) {
         throw btrfsbackup::restore::RestoreError(
             btrfsbackup::restore::RestoreErrorCode::CopyFailed,
             "could not open restore file: " + source.string()
         );
     }
+    if (!output)
+        throw_copy_failure("could not create restore file " + destination.string(), open_error);
     std::array<char, 64 * 1024> buffer{};
     while (input) {
         throw_if_cancelled(cancellation);
         input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
         const std::streamsize count = input.gcount();
         if (count > 0) {
+            errno = 0;
             output.write(buffer.data(), count);
+            if (!output)
+                throw_copy_failure("could not write restore file " + destination.string());
             statistics.bytes += static_cast<std::uint64_t>(count);
             if (progress)
                 progress({statistics, source});
         }
     }
+    errno = 0;
     output.flush();
-    if (input.bad() || !output) {
+    if (!output)
+        throw_copy_failure("could not flush restore file " + destination.string());
+    if (input.bad()) {
         throw btrfsbackup::restore::RestoreError(
             btrfsbackup::restore::RestoreErrorCode::CopyFailed,
             "restore copy failed: " + source.string()
@@ -278,8 +356,10 @@ void copy_entry(
     std::filesystem::create_directory(destination, create_error);
     if (create_error && create_error != std::errc::file_exists) {
         throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
-            "could not create restore directory: " + destination.string()
+            create_error == std::errc::no_space_on_device
+                ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+                : btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+            "could not create restore directory " + destination.string() + ": " + create_error.message()
         );
     }
     ++statistics.directories;
@@ -302,6 +382,37 @@ bool PosixRestoreOperations::exists(const std::filesystem::path& path) const {
     return std::filesystem::exists(std::filesystem::symlink_status(path, error));
 }
 
+void PosixRestoreOperations::ensure_sufficient_space(
+    const std::filesystem::path& source,
+    const std::filesystem::path& destination,
+    CancellationToken& cancellation
+) const {
+    reject_symlink_components(source, false);
+    reject_symlink_components(destination.parent_path(), true);
+    const struct stat source_status = lstat_or_throw(source);
+    const std::uint64_t required = required_restore_bytes(
+        source,
+        SourceIdentity{source_status.st_dev},
+        cancellation
+    );
+    const std::filesystem::path ancestor = existing_destination_ancestor(destination.parent_path());
+    std::error_code error;
+    const std::filesystem::space_info space = std::filesystem::space(ancestor, error);
+    if (error) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
+            "could not inspect free space at restore destination: " + error.message()
+        );
+    }
+    if (required > space.available) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::InsufficientSpace,
+            "restore requires " + std::to_string(required) + " bytes but only " +
+                std::to_string(space.available) + " bytes are available"
+        );
+    }
+}
+
 void PosixRestoreOperations::prepare_copy_root(
     const std::filesystem::path& source,
     const std::filesystem::path& path
@@ -313,7 +424,9 @@ void PosixRestoreOperations::prepare_copy_root(
     std::filesystem::create_directories(path.parent_path(), error);
     if (error) {
         throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
+            error == std::errc::no_space_on_device
+                ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+                : btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
             "could not create restore parent: " + path.parent_path().string()
         );
     }
@@ -322,7 +435,9 @@ void PosixRestoreOperations::prepare_copy_root(
         std::filesystem::create_directory(path, error);
         if (error) {
             throw btrfsbackup::restore::RestoreError(
-                btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
+                error == std::errc::no_space_on_device
+                    ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+                    : btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
                 "could not create restore staging directory: " + path.string()
             );
         }
@@ -335,15 +450,21 @@ void PosixRestoreOperations::create_subvolume_root(const std::filesystem::path& 
     std::filesystem::create_directories(path.parent_path(), parent_error);
     if (parent_error) {
         throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
-            "could not create subvolume parent: " + path.parent_path().string()
+            parent_error == std::errc::no_space_on_device
+                ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+                : btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
+            "could not create subvolume parent " + path.parent_path().string() + ": " + parent_error.message()
         );
     }
     reject_symlink_components(path.parent_path(), false);
+    errno = 0;
     const enum btrfs_util_error error = btrfs_util_subvolume_create(path.c_str(), 0, nullptr, nullptr);
+    const int create_error = errno;
     if (error != BTRFS_UTIL_OK) {
         throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+            create_error == ENOSPC
+                ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+                : btrfsbackup::restore::RestoreErrorCode::CopyFailed,
             "could not create restore subvolume " + path.string() + ": " + btrfs_util_strerror(error)
         );
     }
@@ -384,7 +505,9 @@ void PosixRestoreOperations::move(const std::filesystem::path& source, const std
     std::filesystem::rename(source, destination, error);
     if (error) {
         throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+            error == std::errc::no_space_on_device
+                ? btrfsbackup::restore::RestoreErrorCode::InsufficientSpace
+                : btrfsbackup::restore::RestoreErrorCode::CopyFailed,
             "could not commit restore transaction: " + error.message()
         );
     }

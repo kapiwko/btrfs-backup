@@ -11,6 +11,11 @@ namespace btrfsbackup::platform::linux::restore {
 class PosixRestoreOperations final : public btrfsbackup::restore::IRestoreOperations {
   public:
     [[nodiscard]] bool exists(const std::filesystem::path& path) const override;
+    void ensure_sufficient_space(
+        const std::filesystem::path& source,
+        const std::filesystem::path& destination,
+        CancellationToken& cancellation
+    ) const override;
     void prepare_copy_root(
         const std::filesystem::path& source,
         const std::filesystem::path& path
