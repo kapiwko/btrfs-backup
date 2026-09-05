@@ -11,6 +11,7 @@ import org.kde.kirigami as Kirigami
 ColumnLayout {
     id: root
 
+    objectName: "provisioningConfigurationForm"
     required property var workflow
     required property var translations
     readonly property alias profileName: profileNameField.text
@@ -38,6 +39,7 @@ ColumnLayout {
         objectName: "profileDetailsForm"
         Layout.fillWidth: true
         Layout.maximumWidth: root.preferredFormWidth
+        Layout.alignment: Qt.AlignHCenter
         QQC2.TextField {
             id: profileNameField
             Layout.fillWidth: true
@@ -123,6 +125,7 @@ ColumnLayout {
         objectName: "encryptionForm"
         Layout.fillWidth: true
         Layout.maximumWidth: root.preferredFormWidth
+        Layout.alignment: Qt.AlignHCenter
         QQC2.CheckBox {
             id: automaticKeyField
 
