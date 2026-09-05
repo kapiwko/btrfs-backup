@@ -1,0 +1,8 @@
+#compdef btrfs-backup
+
+_arguments \
+  '--profile[select profile]:profile id' \
+  '--force[ignore the daily completion limit]' \
+  '--validate[validate without creating snapshots]' \
+  '--no-eject[leave the target mounted]' \
+  '(-h --help)'{-h,--help}'[show help]'

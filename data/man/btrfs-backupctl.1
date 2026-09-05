@@ -1,0 +1,72 @@
+.TH BTRFS-BACKUPCTL 1 "September 2026" "btrfs-backup 1.0.0" "User Commands"
+.SH NAME
+btrfs-backupctl \- configure, inspect and recover btrfs-backup repositories
+.SH SYNOPSIS
+.B btrfs-backupctl
+.RI [ global-options ]
+.I command
+.RI [ command-options ]
+.SH DESCRIPTION
+.B btrfs-backupctl
+provides profile configuration, status, repository maintenance, backup
+planning, target control and transactional restore commands. Commands that
+change system configuration or target state require the permissions enforced
+by the caller's environment or the system manager.
+.SH GLOBAL OPTIONS
+.TP
+.BI --status-root " PATH"
+Override the status root.
+.TP
+.BI --history-root " PATH"
+Override the history root.
+.TP
+.BI --profile-dir " PATH"
+Override the profile configuration root.
+.TP
+.BR -h , " --help"
+Show command help.
+.SH COMMANDS
+.TP
+.B profile
+List, create, validate, render, save, regenerate, show or export profiles. The
+.B wizard
+subcommand guides interactive configuration.
+.TP
+.B repository rebuild
+Inspect a repository catalog rebuild, or commit it with
+.BR --apply .
+.TP
+.B status
+Show current status, read history, or watch for status changes.
+.TP
+.B installation
+Render or validate systemd and udev installation artifacts.
+.TP
+.B runner
+Plan, execute or cancel a backup run. Machine-readable output is written to
+standard output.
+.TP
+.B restore
+Inspect a catalog, list snapshot contents and versions, preview a restore,
+execute it, or perform a restore drill. Restore execution stages content and
+publishes only a complete result.
+.TP
+.B target
+Activate, deactivate, mount or eject the configured target.
+.TP
+.B upgrade preflight
+Check whether installed profile documents satisfy the current schema.
+.SH EXAMPLES
+.EX
+btrfs-backupctl status show --all --human
+btrfs-backupctl runner plan --profile default --offline
+btrfs-backupctl target mount --profile default
+btrfs-backupctl restore catalog --repository /mnt/backup/btrfs-backup
+.EE
+.SH EXIT STATUS
+The command returns zero on success, one for an operational failure where the
+subcommand defines that distinction, and two for invalid input or usage.
+.SH SEE ALSO
+.BR btrfs-backup (8),
+.BR btrfs (8),
+.BR cryptsetup (8)
