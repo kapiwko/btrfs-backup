@@ -90,6 +90,7 @@ target_link_libraries(btrfsbackup-daemon-control
 )
 
 add_library(btrfsbackup-daemon-system-control STATIC
+    control/BrowseDirectoryPageCollector.cpp
     control/CommandSystemdUnitController.cpp
     control/DestructiveDeviceSafetyInspector.cpp
     control/DevicePreparationExecutor.cpp
@@ -111,6 +112,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
 target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
+        daemon/control/BrowseDirectoryPageCollector.hpp
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/DestructiveDeviceSafetyInspector.hpp
         daemon/control/DevicePreparationTransactionCodec.hpp

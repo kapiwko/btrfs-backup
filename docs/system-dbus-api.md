@@ -159,7 +159,9 @@ API minor version 9 adds `ListBrowseDirectoryPage`. An empty continuation token
 starts a listing; a non-empty token resumes after the last name returned by the
 previous page and is valid only for the same session and normalized relative
 path. Page sizes from 1 through 512 bound response and working-set size. The
-legacy `ListBrowseDirectory` method remains available for API compatibility and
+manager selects that bounded working set in `O(n log page-size)` time instead
+of shifting a sorted page for every candidate. The legacy
+`ListBrowseDirectory` method remains available for API compatibility and
 retains its 10,000-entry safety limit.
 
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
