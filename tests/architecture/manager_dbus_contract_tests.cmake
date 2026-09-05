@@ -264,6 +264,11 @@ assert_authorized_method(
     "<methodname=\"OpenBrowseSession\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
     OpenBrowseSession io.github.btrfsbackup.open-browse-session
 )
+assert_contains(
+    "${compact_polkit_policy}"
+    "<actionid=\"io.github.btrfsbackup.open-browse-session\"><description>Openaread-onlyBtrfsbackupbrowsingsession</description><message>Authenticationisrequiredtobrowsebackupcontents</message><defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults></action>"
+    "administrator authentication for active repository browsing"
+)
 assert_unprivileged_method(
     renew_browse_session RenewBrowseSession s s
     "<methodname=\"RenewBrowseSession\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
@@ -382,8 +387,13 @@ assert_contains(
 )
 assert_contains(
     "${compact_provisioning_kcm}"
-    "{QStringLiteral(\"sourceCandidateId\"),source_candidate_id.trimmed()}"
-    "the KCM caller-bound provisioning source request"
+    "{QStringLiteral(\"candidateId\"),candidate_id}"
+    "the KCM caller-bound provisioning source identifiers"
+)
+assert_contains(
+    "${compact_provisioning_kcm}"
+    "{QStringLiteral(\"sources\"),encoded_sources}"
+    "the KCM multi-source provisioning request"
 )
 assert_not_contains(
     "${manager_provisioning_methods}${provisioning_kcm}"

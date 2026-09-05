@@ -268,16 +268,17 @@ currently open profile, including changes published by the CLI.
 | `InspectBrowseEntry` | session ownership and path confinement | none |
 | `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
 | `OpenBrowseRoot` | session ownership and pinned read-only root | none |
-| `ResolveBackupCoverage` | none | none |
+| `ResolveBackupCoverage` | repository access | `io.github.btrfsbackup.open-browse-session` |
 
 Operational backup controls are allowed without a password from the active
 local session. The profile and hooks remain root-owned, so this grants control
 over an already approved backup definition, not configuration or arbitrary
-code execution. Opening a read-only browse session follows the same rule: an
-active local session may browse an already configured repository without an
-authentication prompt, while inactive and remote sessions still require an
-administrator. An owned session may list confined entries and receive only
-already-open, read-only regular-file descriptors. The daemon rejects absolute
+code execution. Opening a read-only browse session and resolving coverage for
+an arbitrary local path require administrator authentication from active,
+inactive and remote sessions. A successful authorization covers repository
+contents opened by the root manager, including files whose stored ownership or
+mode would deny access to the caller. An owned session may list confined entries
+and receive only already-open, read-only regular-file descriptors. The daemon rejects absolute
 paths, traversal, symlinks, devices and other special files, so repository
 directory permissions never need to be weakened for Dolphin. Eject still
 acquires the target lease and refuses to run while
@@ -287,7 +288,7 @@ the target is in use:
 <defaults>
   <allow_any>no</allow_any>
   <allow_inactive>auth_admin</allow_inactive>
-  <allow_active>yes</allow_active>
+  <allow_active>auth_admin</allow_active>
 </defaults>
 ```
 
