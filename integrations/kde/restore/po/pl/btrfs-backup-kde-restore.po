@@ -125,3 +125,54 @@ msgstr "Zamknij"
 
 msgid "There is not enough free space to restore this backup."
 msgstr "W miejscu docelowym nie ma wystarczającej ilości wolnego miejsca."
+
+msgid "Code: %1"
+msgstr "Kod: %1"
+
+msgid "Hide technical details"
+msgstr "Ukryj szczegóły techniczne"
+
+msgid "Show technical details"
+msgstr "Pokaż szczegóły techniczne"
+
+msgid "Technical error details"
+msgstr "Szczegóły techniczne błędu"
+
+msgid "The backup data could not be copied to the destination."
+msgstr "Nie udało się skopiować danych kopii zapasowej do miejsca docelowego."
+
+msgid "The backup repository could not be found."
+msgstr "Nie znaleziono repozytorium kopii zapasowej."
+
+msgid "The restore destination already exists."
+msgstr "Miejsce docelowe przywracania już istnieje."
+
+msgid "The restore failed and temporary files could not be fully removed."
+msgstr "Przywracanie nie powiodło się i nie udało się całkowicie usunąć plików tymczasowych."
+
+msgid "The restore failed and the previous destination could not be fully recovered."
+msgstr "Przywracanie nie powiodło się i nie udało się w pełni odtworzyć poprzedniego miejsca docelowego."
+
+msgid "The restore operation could not be completed."
+msgstr "Nie udało się ukończyć przywracania."
+
+msgid "The restore operation was cancelled."
+msgstr "Przywracanie zostało anulowane."
+
+msgid "The restored data could not be verified."
+msgstr "Nie udało się zweryfikować przywróconych danych."
+
+msgid "The selected backup path is not safe to restore."
+msgstr "Wybrana ścieżka kopii zapasowej nie jest bezpieczna do przywrócenia."
+
+msgid "The selected backup repository could not be read."
+msgstr "Nie udało się odczytać wybranego repozytorium kopii zapasowej."
+
+msgid "The selected backup version is no longer available."
+msgstr "Wybrana wersja kopii zapasowej nie jest już dostępna."
+
+msgid "The selected restore destination is not safe."
+msgstr "Wybrane miejsce docelowe przywracania nie jest bezpieczne."
+
+msgid "This backup repository format is not supported."
+msgstr "Ten format repozytorium kopii zapasowej nie jest obsługiwany."
