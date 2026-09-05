@@ -30,6 +30,17 @@ namespace btrfsbackup::integration {
 
 class BrowseSessionClient final {
   public:
+    int run_expect_denied(const std::string& profile_id) {
+        try {
+            static_cast<void>(manager_->call(manager_protocol::method::open_browse_session, profile_id));
+        } catch (const std::exception& error) {
+            if (std::string_view(error.what()).contains("not authorized"))
+                return 0;
+            throw;
+        }
+        throw std::runtime_error("unprivileged caller unexpectedly opened a browse session");
+    }
+
     int run(const std::string& profile_id, const std::filesystem::path& hold_file) {
         const std::string payload = manager_->call(manager_protocol::method::open_browse_session, profile_id);
         validate_session(payload, profile_id);
@@ -140,12 +151,16 @@ class BrowseSessionClient final {
 
 int main(int argc, char** argv) {
     const bool self_check = argc == 4 && std::string_view(argv[2]) == "--self-check";
+    const bool expect_denied = argc == 3 && std::string_view(argv[2]) == "--expect-denied";
     if (argc != 3 && !self_check) {
         std::cerr << "usage: " << argv[0] << " PROFILE HOLD_FILE\n"
+                  << "       " << argv[0] << " PROFILE --expect-denied\n"
                   << "       " << argv[0] << " PROFILE --self-check TARGET_MOUNT\n";
         return 2;
     }
     try {
+        if (expect_denied)
+            return btrfsbackup::integration::BrowseSessionClient{}.run_expect_denied(argv[1]);
         if (self_check)
             return btrfsbackup::integration::BrowseSessionClient{}.run_self_check(argv[1], argv[3]);
         return btrfsbackup::integration::BrowseSessionClient{}.run(argv[1], argv[2]);

@@ -68,14 +68,6 @@ void RealBtrfsTestEnvironment::require_browse_session() const {
         const auto uid = command({"id", "-u", std::string(user)});
         if (uid.status != 0 || trim_output(uid.output) == "0")
             throw std::runtime_error("browse test caller is not an unprivileged user");
-        write_test_file(
-            policy,
-            "polkit.addRule(function(action, subject) {\n"
-            "  if (action.id == \"io.github.btrfsbackup.open-browse-session\" &&\n"
-            "      subject.user == \"btrfs-raii-test\") return polkit.Result.YES;\n"
-            "});\n"
-        );
-        require_command({"chmod", "0644", policy.string()}, "protect browse polkit rule");
         require_command({"systemctl", "restart", "polkit.service"}, "start browse polkit authority");
         fs::create_directories(root_ / "public-profiles");
         write_test_file(probe, "browse probe\n");
@@ -105,6 +97,21 @@ void RealBtrfsTestEnvironment::require_browse_session() const {
             throw std::runtime_error("cannot start isolated browse manager: " + command_diagnostic(started));
         manager_started = true;
         require_command({"systemctl", "is-active", "--quiet", unit}, "verify isolated browse manager");
+        const auto denied = command(
+            {"runuser", "-u", std::string(user), "--", browse_session_client_.string(), "raii", "--expect-denied"},
+            std::chrono::seconds(30)
+        );
+        if (denied.status != 0)
+            throw std::runtime_error("unprivileged browse session was not denied: " + command_diagnostic(denied));
+        write_test_file(
+            policy,
+            "polkit.addRule(function(action, subject) {\n"
+            "  if (action.id == \"io.github.btrfsbackup.open-browse-session\" &&\n"
+            "      subject.user == \"btrfs-raii-test\") return polkit.Result.YES;\n"
+            "});\n"
+        );
+        require_command({"chmod", "0644", policy.string()}, "protect browse polkit rule");
+        require_command({"systemctl", "restart", "polkit.service"}, "reload browse polkit rule");
         const auto client = command(
             {"runuser",
              "-u",
