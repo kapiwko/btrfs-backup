@@ -98,7 +98,10 @@ class HotplugVmTests(unittest.TestCase):
         vm.scenario()
         self.assertEqual([call.args[0] for call in vm.qmp.call_args_list],
                          ["device_add", "device_del", "device_add", "system_reset",
-                          "device_add", "device_del", "device_add"])
+                          "device_add", "device_del", "device_add", "device_del", "device_add"])
+        hotplug_drivers = [call.args[1]["driver"] for call in vm.qmp.call_args_list
+                           if call.args[0] == "device_add" and call.args[1]["id"].startswith("target-")]
+        self.assertEqual(hotplug_drivers, ["usb-storage", "nvme", "scsi-hd"])
 
     def test_close_stops_qemu_and_removes_artifacts(self) -> None:
         root = Path(tempfile.mkdtemp())

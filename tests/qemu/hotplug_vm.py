@@ -222,7 +222,10 @@ class HotplugVm:
                 *drive("manager-kill", "manager-kill-disk"), "-device", "virtio-blk-pci,drive=manager-kill-disk,serial=bb-manager-kill",
                 *drive("helper-kill", "helper-kill-disk"), "-device", "virtio-blk-pci,drive=helper-kill-disk,serial=bb-helper-kill",
                 *drive("power-loss", "power-loss-disk"), "-device", "virtio-blk-pci,drive=power-loss-disk,serial=bb-power-loss",
-                "-device", "pcie-root-port,id=provisioning-port,slot=0x10,chassis=10", "-device", "qemu-xhci,id=xhci"]
+                "-device", "pcie-root-port,id=provisioning-port,slot=0x10,chassis=10",
+                "-device", "pcie-root-port,id=nvme-port,slot=0x11,chassis=11",
+                "-device", "qemu-xhci,id=xhci",
+                "-device", "virtio-scsi-pci,id=scsi-controller"]
         for name, node in (("unplug", "unplug"), ("replacement", "replacement"), ("target", "hotplug-target")):
             args += ["-blockdev", f"driver=file,filename={self.images[name]},node-name={node}-file",
                      "-blockdev", f"driver=raw,file={node}-file,node-name={node}"]
@@ -267,9 +270,15 @@ class HotplugVm:
         self.wait_for("QEMU_HOTPLUG_OK_1", "udev did not start btrfs-backup@default.service after USB attachment", 15)
         self.qmp("device_del", {"id": "target-usb"})
         self.wait_for("QEMU_TARGET_STOP_1", "target activation remained active after USB removal", 15)
-        self.qmp("device_add", {"driver": "usb-storage", "drive": "hotplug-target", "id": "target-usb"})
-        self.wait_for("QEMU_HOTPLUG_OK_2", "udev did not restart btrfs-backup@default.service after USB reattachment", 15)
-        self.require("QEMU_TARGET_START_2", "target activation did not restart after USB reattachment")
+        self.qmp("device_add", {"driver": "nvme", "drive": "hotplug-target", "id": "target-nvme",
+                                 "serial": "qemu-hotplug-nvme", "bus": "nvme-port"})
+        self.wait_for("QEMU_HOTPLUG_OK_2", "udev did not start btrfs-backup@default.service after NVMe attachment", 15)
+        self.qmp("device_del", {"id": "target-nvme"})
+        self.wait_for("QEMU_TARGET_STOP_2", "target activation remained active after NVMe removal", 15)
+        self.qmp("device_add", {"driver": "scsi-hd", "drive": "hotplug-target", "id": "target-scsi",
+                                 "serial": "qemu-hotplug-scsi", "bus": "scsi-controller.0"})
+        self.wait_for("QEMU_HOTPLUG_OK_3", "udev did not start btrfs-backup@default.service after SCSI attachment", 15)
+        self.require("QEMU_TARGET_START_3", "target activation did not start after SCSI attachment")
 
     def require(self, marker: str, failure: str) -> None:
         if marker not in self.console_log.read_text(errors="replace"):
@@ -282,7 +291,7 @@ class HotplugVm:
             self.prepare_disks()
             self.start()
             self.scenario()
-            print("ok - QEMU provisioning, interruption recovery and USB hotplug pass in a system guest")
+            print("ok - QEMU provisioning, interruption recovery and USB/NVMe/SCSI hotplug pass in a system guest")
         except Exception:
             if self.console_log.exists():
                 print("".join(self.console_log.read_text(errors="replace").splitlines(keepends=True)[-200:]), file=os.sys.stderr)
