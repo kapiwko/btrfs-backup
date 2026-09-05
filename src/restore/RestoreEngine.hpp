@@ -20,7 +20,11 @@ class RestoreExecutor {
   public:
     explicit RestoreExecutor(IRestoreOperations& operations);
 
-    RestoreResult execute(const RestorePlan& plan, CancellationToken& cancellation);
+    RestoreResult execute(
+        const RestorePlan& plan,
+        CancellationToken& cancellation,
+        const RestoreProgressSink& progress = {}
+    );
 
   private:
     IRestoreOperations& operations_;

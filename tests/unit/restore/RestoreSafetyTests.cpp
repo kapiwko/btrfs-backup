@@ -89,7 +89,8 @@ class FakeRestoreOperations final : public btrfsbackup::restore::IRestoreOperati
     btrfsbackup::restore::RestoreStatistics copy_and_verify(
         const fs::path&,
         const fs::path&,
-        btrfsbackup::CancellationToken& cancellation
+        btrfsbackup::CancellationToken& cancellation,
+        const btrfsbackup::restore::RestoreProgressSink&
     ) override {
         if (cancel_during_copy) {
             cancellation.request_cancel();

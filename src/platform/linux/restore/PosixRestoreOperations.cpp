@@ -205,7 +205,8 @@ void copy_regular_file(
     const std::filesystem::path& source,
     const std::filesystem::path& destination,
     CancellationToken& cancellation,
-    btrfsbackup::restore::RestoreStatistics& statistics
+    btrfsbackup::restore::RestoreStatistics& statistics,
+    const btrfsbackup::restore::RestoreProgressSink& progress
 ) {
     std::ifstream input(source, std::ios::binary);
     std::ofstream output(destination, std::ios::binary | std::ios::trunc);
@@ -223,6 +224,8 @@ void copy_regular_file(
         if (count > 0) {
             output.write(buffer.data(), count);
             statistics.bytes += static_cast<std::uint64_t>(count);
+            if (progress)
+                progress({statistics, source});
         }
     }
     output.flush();
@@ -235,6 +238,8 @@ void copy_regular_file(
     preserve_metadata(source, destination);
     verify_regular_file(source, destination, cancellation);
     ++statistics.files;
+    if (progress)
+        progress({statistics, source});
 }
 
 void copy_entry(
@@ -242,7 +247,8 @@ void copy_entry(
     const std::filesystem::path& destination,
     const SourceIdentity& identity,
     CancellationToken& cancellation,
-    btrfsbackup::restore::RestoreStatistics& statistics
+    btrfsbackup::restore::RestoreStatistics& statistics,
+    const btrfsbackup::restore::RestoreProgressSink& progress
 ) {
     throw_if_cancelled(cancellation);
     const struct stat status = lstat_or_throw(source);
@@ -259,7 +265,7 @@ void copy_entry(
         );
     }
     if (S_ISREG(status.st_mode)) {
-        copy_regular_file(source, destination, cancellation, statistics);
+        copy_regular_file(source, destination, cancellation, statistics, progress);
         return;
     }
     if (!S_ISDIR(status.st_mode)) {
@@ -277,8 +283,10 @@ void copy_entry(
         );
     }
     ++statistics.directories;
+    if (progress)
+        progress({statistics, source});
     for (const std::filesystem::directory_entry& child : std::filesystem::directory_iterator(source)) {
-        copy_entry(child.path(), destination / child.path().filename(), identity, cancellation, statistics);
+        copy_entry(child.path(), destination / child.path().filename(), identity, cancellation, statistics, progress);
     }
     preserve_metadata(source, destination);
 }
@@ -344,7 +352,8 @@ void PosixRestoreOperations::create_subvolume_root(const std::filesystem::path& 
 btrfsbackup::restore::RestoreStatistics PosixRestoreOperations::copy_and_verify(
     const std::filesystem::path& source,
     const std::filesystem::path& destination_root,
-    CancellationToken& cancellation
+    CancellationToken& cancellation,
+    const btrfsbackup::restore::RestoreProgressSink& progress
 ) {
     reject_symlink_components(source, false);
     reject_symlink_components(destination_root.parent_path(), false);
@@ -357,12 +366,13 @@ btrfsbackup::restore::RestoreStatistics PosixRestoreOperations::copy_and_verify(
                 destination_root / child.path().filename(),
                 SourceIdentity{source_status.st_dev},
                 cancellation,
-                statistics
+                statistics,
+                progress
             );
         }
         preserve_metadata(source, destination_root);
     } else {
-        copy_entry(source, destination_root, SourceIdentity{source_status.st_dev}, cancellation, statistics);
+        copy_entry(source, destination_root, SourceIdentity{source_status.st_dev}, cancellation, statistics, progress);
     }
     return statistics;
 }

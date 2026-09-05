@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 
 #include <core/Cancellation.hpp>
 
@@ -16,6 +17,13 @@ struct RestoreStatistics {
     std::uint64_t directories = 0;
     std::uint64_t bytes = 0;
 };
+
+struct RestoreProgress {
+    RestoreStatistics statistics;
+    std::filesystem::path current_path;
+};
+
+using RestoreProgressSink = std::function<void(const RestoreProgress&)>;
 
 class IRestoreOperations {
   public:
@@ -30,7 +38,8 @@ class IRestoreOperations {
     virtual RestoreStatistics copy_and_verify(
         const std::filesystem::path& source,
         const std::filesystem::path& destination_root,
-        CancellationToken& cancellation
+        CancellationToken& cancellation,
+        const RestoreProgressSink& progress = {}
     ) = 0;
     virtual void move(const std::filesystem::path& source, const std::filesystem::path& destination) = 0;
     virtual void remove_owned_tree(const std::filesystem::path& path) = 0;

@@ -9,14 +9,18 @@
 
 #include <QMetaObject>
 
+#include <chrono>
+
 #include <platform/linux/restore/PosixRestoreOperations.hpp>
 #include <restore/RestoreEngine.hpp>
 
 namespace btrfsbackup::kde::restore {
 
-RestoreJob::RestoreJob(btrfsbackup::restore::RestorePlan plan, QObject* parent)
-    : KJob(parent), plan_(std::move(plan)) {
+RestoreJob::RestoreJob(btrfsbackup::restore::RestorePlan plan, std::uint64_t total_bytes, QObject* parent)
+    : KJob(parent), plan_(std::move(plan)), total_bytes_(total_bytes) {
     setCapabilities(KJob::Killable);
+    if (total_bytes_ > 0)
+        setTotalAmount(KJob::Bytes, total_bytes_);
 }
 
 RestoreJob::~RestoreJob() noexcept {
@@ -32,7 +36,32 @@ void RestoreJob::start() {
         try {
             btrfsbackup::platform::linux::restore::PosixRestoreOperations operations;
             btrfsbackup::restore::RestoreExecutor executor(operations);
-            const auto result = executor.execute(plan_, cancellation_);
+            const auto started = std::chrono::steady_clock::now();
+            std::uint64_t last_reported_bytes = 0;
+            auto last_report = started;
+            const auto result = executor.execute(plan_, cancellation_, [&](const auto& progress) {
+                const auto now = std::chrono::steady_clock::now();
+                if (progress.statistics.bytes - last_reported_bytes < 4 * 1024 * 1024 &&
+                    now - last_report < std::chrono::milliseconds{200} && progress.statistics.files == 0)
+                    return;
+                last_reported_bytes = progress.statistics.bytes;
+                last_report = now;
+                const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - started).count();
+                const std::uint64_t speed = elapsed > 0
+                    ? progress.statistics.bytes * 1000 / static_cast<std::uint64_t>(elapsed)
+                    : 0;
+                const QString current_name = QString::fromStdString(progress.current_path.filename().string());
+                QMetaObject::invokeMethod(this, [this, progress, speed, current_name] {
+                    setProcessedAmount(KJob::Files, progress.statistics.files);
+                    setProcessedAmount(KJob::Bytes, progress.statistics.bytes);
+                    emitSpeed(static_cast<unsigned long>(speed));
+                    Q_EMIT progressChanged(
+                        progress.statistics.files,
+                        progress.statistics.bytes,
+                        speed,
+                        current_name
+                    ); }, Qt::QueuedConnection);
+            });
             QMetaObject::invokeMethod(this, [this, result] {
                 restored_files_ = result.statistics.files;
                 restored_bytes_ = result.statistics.bytes;

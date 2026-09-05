@@ -12,6 +12,7 @@
 #include "RestoreJob.hpp"
 #include "RestoreSource.hpp"
 
+#include <KIO/OpenFileManagerWindowJob>
 #include <KIO/OpenUrlJob>
 #include <KLocalizedString>
 #include <KNotification>
@@ -24,9 +25,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocale>
+#include <QMimeDatabase>
 #include <QUuid>
 
 #include <limits>
+#include <algorithm>
 
 #include <unistd.h>
 
@@ -96,6 +99,12 @@ QString RestoreController::sourceName() const {
 QString RestoreController::sourceType() const {
     return source_type_;
 }
+QString RestoreController::sourceIcon() const {
+    return source_icon_;
+}
+bool RestoreController::sourceIsDirectory() const noexcept {
+    return source_is_directory_;
+}
 QString RestoreController::sourceSize() const {
     return source_size_;
 }
@@ -113,9 +122,6 @@ QString RestoreController::destination() const {
 }
 bool RestoreController::replaceExisting() const {
     return replace_existing_;
-}
-QString RestoreController::planSummary() const {
-    return plan_summary_;
 }
 QString RestoreController::errorText() const {
     return error_text_;
@@ -144,6 +150,25 @@ QString RestoreController::restoredSize() const {
         static_cast<qint64>(restored_bytes_ > maximum ? maximum : restored_bytes_)
     );
 }
+double RestoreController::progress() const noexcept {
+    return source_size_bytes_ > 0
+        ? std::min(1.0, static_cast<double>(progress_bytes_) / static_cast<double>(source_size_bytes_))
+        : -1.0;
+}
+QString RestoreController::transferredSize() const {
+    const QString transferred = btrfsbackup::kde::format_byte_size(static_cast<qint64>(progress_bytes_));
+    return source_size_bytes_ > 0
+        ? i18n("%1 of %2", transferred, source_size_)
+        : transferred;
+}
+QString RestoreController::transferSpeed() const {
+    return progress_speed_ > 0
+        ? i18n("%1/s", btrfsbackup::kde::format_byte_size(static_cast<qint64>(progress_speed_)))
+        : QString{};
+}
+QString RestoreController::currentItem() const {
+    return current_item_;
+}
 
 void RestoreController::setDestination(const QString& value) {
     const QString normalized = QDir::cleanPath(value);
@@ -152,7 +177,6 @@ void RestoreController::setDestination(const QString& value) {
     destination_ = normalized;
     replace_existing_ = false;
     plan_.reset();
-    plan_summary_.clear();
     Q_EMIT planChanged();
 }
 
@@ -161,7 +185,6 @@ void RestoreController::setReplaceExisting(bool value) {
         return;
     replace_existing_ = value;
     plan_.reset();
-    plan_summary_.clear();
     Q_EMIT planChanged();
 }
 
@@ -200,6 +223,13 @@ void RestoreController::ensure_source_open() {
             !metadata.value(u"size"_s).isDouble() || !metadata.value(u"modifiedAt"_s).isDouble())
             throw std::runtime_error("could not inspect the selected backup entry");
         source_type_ = kind == u"directory"_s ? i18n("Folder") : i18n("File");
+        source_is_directory_ = kind == u"directory"_s;
+        source_size_bytes_ = source_is_directory_ ? 0 : metadata.value(u"size"_s).toInteger();
+        source_icon_ = source_is_directory_
+            ? u"folder"_s
+            : QMimeDatabase{}.mimeTypeForFile(sourceName(), QMimeDatabase::MatchExtension).iconName();
+        if (source_icon_.isEmpty())
+            source_icon_ = u"text-x-generic"_s;
         source_size_ = kind == u"directory"_s
             ? i18n("Calculated during restore")
             : btrfsbackup::kde::format_byte_size(metadata.value(u"size"_s).toInteger());
@@ -249,18 +279,12 @@ bool RestoreController::prepare_plan() {
             },
             std::filesystem::path{"/proc/self/fd"} / std::to_string(source_entry_.get())
         );
-        plan_summary_ = plan_->destination_exists
-            ? i18n("Replace %1, preserve metadata, then verify the restored data.", destination_)
-            : i18n("Restore to %1, preserve metadata, then verify the restored data.", destination_);
-        Q_EMIT planChanged();
         Q_EMIT stateChanged();
         return true;
     } catch (const btrfsbackup::restore::RestoreError& error) {
         if (error.code() == btrfsbackup::restore::RestoreErrorCode::DestinationExists && !replace_existing_) {
             error_text_.clear();
             plan_.reset();
-            plan_summary_.clear();
-            Q_EMIT planChanged();
             Q_EMIT stateChanged();
             Q_EMIT overwriteConfirmationRequested(destination_);
             return false;
@@ -269,8 +293,6 @@ bool RestoreController::prepare_plan() {
         if (!source_entry_.valid())
             close_session();
         plan_.reset();
-        plan_summary_.clear();
-        Q_EMIT planChanged();
         Q_EMIT stateChanged();
         return false;
     } catch (const std::exception& error) {
@@ -278,15 +300,9 @@ bool RestoreController::prepare_plan() {
         if (!source_entry_.valid())
             close_session();
         plan_.reset();
-        plan_summary_.clear();
-        Q_EMIT planChanged();
         Q_EMIT stateChanged();
         return false;
     }
-}
-
-bool RestoreController::preview() {
-    return prepare_plan();
 }
 
 void RestoreController::loadDetails() {
@@ -322,7 +338,8 @@ void RestoreController::chooseDestination() {
 
 bool RestoreController::confirmOverwrite() {
     setReplaceExisting(true);
-    return prepare_plan();
+    execute();
+    return busy_;
 }
 
 void RestoreController::execute() {
@@ -331,6 +348,10 @@ void RestoreController::execute() {
     busy_ = true;
     completed_ = false;
     clear_error();
+    progress_bytes_ = 0;
+    progress_speed_ = 0;
+    current_item_ = sourceName();
+    Q_EMIT progressChanged();
     execution_lease_ = btrfsbackup::kde::BrowseSessionClient{}.beginOperation(session_id_);
     if (!execution_lease_) {
         busy_ = false;
@@ -339,8 +360,14 @@ void RestoreController::execute() {
         return;
     }
     Q_EMIT stateChanged();
-    job_ = new RestoreJob(*plan_, this);
+    job_ = new RestoreJob(*plan_, source_size_bytes_, this);
     tracker_.registerJob(job_);
+    connect(job_, &RestoreJob::progressChanged, this, [this](qulonglong, qulonglong bytes, qulonglong speed, const QString& current_name) {
+        progress_bytes_ = bytes;
+        progress_speed_ = speed;
+        current_item_ = current_name;
+        Q_EMIT progressChanged();
+    });
     connect(job_, &KJob::result, this, [this](KJob* finished) {
         tracker_.unregisterJob(finished);
         busy_ = false;
@@ -396,11 +423,15 @@ void RestoreController::cancel() {
         job_->kill(KJob::EmitResult);
 }
 
-void RestoreController::openRestoredDirectory() {
+void RestoreController::openRestoredLocation() {
     if (!completed_ || !QDir::isAbsolutePath(destination_))
         return;
     const QFileInfo restored(destination_);
-    const QString directory = restored.isDir() ? restored.absoluteFilePath() : restored.absolutePath();
+    if (!source_is_directory_) {
+        KIO::highlightInFileManager({QUrl::fromLocalFile(restored.absoluteFilePath())});
+        return;
+    }
+    const QString directory = restored.absoluteFilePath();
     auto* job = new KIO::OpenUrlJob(QUrl::fromLocalFile(directory), u"inode/directory"_s, this);
     job->start();
 }
