@@ -1,0 +1,5 @@
+complete -c btrfs-backup -l profile -r -d 'Select profile'
+complete -c btrfs-backup -l force -d 'Ignore the daily completion limit'
+complete -c btrfs-backup -l validate -d 'Validate without creating snapshots'
+complete -c btrfs-backup -l no-eject -d 'Leave the target mounted'
+complete -c btrfs-backup -s h -l help -d 'Show help'
