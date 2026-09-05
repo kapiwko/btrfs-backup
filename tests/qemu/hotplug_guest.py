@@ -219,7 +219,7 @@ ExecStop=
 ExecStop=/usr/local/bin/qemu-hotplug-counter target stop
 """)
     install_text(Path("/etc/systemd/system/qemu-hotplug-target-holder.service"), f"""[Unit]
-Description=Hold target activation while the QEMU USB device exists
+Description=Hold target activation while the QEMU removable device exists
 BindsTo={target_device_unit}
 After={target_device_unit} btrfs-backup-target@default.service
 Requires=btrfs-backup-target@default.service
