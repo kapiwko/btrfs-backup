@@ -105,13 +105,15 @@ ColumnLayout {
         visible: root.workflow.unavailableDevices.length > 0
         spacing: Kirigami.Units.smallSpacing
 
-        QQC2.Button {
+        QQC2.ToolButton {
             id: unavailableDevicesToggle
 
             objectName: "unavailableDevicesToggle"
-            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignLeft
             checkable: true
-            icon.name: checked ? "arrow-up" : "arrow-down"
+            flat: true
+            display: QQC2.AbstractButton.TextBesideIcon
+            icon.name: checked ? "arrow-down" : "arrow-right"
             text: root.translations.i18np(
                 "%1 unavailable device",
                 "%1 unavailable devices",
