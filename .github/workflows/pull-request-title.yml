@@ -1,0 +1,36 @@
+name: pull request title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-commit:
+    name: Conventional Commit title
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate pull-request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        shell: bash
+        run: |
+          prefix='^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\([a-z0-9]+(-[a-z0-9]+)*\))?!?: '
+
+          if [[ ! "$PR_TITLE" =~ $prefix ]]; then
+            echo "::error::PR title must use '<type>(<scope>): <description>' with an allowed Conventional Commit type."
+            exit 1
+          fi
+
+          description="${PR_TITLE#*: }"
+          if [[ ! "$description" =~ ^[a-z] ]]; then
+            echo "::error::PR title description must start with a lowercase English letter."
+            exit 1
+          fi
+
+          if [[ "$description" == *. ]]; then
+            echo "::error::PR title must not end with a period."
+            exit 1
+          fi
