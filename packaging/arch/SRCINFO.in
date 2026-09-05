@@ -25,7 +25,6 @@ pkgbase = btrfs-backup
 
 pkgname = btrfs-backup
 	depends = acl
-	install = btrfs-backup.install
 	depends = btrfs-progs>=6.0
 	depends = coreutils
 	depends = cryptsetup

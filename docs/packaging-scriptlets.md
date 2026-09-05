@@ -3,16 +3,16 @@
 Normal package installation is declarative: CMake installs files,
 `systemd-tmpfiles` owns the standard state and status directory modes, and
 distribution package hooks reload systemd, D-Bus, udev and desktop caches when
-their native formats require it. The application-specific 1.0 pre-upgrade
-check is read-only and never edits administrator configuration.
+their native formats require it. Packages contain no application-specific
+pre-install or migration script.
 
 | Package path | Lifecycle code | Replacement or reason |
 |---|---|---|
-| Arch base package | ALPM `PreTransaction` hook with `AbortOnFail` | Runs the installed migration preflight before package replacement; it must arrive in the 0.3.x bridge package |
+| Arch base package | None | Declarative files plus standard systemd, udev and desktop cache handling |
 | Arch KDE package | None | Standard Plasma and desktop database hooks; session restart is a user choice |
-| CPack DEB/RPM | `preinst`/`%pre` | Runs the installed migration preflight when profiles exist |
-| RPM and Gentoo definitions | `%pre`/`pkg_preinst` | Runs the installed migration preflight when profiles exist |
-| Nix definition | None | Immutable package replacement does not mutate `/etc`; preflight remains an explicit activation prerequisite |
+| CPack DEB/RPM | None | Declarative install; no supported legacy profile migration |
+| RPM and Gentoo definitions | None | Declarative install; no supported legacy profile migration |
+| Nix definition | None | Immutable package replacement does not mutate `/etc` |
 
 No `systemd-sysusers` entry is installed because the device, mount and backup
 operations intentionally run as root. Introducing an unused service account
@@ -25,24 +25,9 @@ installation therefore cannot silently enable a persistent service.
 
 Upgrades do not rewrite administrator-owned files under `/etc`, restart an
 active manager, or regenerate profile-specific systemd and udev artifacts.
-Before a 1.0 upgrade, the administrator runs the read-only compatibility gate
-and creates a non-overwriting configuration export:
-
-```bash
-sudo btrfs-backupctl upgrade preflight
-sudo btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-1.0
-```
-
-An exit status of `1` from preflight blocks DEB, RPM and Gentoo package
-transactions. If the installed binary predates the migration command, those
-transactions also stop and request installation of the latest 0.3.x bridge
-release. On Arch, that bridge installs
-`90-btrfs-backup-v4-migration.hook`; its `AbortOnFail` stops the transaction
-before replacement when the installed preflight rejects a profile. A direct
-0.3.3 to 1.0 transaction remains unsupported because an incoming package's
-hook is not visible before its own transaction. The 1.0 runtime still rejects
-legacy profiles and does not mutate them. Legacy profiles are exported
-explicitly, saved as v4 while the bridge is active, and checked again.
+Version 1.0 has no deployed legacy profile base to migrate, so its packages do
+not carry a 3.x bridge or transaction gate. The runtime accepts only canonical
+v4 profiles and rejects other schemas without modifying them.
 
 After an upgrade that changes generated artifacts, the administrator performs
 the regeneration explicitly:
