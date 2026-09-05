@@ -31,10 +31,23 @@
    cleared without applying the former UUID-only recovery behavior;
 5. the retired multi-file configuration fingerprint API has been removed.
 
-There is no in-place 3.x profile migration in 4.0.0. Recreate or export a
-schema version 4 profile with 3.2.x before upgrading, then install it with the
-4.0.0 wizard or `btrfs-backupctl profile save` so all generated artifacts and
-`configurationGeneration` are published together.
+`btrfs-backupctl upgrade preflight` now provides a read-only 4.0 release gate.
+It validates the global application configuration and every installed profile,
+reports each incompatible profile, and exits unsuccessfully for legacy
+schemas, missing configuration generations, invalid runtime policy, untrusted
+files, identity mismatches, or unsafe profile-directory contents.
+
+`btrfs-backupctl profile export-v4 --all --output-dir PATH` creates an atomic,
+non-overwriting migration backup only after every profile validates. Its
+explicit migration-only decoder converts profile schemas 1 through 3 without
+weakening the v4-only runtime loader. The export includes canonical profiles,
+the optional global application configuration, and rollback instructions;
+referenced key files remain excluded and must be backed up separately.
+
+There is no automatic or in-place 3.x profile migration in 4.0.0. Export schema
+version 4 profiles before upgrading, save them explicitly so all generated
+artifacts and `configurationGeneration` are published together, and repeat the
+preflight until it reports `READY`.
 
 ### Backup Device Provisioning
 
@@ -151,9 +164,13 @@ schema version 4 profile with 3.2.x before upgrading, then install it with the
 
 ### Profile Configuration Lifecycle
 
-1. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
+1. migration preflight and bulk v4 export cover valid, legacy, incomplete and
+   unsafe profile sets, validate the whole set before export, publish the copy
+   atomically, refuse backup overwrite and retain normal runtime schema
+   strictness;
+2. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
    and udev artifacts for every installed profile;
-2. package upgrades do not rewrite administrator-owned profile artifacts or
+3. package upgrades do not rewrite administrator-owned profile artifacts or
    restart the manager. Regeneration and service reload remain explicit
    administrator actions.
 
