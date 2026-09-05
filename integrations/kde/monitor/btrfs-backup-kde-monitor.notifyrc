@@ -44,6 +44,18 @@ Comment=A successful backup has not been created within the critical period
 Action=Popup
 Urgency=Critical
 
+[Event/targetSpaceLow]
+Name=Backup target space is running low
+Comment=Free space on a backup target has crossed the warning threshold
+Action=Popup
+Urgency=Normal
+
+[Event/targetSpaceCritical]
+Name=Backup target space is critical
+Comment=Free space on a backup target has crossed the critical threshold
+Action=Popup
+Urgency=Critical
+
 [Event/targetValidationFailed]
 Name=Backup target check failed
 Comment=A backup target failed validation

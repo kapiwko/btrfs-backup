@@ -55,6 +55,15 @@ bool NotificationDeduplicator::claim(
     return true;
 }
 
+void NotificationDeduplicator::clear(const QString& profile_id, const QString& event_kind) {
+    const auto old_size = entries_.size();
+    std::erase_if(entries_, [&](const Entry& entry) {
+        return entry.profile_id == profile_id && entry.event_kind == event_kind;
+    });
+    if (entries_.size() != old_size)
+        save();
+}
+
 void NotificationDeduplicator::load() {
     QFile file(state_path_);
     if (!file.open(QIODevice::ReadOnly)) {

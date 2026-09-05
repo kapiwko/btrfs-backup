@@ -13,6 +13,7 @@
 namespace btrfsbackup::kde::monitor {
 
 struct BackupReminder;
+struct TargetStorageNotification;
 
 struct TerminalNotificationMessage {
     QString event_id;
@@ -42,6 +43,13 @@ class TerminalNotificationService final {
         const QString& profile_name,
         const QString& target_name,
         const BackupReminder& reminder
+    );
+
+    void publish_target_storage(
+        const QString& profile_id,
+        const QString& profile_name,
+        const QString& target_name,
+        const TargetStorageNotification& storage
     );
 
   private:

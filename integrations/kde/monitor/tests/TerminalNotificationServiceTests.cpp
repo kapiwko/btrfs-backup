@@ -4,6 +4,7 @@
 
 #include "TerminalNotificationService.hpp"
 #include "BackupReminderPolicy.hpp"
+#include "TargetStorageNotificationPolicy.hpp"
 
 #include <KLocalizedString>
 
@@ -19,6 +20,8 @@ using btrfsbackup::kde::monitor::TerminalNotificationMessage;
 using btrfsbackup::kde::monitor::TerminalNotificationService;
 using btrfsbackup::kde::monitor::BackupReminderLevel;
 using btrfsbackup::kde::monitor::evaluate_backup_reminder;
+using btrfsbackup::kde::monitor::evaluate_target_storage;
+using btrfsbackup::kde::monitor::TargetStorageNotificationLevel;
 
 int failures = 0;
 
@@ -170,6 +173,9 @@ void test_backup_reminder_thresholds() {
         .enabled = true,
         .warning_days = 7,
         .critical_days = 14,
+        .storage_enabled = true,
+        .storage_warning_percent = 15,
+        .storage_critical_percent = 5,
     };
 
     expect(
@@ -213,6 +219,113 @@ void test_backup_reminder_thresholds() {
         )
                 .level == BackupReminderLevel::none,
         "an active backup suppresses overdue reminders"
+    );
+}
+
+void test_target_storage_thresholds() {
+    const btrfsbackup::kde::ProfileSummary profile{
+        .id = QStringLiteral("default"),
+        .name = QStringLiteral("Home"),
+        .enabled = true,
+        .target_name = QStringLiteral("Backup disk"),
+        .sources = {},
+        .configuration_valid = true,
+        .configuration_error_code = {},
+    };
+    btrfsbackup::kde::TargetStatus target;
+    target.profile_id = profile.id;
+    target.storage = btrfsbackup::kde::TargetStorageStatus{
+        .capacity_bytes = 1000,
+        .used_bytes = 840,
+        .available_bytes = 160,
+        .usage_percent = 84,
+        .measured_at = QStringLiteral("2026-09-05T12:00:00Z"),
+        .live = true,
+        .space_state = QStringLiteral("normal"),
+    };
+    const btrfsbackup::kde::BackupReminderConfiguration configuration{
+        .enabled = true,
+        .warning_days = 7,
+        .critical_days = 14,
+        .storage_enabled = true,
+        .storage_warning_percent = 15,
+        .storage_critical_percent = 5,
+    };
+
+    expect(
+        evaluate_target_storage(profile, target, configuration).level == TargetStorageNotificationLevel::none,
+        "storage above the warning threshold is normal"
+    );
+    target.storage->usage_percent = 85;
+    expect(
+        evaluate_target_storage(profile, target, configuration).level == TargetStorageNotificationLevel::warning,
+        "storage warning starts at the configured free percentage"
+    );
+    target.storage->usage_percent = 95;
+    expect(
+        evaluate_target_storage(profile, target, configuration).level == TargetStorageNotificationLevel::critical,
+        "critical free percentage supersedes the warning"
+    );
+    target.storage->usage_percent = 50;
+    target.storage->space_state = QStringLiteral("below-configured-minimum");
+    expect(
+        evaluate_target_storage(profile, target, configuration).level == TargetStorageNotificationLevel::critical,
+        "the profile minimum free space is always critical"
+    );
+}
+
+void test_target_storage_notifications_follow_transitions() {
+    QTemporaryDir directory;
+    std::vector<TerminalNotificationMessage> published;
+    TerminalNotificationService notifications(
+        directory.filePath(QStringLiteral("notifications.json")),
+        [&](const TerminalNotificationMessage& message) { published.push_back(message); }
+    );
+    const btrfsbackup::kde::monitor::TargetStorageNotification warning{
+        .level = TargetStorageNotificationLevel::warning,
+        .available_percent = 15,
+        .available_bytes = 150,
+    };
+    notifications.publish_target_storage(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        warning
+    );
+    notifications.publish_target_storage(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        warning
+    );
+    auto critical = warning;
+    critical.level = TargetStorageNotificationLevel::critical;
+    critical.available_percent = 5;
+    notifications.publish_target_storage(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        critical
+    );
+    notifications.publish_target_storage(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        {}
+    );
+    notifications.publish_target_storage(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        warning
+    );
+
+    expect(published.size() == 3, "storage notifications are repeated only after recovery");
+    expect(
+        published[0].event_id == QStringLiteral("targetSpaceLow") &&
+            published[1].event_id == QStringLiteral("targetSpaceCritical") &&
+            published[2].event_id == QStringLiteral("targetSpaceLow"),
+        "storage transitions preserve warning and critical severity"
     );
 }
 
@@ -269,6 +382,8 @@ int main(int argc, char* argv[]) {
     test_operation_specific_terminal_states_are_distinct();
     test_backup_reminder_thresholds();
     test_backup_reminders_are_deduplicated_per_threshold();
+    test_target_storage_thresholds();
+    test_target_storage_notifications_follow_transitions();
     if (failures == 0) {
         std::cout << "ok - KDE terminal notification tests\n";
     }

@@ -22,6 +22,8 @@ class NotificationDeduplicator final {
         const QDateTime& now = QDateTime::currentDateTimeUtc()
     );
 
+    void clear(const QString& profile_id, const QString& event_kind);
+
   private:
     struct Entry {
         QString profile_id;

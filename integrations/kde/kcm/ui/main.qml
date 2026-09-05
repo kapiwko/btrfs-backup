@@ -66,7 +66,7 @@ KCMUtils.ScrollViewKCM {
             directory: root.directory
             profileStatusOverrides: root.profileStatusOverrides
             profileSummaryFor: (status, profile) => root.profileSummary(status, profile)
-            reminderSettings: root.reminderSettings
+            onReminderSettingsRequested: root.openReminderSettings()
             onProfileRequested: profileId => root.openProfileDetails(profileId, false)
             onEditProfileRequested: profileId => root.openProfileDetails(profileId, true)
             onSystemLogRequested: if (typeof kcm !== "undefined") kcm.openSystemLog()
@@ -109,6 +109,14 @@ KCMUtils.ScrollViewKCM {
     function openNewProfilePage() {
         if (typeof kcm !== "undefined")
             kcm.push("NewProfilePage.qml", {"editor": root.editor, "provisioning": root.provisioningModel})
+    }
+
+    function openReminderSettings() {
+        const properties = {"settings": root.reminderSettings}
+        if (typeof kcm !== "undefined")
+            kcm.push("NotificationSettingsPage.qml", properties)
+        else
+            previewPage.setSource("NotificationSettingsPage.qml", properties)
     }
 
     function statusText(state) {

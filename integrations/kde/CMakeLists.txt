@@ -229,6 +229,8 @@ add_executable(
     monitor/BackupReminderPolicy.hpp
     monitor/TerminalNotificationService.cpp
     monitor/TerminalNotificationService.hpp
+    monitor/TargetStorageNotificationPolicy.cpp
+    monitor/TargetStorageNotificationPolicy.hpp
     settings/BackupReminderSettings.cpp
     settings/BackupReminderSettings.hpp
     monitor/main.cpp
@@ -678,6 +680,8 @@ if(BUILD_TESTING)
         kde-terminal-notification-tests
         monitor/BackupReminderPolicy.cpp
         monitor/BackupReminderPolicy.hpp
+        monitor/TargetStorageNotificationPolicy.cpp
+        monitor/TargetStorageNotificationPolicy.hpp
         monitor/NotificationDeduplicator.cpp
         monitor/NotificationDeduplicator.hpp
         monitor/TerminalNotificationService.cpp
@@ -696,6 +700,7 @@ if(BUILD_TESTING)
         kde-terminal-notification-tests
         PRIVATE
             Qt6::Core
+            KF6::CoreAddons
             KF6::I18n
             KF6::Notifications
             btrfsbackup_kde_desktop_launcher
@@ -796,6 +801,15 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/new-profile-free-space.qml
         )
         add_test(
+            NAME kde-kcm-notification-settings
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_EXECUTABLE}
+                -I ${CMAKE_BINARY_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/notification-settings.qml
+        )
+        add_test(
             NAME plasma-target-storage-usage
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -810,6 +824,7 @@ if(BUILD_TESTING)
             kde-kcm-qml-smoke
             kde-kcm-new-profile-adoption
             kde-kcm-new-profile-free-space
+            kde-kcm-notification-settings
             plasma-config-qml-smoke
             plasma-target-storage-usage
             plasma-transfer-rate

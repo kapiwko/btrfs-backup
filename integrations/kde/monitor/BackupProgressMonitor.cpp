@@ -7,6 +7,7 @@
 #include "BackupProgressJob.hpp"
 #include "BackupReminderPolicy.hpp"
 #include "ManagerApi.hpp"
+#include "TargetStorageNotificationPolicy.hpp"
 
 #include <KLocalizedString>
 #include <KSharedConfig>
@@ -103,6 +104,16 @@ BackupProgressMonitor::BackupProgressMonitor(
         }
         request_status(profile.value());
     });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
+        if (!active_ || !capabilities_verified_)
+            return;
+        const auto profile = profiles_.find(profile_id);
+        if (profile == profiles_.end()) {
+            request_profiles();
+            return;
+        }
+        request_target_status(profile.value());
+    });
     connect(
         &cancellation_dispatcher_,
         &CancellationRequestDispatcher::rejected,
@@ -177,6 +188,8 @@ void BackupProgressMonitor::manager_unavailable() {
     profiles_refresh_queued_ = false;
     pending_status_requests_.clear();
     queued_status_requests_.clear();
+    pending_target_requests_.clear();
+    queued_target_requests_.clear();
     for (auto job : std::as_const(jobs_)) {
         if (job) {
             job->stop_tracking();
@@ -251,6 +264,40 @@ void BackupProgressMonitor::request_status(const Profile& profile) {
     });
 }
 
+void BackupProgressMonitor::request_target_status(const Profile& profile) {
+    if (!manager_features_.contains(QLatin1String(btrfsbackup::manager_protocol::feature::device_state)) ||
+        !manager_features_.contains(QLatin1String(btrfsbackup::manager_protocol::feature::target_storage_usage))) {
+        return;
+    }
+    if (pending_target_requests_.contains(profile.id)) {
+        queued_target_requests_.insert(profile.id);
+        return;
+    }
+    const std::uint64_t generation = manager_generation_;
+    pending_target_requests_.insert(profile.id);
+    auto* watcher = new QDBusPendingCallWatcher(
+        btrfsbackup::kde::ManagerClient{bus_}.deviceState(profile.id),
+        this
+    );
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, profile, generation](QDBusPendingCallWatcher*) {
+        const QDBusPendingReply<QString> reply = *watcher;
+        watcher->deleteLater();
+        if (generation != manager_generation_)
+            return;
+        pending_target_requests_.remove(profile.id);
+        if (!active_ || !capabilities_verified_ || !profiles_.contains(profile.id))
+            return;
+        if (reply.isError()) {
+            qWarning() << "btrfs-backup KDE monitor could not read target storage:"
+                       << profile.id << reply.error().message();
+        } else {
+            apply_target_status(profile, reply.value());
+        }
+        if (queued_target_requests_.remove(profile.id) > 0 && profiles_.contains(profile.id))
+            request_target_status(profiles_.value(profile.id));
+    });
+}
+
 void BackupProgressMonitor::request_cancel(const QString& profile_id, const QString& run_id) {
     cancellation_dispatcher_.request(profile_id, run_id);
 }
@@ -281,9 +328,23 @@ void BackupProgressMonitor::apply_profiles(const QString& payload) {
     for (auto iterator = statuses_.begin(); iterator != statuses_.end();) {
         iterator = profiles_.contains(iterator.key()) ? std::next(iterator) : statuses_.erase(iterator);
     }
+    for (auto iterator = target_statuses_.begin(); iterator != target_statuses_.end();) {
+        iterator = profiles_.contains(iterator.key()) ? std::next(iterator) : target_statuses_.erase(iterator);
+    }
     for (const Profile& profile : std::as_const(profiles_)) {
         request_status(profile);
+        request_target_status(profile);
     }
+}
+
+void BackupProgressMonitor::apply_target_status(const Profile& profile, const QString& payload) {
+    const auto decoded_target = btrfsbackup::kde::parse_target_status(payload);
+    if (!decoded_target.has_value() || decoded_target->profile_id != profile.id) {
+        qWarning() << "btrfs-backup KDE monitor received an invalid target status for" << profile.id;
+        return;
+    }
+    target_statuses_.insert(profile.id, *decoded_target);
+    evaluate_target_storage(profile, *decoded_target, BackupReminderSettings::load());
 }
 
 void BackupProgressMonitor::apply_status(const Profile& profile, const QString& payload) {
@@ -328,6 +389,24 @@ void BackupProgressMonitor::evaluate_reminders() {
         if (profile != profiles_.cend())
             evaluate_reminder(profile.value(), iterator.value(), configuration);
     }
+    for (auto iterator = target_statuses_.cbegin(); iterator != target_statuses_.cend(); ++iterator) {
+        const auto profile = profiles_.constFind(iterator.key());
+        if (profile != profiles_.cend())
+            evaluate_target_storage(profile.value(), iterator.value(), configuration);
+    }
+}
+
+void BackupProgressMonitor::evaluate_target_storage(
+    const Profile& profile,
+    const Target& target,
+    const BackupReminderConfiguration& configuration
+) {
+    terminal_notifications_.publish_target_storage(
+        profile.id,
+        profile.name,
+        target.target_name.isEmpty() ? profile.target_name : target.target_name,
+        monitor::evaluate_target_storage(profile, target, configuration)
+    );
 }
 
 void BackupProgressMonitor::evaluate_reminder(
