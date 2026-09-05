@@ -123,6 +123,21 @@ class ScreenshotManager final : public QObject {
         );
     }
 
+    QString ListBrowseDirectoryPage(const QString&, const QString& path, const QString&, uint) const {
+        const QString entries = path.endsWith(QStringLiteral("Documents"))
+            ? QStringLiteral(
+                  R"([{"name":"Photos","kind":"directory","size":0,"mode":365,"modifiedAt":1788389820},{"name":"Projects","kind":"directory","size":0,"mode":365,"modifiedAt":1788389400},{"name":"Reports","kind":"directory","size":0,"mode":365,"modifiedAt":1788389100},{"name":"Backup inventory.pdf","kind":"file","size":1847296,"mode":292,"modifiedAt":1788388920},{"name":"Budget 2026.ods","kind":"file","size":286720,"mode":292,"modifiedAt":1788388500},{"name":"report.odt","kind":"file","size":2936012,"mode":292,"modifiedAt":1788388200}])"
+              )
+            : QStringLiteral("[]");
+        return QStringLiteral(R"({"schemaVersion":1,"entries":%1,"continuationToken":""})").arg(entries);
+    }
+
+    QString InspectBrowseRepository(const QString&) const {
+        return QStringLiteral(
+            R"({"schemaVersion":1,"snapshots":[{"snapshotId":"home-2026-09-01T181400Z","profileId":"home","sourceId":"documents","relativePath":"snapshots/documents/home-2026-09-01T181400Z","createdAt":"2026-09-01T18:14:00Z","verified":true},{"snapshotId":"home-2026-09-02T230854Z","profileId":"home","sourceId":"documents","relativePath":"snapshots/documents/home-2026-09-02T230854Z","createdAt":"2026-09-02T23:08:54Z","verified":true}]})"
+        );
+    }
+
     QString InspectBrowseEntry(const QString&, const QString& path) const {
         const QString name = path.section(u'/', -1);
         const bool directory = !name.contains(u'.');
@@ -177,8 +192,9 @@ class ScreenshotManager final : public QObject {
   private:
     static QString browseSession(const QString& profile) {
         return QStringLiteral(
-                   R"({"schemaVersion":1,"sessionId":"readme-browse-session","profileId":"%1","rootPath":"/run/btrfs-backup-browse/readme","expiresAt":"2026-09-03T12:00:00Z","readOnly":true})"
+                   R"({"schemaVersion":%1,"sessionId":"readme-browse-session","profileId":"%2","expiresAt":"2026-09-03T13:00:00Z","readOnly":true})"
         )
+            .arg(btrfsbackup::manager_protocol::browse_session_schema_version)
             .arg(profile);
     }
 
