@@ -136,9 +136,53 @@ int ManagerBrowseMethods::list_browse_directory(sd_bus_message* message, sd_bus_
                 });
             }
             return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                  {"schemaVersion", 1},
-                                                                  {"entries", std::move(entries)},
-                                                              }));
+                                                                 {"schemaVersion", 1},
+                                                                 {"entries", std::move(entries)},
+                                                             }));
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
+int ManagerBrowseMethods::list_browse_directory_page(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const char* relative_path = nullptr;
+            const char* continuation_token = nullptr;
+            std::uint32_t limit = 0;
+            const int read_result = sd_bus_message_read(
+                message,
+                "sssu",
+                &session_id,
+                &relative_path,
+                &continuation_token,
+                &limit
+            );
+            if (read_result < 0)
+                return read_result;
+            auto page = browse_sessions_.list_directory_page(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id,
+                relative_path == nullptr ? "" : relative_path,
+                continuation_token == nullptr ? "" : continuation_token,
+                limit
+            );
+            config::json::Json entries = config::json::Json::array();
+            for (const auto& entry : page.entries) {
+                entries.push_back({
+                    {"name", entry.name},
+                    {"kind", entry.directory ? "directory" : "file"},
+                    {"size", entry.size},
+                    {"mode", entry.mode},
+                    {"modifiedAt", entry.modified_at},
+                });
+            }
+            return ManagerMethodSupport::reply_json(message, config::json::dump_json({
+                                                                 {"schemaVersion", 1},
+                                                                 {"entries", std::move(entries)},
+                                                                 {"continuationToken", page.continuation_token},
+                                                             }));
         },
         [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
     );
@@ -158,13 +202,13 @@ int ManagerBrowseMethods::inspect_browse_entry(sd_bus_message* message, sd_bus_e
                 relative_path == nullptr ? "" : relative_path
             );
             return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                  {"schemaVersion", 1},
-                                                                  {"name", entry.name},
-                                                                  {"kind", entry.directory ? "directory" : "file"},
-                                                                  {"size", entry.size},
-                                                                  {"mode", entry.mode},
-                                                                  {"modifiedAt", entry.modified_at},
-                                                              }));
+                                                                 {"schemaVersion", 1},
+                                                                 {"name", entry.name},
+                                                                 {"kind", entry.directory ? "directory" : "file"},
+                                                                 {"size", entry.size},
+                                                                 {"mode", entry.mode},
+                                                                 {"modifiedAt", entry.modified_at},
+                                                             }));
         },
         [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
     );

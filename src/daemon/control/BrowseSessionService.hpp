@@ -26,6 +26,11 @@ struct BrowseEntryInfo {
     std::int64_t modified_at = 0;
 };
 
+struct BrowseDirectoryPage {
+    std::vector<BrowseEntryInfo> entries;
+    std::string continuation_token;
+};
+
 class IBrowseSessionBackend {
   public:
     virtual ~IBrowseSessionBackend() = default;
@@ -39,6 +44,12 @@ class IBrowseSessionBackend {
     [[nodiscard]] virtual std::vector<BrowseEntryInfo> list_directory(
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path,
+        std::size_t maximum_entries
+    ) = 0;
+    [[nodiscard]] virtual BrowseDirectoryPage list_directory_page(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path,
+        const std::string& after_name,
         std::size_t maximum_entries
     ) = 0;
     [[nodiscard]] virtual BrowseEntryInfo inspect_entry(
@@ -112,6 +123,13 @@ class BrowseSessionService final {
         const std::string& session_id,
         const std::string& relative_path,
         std::size_t maximum_entries = 10000
+    );
+    [[nodiscard]] BrowseDirectoryPage list_directory_page(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& relative_path,
+        const std::string& continuation_token,
+        std::size_t requested_entries
     );
     [[nodiscard]] BrowseEntryInfo inspect_entry(
         const std::string& caller_bus_name,
