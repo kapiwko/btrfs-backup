@@ -40,6 +40,12 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         const std::filesystem::path& relative_path,
         std::size_t maximum_entries
     ) override;
+    [[nodiscard]] BrowseDirectoryPage list_directory_page(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path,
+        const std::string& after_name,
+        std::size_t maximum_entries
+    ) override;
     [[nodiscard]] BrowseEntryInfo inspect_entry(
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path

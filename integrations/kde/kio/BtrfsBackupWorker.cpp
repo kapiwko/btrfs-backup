@@ -90,23 +90,40 @@ std::optional<RemoteEntry> parse_remote_entry(const QJsonObject& object) {
     };
 }
 
-std::optional<std::vector<RemoteEntry>> remote_directory(const QString& session_id, const QString& path) {
-    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.listDirectory(session_id, path);
+struct RemoteDirectoryPage {
+    std::vector<RemoteEntry> entries;
+    QString continuation_token;
+};
+
+std::optional<RemoteDirectoryPage> remote_directory_page(
+    const QString& session_id,
+    const QString& path,
+    const QString& continuation_token
+) {
+    constexpr uint page_size = 512;
+    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.listDirectoryPage(
+        session_id,
+        path,
+        continuation_token,
+        page_size
+    );
     if (!payload)
         return std::nullopt;
     const QJsonDocument document = QJsonDocument::fromJson(payload->toUtf8());
     const QJsonObject root = document.object();
-    if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"entries"_s).isArray())
+    if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"entries"_s).isArray() ||
+        !root.value(u"continuationToken"_s).isString())
         return std::nullopt;
-    std::vector<RemoteEntry> result;
+    RemoteDirectoryPage result;
     for (const QJsonValue& value : root.value(u"entries"_s).toArray()) {
         if (!value.isObject())
             return std::nullopt;
         auto entry = parse_remote_entry(value.toObject());
         if (!entry)
             return std::nullopt;
-        result.push_back(std::move(*entry));
+        result.entries.push_back(std::move(*entry));
     }
+    result.continuation_token = root.value(u"continuationToken"_s).toString();
     return result;
 }
 
@@ -127,11 +144,7 @@ std::optional<QHash<QString, btrfsbackup::kde::kio::RepositorySnapshot>> remote_
 }
 
 btrfsbackup::kde::kio::SecureBrowseFile remote_file(const QString& session_id, const QString& path) {
-    QDBusPendingReply<QDBusUnixFileDescriptor> reply(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(),
-        QLatin1String(btrfsbackup::manager_protocol::method::open_browse_file),
-        {session_id, path}
-    ));
+    QDBusPendingReply<QDBusUnixFileDescriptor> reply(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::open_browse_file), {session_id, path}));
     reply.waitForFinished();
     if (reply.isError() || !reply.value().isValid())
         return {};
@@ -373,13 +386,14 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
     const auto relative = resolve_entry(*parsed, *active);
     if (!relative)
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
-    KIO::UDSEntryList entries;
-    const auto children = remote_directory(active->id, QString::fromStdString(relative->string()));
-    if (!children)
-        return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
-    auto sorted = *children;
-    std::ranges::sort(sorted, {}, &RemoteEntry::name);
-    for (const auto& child : sorted) {
+    const QString path = QString::fromStdString(relative->string());
+    QString continuation_token;
+    do {
+        const auto page = remote_directory_page(active->id, path, continuation_token);
+        if (!page || (!page->continuation_token.isEmpty() && page->continuation_token == continuation_token))
+            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
+        KIO::UDSEntryList entries;
+        for (const auto& child : page->entries) {
             if (wasKilled())
                 return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
             KIO::UDSEntry entry;
@@ -393,8 +407,10 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
             entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(child.mode & 0777));
             entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(child));
             entries.push_back(std::move(entry));
-    }
-    listEntries(entries);
+        }
+        listEntries(entries);
+        continuation_token = page->continuation_token;
+    } while (!continuation_token.isEmpty());
     return KIO::WorkerResult::pass();
 }
 
@@ -518,7 +534,8 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     if (parsed->profile.isEmpty() || parsed->snapshot.isEmpty() || parsed->snapshot == u".versions"_s) {
         const QString name = parsed->profile.isEmpty()
             ? u"."_s
-            : parsed->snapshot.isEmpty() ? parsed->profile : parsed->snapshot;
+            : parsed->snapshot.isEmpty() ? parsed->profile
+                                         : parsed->snapshot;
         statEntry(directory_entry(name));
         return KIO::WorkerResult::pass();
     }

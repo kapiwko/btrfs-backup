@@ -166,7 +166,7 @@ assert_delegated_methods(
 assert_delegated_methods(
     browse_methods
     open_browse_session renew_browse_session set_browse_session_active close_browse_session
-    list_browse_directory inspect_browse_entry open_browse_file resolve_backup_coverage
+    list_browse_directory list_browse_directory_page inspect_browse_entry open_browse_file resolve_backup_coverage
 )
 assert_delegated_methods(
     credential_methods
@@ -279,6 +279,10 @@ assert_unprivileged_method(
 assert_unprivileged_method(
     list_browse_directory ListBrowseDirectory ss s
     "<methodname=\"ListBrowseDirectory\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"relativePath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_unprivileged_method(
+    list_browse_directory_page ListBrowseDirectoryPage sssu s
+    "<methodname=\"ListBrowseDirectoryPage\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"relativePath\"type=\"s\"direction=\"in\"/><argname=\"continuationToken\"type=\"s\"direction=\"in\"/><argname=\"limit\"type=\"u\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_unprivileged_method(
     inspect_browse_entry InspectBrowseEntry ss s

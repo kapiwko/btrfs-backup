@@ -20,6 +20,12 @@ class BrowseSessionClient {
     [[nodiscard]] bool setActive(const QString& session_id, bool active) const;
     [[nodiscard]] bool close(const QString& session_id) const;
     [[nodiscard]] std::optional<QString> listDirectory(const QString& session_id, const QString& path) const;
+    [[nodiscard]] std::optional<QString> listDirectoryPage(
+        const QString& session_id,
+        const QString& path,
+        const QString& continuation_token,
+        uint limit
+    ) const;
     [[nodiscard]] std::optional<QString> inspectEntry(const QString& session_id, const QString& path) const;
     [[nodiscard]] std::optional<QString> inspectRepository(const QString& session_id) const;
     [[nodiscard]] QDBusUnixFileDescriptor openRoot(const QString& session_id) const;

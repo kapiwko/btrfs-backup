@@ -42,6 +42,15 @@ std::optional<QString> BrowseSessionClient::listDirectory(const QString& session
     return payload(manager_.listBrowseDirectory(session_id, path));
 }
 
+std::optional<QString> BrowseSessionClient::listDirectoryPage(
+    const QString& session_id,
+    const QString& path,
+    const QString& continuation_token,
+    uint limit
+) const {
+    return payload(manager_.listBrowseDirectoryPage(session_id, path, continuation_token, limit));
+}
+
 std::optional<QString> BrowseSessionClient::inspectEntry(const QString& session_id, const QString& path) const {
     return payload(manager_.inspectBrowseEntry(session_id, path));
 }

@@ -45,6 +45,7 @@ class Backend final : public IBrowseSessionBackend {
     bool fail_close = false;
     std::vector<std::string> opened;
     std::vector<std::string> closed;
+    std::string page_after_name;
     void open(const ProfileId& profile, const BrowseSessionId& id, std::uint32_t uid) override {
         opened.push_back(std::string(profile.value()) + ":" + std::string(id.value()) + ":" + std::to_string(uid));
     }
@@ -62,6 +63,17 @@ class Backend final : public IBrowseSessionBackend {
         std::size_t
     ) override {
         return {{"snapshot", true, 0, 0500, 123}};
+    }
+    btrfsbackup::daemon::control::BrowseDirectoryPage list_directory_page(
+        const BrowseSessionId&,
+        const std::filesystem::path&,
+        const std::string& after_name,
+        std::size_t maximum_entries
+    ) override {
+        page_after_name = after_name;
+        if (maximum_entries == 1 && after_name.empty())
+            return {{{"alpha", false, 4, 0400, 123}}, "alpha"};
+        return {{{"omega", false, 4, 0400, 123}}, {}};
     }
     btrfsbackup::daemon::control::BrowseEntryInfo inspect_entry(
         const BrowseSessionId&,
@@ -298,6 +310,50 @@ void test_session_limits_are_enforced_before_backend_open() {
     test_helpers::expect_true("limited backend opens", backend.opened.size() == 2, "limit reached backend open");
 }
 
+void test_directory_pages_bind_tokens_to_session_and_path() {
+    Authorizer authorizer;
+    Backend backend;
+    int next = 0;
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [&] {
+        return BrowseSessionId{"browse-page-" + std::to_string(++next)};
+    });
+    const auto first_session = service.open(":1.80", 1000, "default");
+    const auto second_session = service.open(":1.80", 1000, "archive");
+    const auto first = service.list_directory_page(":1.80", first_session.session_id, "snapshot", "", 1);
+    test_helpers::expect_true(
+        "first page token",
+        first.entries.size() == 1 && first.entries.front().name == "alpha" && !first.continuation_token.empty(),
+        "first page did not return a continuation token"
+    );
+    const auto second = service.list_directory_page(
+        ":1.80",
+        first_session.session_id,
+        "snapshot",
+        first.continuation_token,
+        1
+    );
+    test_helpers::expect_true(
+        "continued page",
+        backend.page_after_name == "alpha" && second.entries.size() == 1 && second.continuation_token.empty(),
+        "continuation token did not resume after the last name"
+    );
+    expect_error("token path binding", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_directory_page(":1.80", first_session.session_id, "other", first.continuation_token, 1);
+    });
+    expect_error("token session binding", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_directory_page(":1.80", second_session.session_id, "snapshot", first.continuation_token, 1);
+    });
+    expect_error("malformed token", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_directory_page(":1.80", first_session.session_id, "snapshot", "v1:not-hex", 1);
+    });
+    expect_error("zero page size", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_directory_page(":1.80", first_session.session_id, "snapshot", "", 0);
+    });
+    expect_error("oversized page", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_directory_page(":1.80", first_session.session_id, "snapshot", "", 513);
+    });
+}
+
 } // namespace
 
 int main() {
@@ -310,5 +366,6 @@ int main() {
     test_renewal_uses_monotonic_deadline_and_active_pin();
     test_concurrent_operation_pins_are_counted();
     test_session_limits_are_enforced_before_backend_open();
+    test_directory_pages_bind_tokens_to_session_and_path();
     return test_helpers::finish("browse session service tests");
 }

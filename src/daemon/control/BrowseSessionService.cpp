@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cerrno>
 #include <ctime>
 #include <iomanip>
@@ -18,6 +19,72 @@
 
 namespace btrfsbackup::daemon::control {
 namespace {
+
+constexpr std::size_t maximum_browse_page_entries = 512;
+constexpr std::size_t maximum_browse_token_size = 32768;
+
+char hex_digit(unsigned int value) {
+    return value < 10 ? static_cast<char>('0' + value) : static_cast<char>('a' + value - 10);
+}
+
+std::string hex_encode(std::string_view value) {
+    std::string result;
+    result.reserve(value.size() * 2);
+    for (const unsigned char byte : value) {
+        result.push_back(hex_digit(byte >> 4));
+        result.push_back(hex_digit(byte & 0x0f));
+    }
+    return result;
+}
+
+int hex_value(char value) {
+    if (value >= '0' && value <= '9')
+        return value - '0';
+    if (value >= 'a' && value <= 'f')
+        return value - 'a' + 10;
+    return -1;
+}
+
+std::string page_binding(const BrowseSessionId& session_id, const std::string& relative_path) {
+    return std::string(session_id.value()) + '\0' +
+        std::filesystem::path(relative_path).lexically_normal().generic_string() + '\0';
+}
+
+std::string make_continuation_token(
+    const BrowseSessionId& session_id,
+    const std::string& relative_path,
+    const std::string& last_name
+) {
+    return "v1:" + hex_encode(page_binding(session_id, relative_path) + last_name);
+}
+
+std::string continuation_name(
+    const BrowseSessionId& session_id,
+    const std::string& relative_path,
+    const std::string& token
+) {
+    if (token.empty())
+        return {};
+    if (!token.starts_with("v1:") || token.size() > maximum_browse_token_size || (token.size() - 3) % 2 != 0)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "invalid browse continuation token");
+    std::string decoded;
+    decoded.reserve((token.size() - 3) / 2);
+    for (std::size_t index = 3; index < token.size(); index += 2) {
+        const int high = hex_value(token[index]);
+        const int low = hex_value(token[index + 1]);
+        if (high < 0 || low < 0)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "invalid browse continuation token");
+        decoded.push_back(static_cast<char>((high << 4) | low));
+    }
+    const std::string binding = page_binding(session_id, relative_path);
+    if (!decoded.starts_with(binding))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "browse continuation token does not match the session and path");
+    const std::string name = decoded.substr(binding.size());
+    if (name.empty() || name == "." || name == ".." || name.find('/') != std::string::npos ||
+        name.find('\0') != std::string::npos)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "invalid browse continuation token");
+    return name;
+}
 
 BrowseSessionId random_session_id() {
     std::array<unsigned char, 16> bytes{};
@@ -171,6 +238,29 @@ std::vector<BrowseEntryInfo> BrowseSessionService::list_directory(
     auto session = owned_session(caller_bus_name, session_id);
     extend(session->second);
     return backend_.list_directory(session->second.id, relative_path, maximum_entries);
+}
+
+BrowseDirectoryPage BrowseSessionService::list_directory_page(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& relative_path,
+    const std::string& continuation_token,
+    std::size_t requested_entries
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    if (requested_entries == 0 || requested_entries > maximum_browse_page_entries)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "browse page size must be between 1 and 512");
+    const std::string after_name = continuation_name(session->second.id, relative_path, continuation_token);
+    extend(session->second);
+    BrowseDirectoryPage page = backend_.list_directory_page(
+        session->second.id,
+        relative_path,
+        after_name,
+        requested_entries
+    );
+    if (!page.continuation_token.empty())
+        page.continuation_token = make_continuation_token(session->second.id, relative_path, page.continuation_token);
+    return page;
 }
 
 BrowseEntryInfo BrowseSessionService::inspect_entry(

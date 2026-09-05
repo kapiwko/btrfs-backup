@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <memory>
@@ -95,14 +96,18 @@ OwnedFileDescriptor open_beneath(int root, const fs::path& relative, int final_f
     }
     for (std::size_t index = 0; index + 1 < components.size(); ++index) {
         OwnedFileDescriptor next(openat(
-            current.get(), components[index].c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+            current.get(),
+            components[index].c_str(),
+            O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
         ));
         if (!next.valid())
             browse_path_error("cannot traverse browse entry");
         current = std::move(next);
     }
     OwnedFileDescriptor result(openat(
-        current.get(), components.back().c_str(), final_flags | O_CLOEXEC | O_NOFOLLOW
+        current.get(),
+        components.back().c_str(),
+        final_flags | O_CLOEXEC | O_NOFOLLOW
     ));
     if (!result.valid())
         browse_path_error("cannot open browse entry");
@@ -483,6 +488,57 @@ std::vector<BrowseEntryInfo> SystemBrowseSessionBackend::list_directory(
     if (errno != 0)
         browse_path_error("cannot read browse directory");
     return result;
+}
+
+BrowseDirectoryPage SystemBrowseSessionBackend::list_directory_page(
+    const BrowseSessionId& session_id,
+    const fs::path& relative_path,
+    const std::string& after_name,
+    std::size_t maximum_entries
+) {
+    const auto session = sessions_.find(std::string(session_id.value()));
+    if (session == sessions_.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
+    OwnedFileDescriptor root(::open(session->second.view.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+    if (!root.valid())
+        browse_path_error("cannot open browse session view");
+    OwnedFileDescriptor directory = open_beneath(root.get(), relative_path, O_RDONLY | O_DIRECTORY);
+    const int duplicate = dup(directory.get());
+    if (duplicate < 0)
+        browse_path_error("cannot duplicate browse directory");
+    std::unique_ptr<DIR, DirectoryCloser> stream(fdopendir(duplicate));
+    if (!stream) {
+        ::close(duplicate);
+        browse_path_error("cannot open browse directory stream");
+    }
+
+    std::vector<BrowseEntryInfo> entries;
+    errno = 0;
+    while (dirent* item = readdir(stream.get())) {
+        const std::string name = item->d_name;
+        if (name == "." || name == ".." || name == ".incoming" || name <= after_name)
+            continue;
+        try {
+            BrowseEntryInfo info = entry_info(directory.get(), name);
+            const auto position = std::ranges::lower_bound(entries, info.name, {}, &BrowseEntryInfo::name);
+            entries.insert(position, std::move(info));
+            if (entries.size() > maximum_entries + 1)
+                entries.pop_back();
+        } catch (const std::invalid_argument&) {
+            continue;
+        }
+        errno = 0;
+    }
+    if (errno != 0)
+        browse_path_error("cannot read browse directory");
+
+    BrowseDirectoryPage page;
+    if (entries.size() > maximum_entries) {
+        entries.resize(maximum_entries);
+        page.continuation_token = entries.back().name;
+    }
+    page.entries = std::move(entries);
+    return page;
 }
 
 BrowseEntryInfo SystemBrowseSessionBackend::inspect_entry(

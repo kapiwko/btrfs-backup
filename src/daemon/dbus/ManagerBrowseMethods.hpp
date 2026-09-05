@@ -29,6 +29,7 @@ class ManagerBrowseMethods final {
     int set_browse_session_active(sd_bus_message* message, sd_bus_error* error) noexcept;
     int close_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept;
     int list_browse_directory(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int list_browse_directory_page(sd_bus_message* message, sd_bus_error* error) noexcept;
     int inspect_browse_entry(sd_bus_message* message, sd_bus_error* error) noexcept;
     int open_browse_file(sd_bus_message* message, sd_bus_error* error) noexcept;
     int open_browse_root(sd_bus_message* message, sd_bus_error* error) noexcept;

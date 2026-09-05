@@ -138,6 +138,12 @@ class ManagerClient {
     [[nodiscard]] QDBusPendingCall setBrowseSessionActive(const QString& session_id, bool active) const;
     [[nodiscard]] QDBusPendingCall closeBrowseSession(const QString& session_id) const;
     [[nodiscard]] QDBusPendingCall listBrowseDirectory(const QString& session_id, const QString& path) const;
+    [[nodiscard]] QDBusPendingCall listBrowseDirectoryPage(
+        const QString& session_id,
+        const QString& path,
+        const QString& continuation_token,
+        uint limit
+    ) const;
     [[nodiscard]] QDBusPendingCall inspectBrowseEntry(const QString& session_id, const QString& path) const;
     [[nodiscard]] QDBusPendingCall inspectBrowseRepository(const QString& session_id) const;
     [[nodiscard]] QDBusPendingCall openBrowseFile(const QString& session_id, const QString& path) const;

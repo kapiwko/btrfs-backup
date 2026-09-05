@@ -489,6 +489,7 @@ void Fixture::verify_read_api() {
         "SetBrowseSessionActive",
         "CloseBrowseSession",
         "ListBrowseDirectory",
+        "ListBrowseDirectoryPage",
         "InspectBrowseEntry",
         "OpenBrowseFile",
         "OpenBrowseRoot",

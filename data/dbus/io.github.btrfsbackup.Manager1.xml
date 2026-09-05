@@ -111,6 +111,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="relativePath" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="ListBrowseDirectoryPage">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="relativePath" type="s" direction="in"/>
+      <arg name="continuationToken" type="s" direction="in"/>
+      <arg name="limit" type="u" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="InspectBrowseEntry">
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="relativePath" type="s" direction="in"/>
