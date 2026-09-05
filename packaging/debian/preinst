@@ -1,0 +1,31 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -eu
+
+profile_root=/etc/btrfs-backup/profiles
+profiles_present=false
+for profile in "$profile_root"/*/profile.json; do
+    if [ -e "$profile" ] || [ -L "$profile" ]; then
+        profiles_present=true
+        break
+    fi
+done
+
+if [ "$profiles_present" = false ]; then
+    exit 0
+fi
+
+ctl=/usr/bin/btrfs-backupctl
+if [ ! -x "$ctl" ]; then
+    echo "btrfs-backup: upgrade blocked: installed profiles require the 3.2 migration bridge" >&2
+    echo "Install the latest 3.2.x release, run 'btrfs-backupctl upgrade preflight', and export all profiles before retrying." >&2
+    exit 1
+fi
+
+if ! "$ctl" upgrade preflight; then
+    echo "btrfs-backup: package upgrade blocked by profile migration preflight" >&2
+    echo "Run: btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-4.0" >&2
+    exit 1
+fi

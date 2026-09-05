@@ -1,17 +1,19 @@
 # Package Lifecycle Inventory
 
-The installable packages contain no lifecycle shell scriptlets. Package
-installation is declarative: CMake installs files, `systemd-tmpfiles` owns the
-standard state and status directory modes, and distribution package hooks
-reload systemd, D-Bus, udev and desktop caches when their native formats
-require it.
+Normal package installation is declarative: CMake installs files,
+`systemd-tmpfiles` owns the standard state and status directory modes, and
+distribution package hooks reload systemd, D-Bus, udev and desktop caches when
+their native formats require it. The sole application-specific lifecycle
+action is a fail-closed 1.0 pre-upgrade gate; it is read-only and never edits
+administrator configuration.
 
 | Package path | Lifecycle code | Replacement or reason |
 |---|---|---|
-| Arch base package | None | `/usr/lib/tmpfiles.d/btrfs-backup.conf` and standard pacman hooks |
+| Arch base package | `pre_upgrade` | Runs the installed migration preflight when profiles exist |
 | Arch KDE package | None | Standard Plasma and desktop database hooks; session restart is a user choice |
-| CPack DEB/RPM | None | Native package triggers and the installed tmpfiles declaration |
-| RPM, Nix and Gentoo definitions | None | Their native packaging mechanisms consume the CMake install tree |
+| CPack DEB/RPM | `preinst`/`%pre` | Runs the installed migration preflight when profiles exist |
+| RPM and Gentoo definitions | `%pre`/`pkg_preinst` | Runs the installed migration preflight when profiles exist |
+| Nix definition | None | Immutable package replacement does not mutate `/etc`; preflight remains an explicit activation prerequisite |
 
 No `systemd-sysusers` entry is installed because the device, mount and backup
 operations intentionally run as root. Introducing an unused service account
@@ -32,11 +34,12 @@ sudo btrfs-backupctl upgrade preflight
 sudo btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-1.0
 ```
 
-An exit status of `1` from preflight blocks the operational upgrade. Legacy
-profiles are exported explicitly, saved as v4 while the old installation is
-still active, and checked again. Distribution package hooks remain limited to
-cache and rule reloads; they do not mutate or silently migrate administrator
-configuration.
+An exit status of `1` from preflight blocks the package transaction. If the
+installed binary predates the migration command, the transaction also stops
+and requests installation of the latest 0.3.x bridge release. Legacy profiles
+are exported explicitly, saved as v4 while the old installation is still
+active, and checked again. The gate does not mutate or silently migrate
+administrator configuration.
 
 After an upgrade that changes generated artifacts, the administrator performs
 the regeneration explicitly:

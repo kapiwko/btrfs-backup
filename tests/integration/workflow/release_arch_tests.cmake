@@ -56,6 +56,16 @@ foreach(expected IN ITEMS
     endif()
 endforeach()
 string(FIND "${entries}" ".INSTALL\n" install_scriptlet)
-if(NOT install_scriptlet EQUAL -1)
-    message(FATAL_ERROR "Arch base package unexpectedly contains a lifecycle scriptlet")
+if(install_scriptlet EQUAL -1)
+    message(FATAL_ERROR "Arch base package is missing the 4.0 pre-upgrade gate")
+endif()
+execute_process(
+    COMMAND bsdtar -xOf "${first_packages}" .INSTALL
+    OUTPUT_VARIABLE install_content
+    RESULT_VARIABLE install_result
+)
+if(NOT install_result EQUAL 0 OR
+   NOT install_content MATCHES "btrfs-backupctl upgrade preflight" OR
+   NOT install_content MATCHES "profile export-v4 --all")
+    message(FATAL_ERROR "Arch pre-upgrade gate is missing the migration commands")
 endif()
