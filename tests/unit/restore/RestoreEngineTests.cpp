@@ -4,11 +4,13 @@
 
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <string>
 
 #include <core/Cancellation.hpp>
 #include <platform/linux/restore/PosixRestoreOperations.hpp>
 #include <restore/RestoreEngine.hpp>
+#include <restore/RestoreError.hpp>
 #include <restore/RestorePlan.hpp>
 #include <support/TestHelpers.hpp>
 
@@ -64,11 +66,11 @@ void test_restores_directory_transactionally() {
     const auto repository = catalog(root / "repository");
     const fs::path destination = root / "output/Documents";
     const auto result = execute(repository, btrfsbackup::restore::RestoreRequest{
-        .transaction_id = "tx-directory",
-        .snapshot_id = "snapshot",
-        .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents"},
-        .destination = destination,
-    });
+                                                .transaction_id = "tx-directory",
+                                                .snapshot_id = "snapshot",
+                                                .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents"},
+                                                .destination = destination,
+                                            });
     test_helpers::expect_true("directory committed", result.committed, "restore should commit");
     test_helpers::expect_eq("directory file count", std::to_string(result.statistics.files), "1");
     test_helpers::expect_eq("directory content", read_file(destination / "report.txt"), "restored");
@@ -86,13 +88,13 @@ void test_replaces_only_with_explicit_policy() {
     const fs::path destination = root / "output/report.txt";
     test_helpers::write_file(destination, "old");
     const auto result = execute(repository, btrfsbackup::restore::RestoreRequest{
-        .transaction_id = "tx-replace",
-        .snapshot_id = "snapshot",
-        .source_path = btrfsbackup::restore::RelativeRestorePath{"report.txt"},
-        .destination = destination,
-        .kind = btrfsbackup::restore::RestoreKind::Files,
-        .existing_destination = btrfsbackup::restore::ExistingDestinationPolicy::Replace,
-    });
+                                                .transaction_id = "tx-replace",
+                                                .snapshot_id = "snapshot",
+                                                .source_path = btrfsbackup::restore::RelativeRestorePath{"report.txt"},
+                                                .destination = destination,
+                                                .kind = btrfsbackup::restore::RestoreKind::Files,
+                                                .existing_destination = btrfsbackup::restore::ExistingDestinationPolicy::Replace,
+                                            });
     test_helpers::expect_true("replacement committed", result.committed, "replacement should commit");
     test_helpers::expect_eq("replacement content", read_file(destination), "new");
     test_helpers::expect_true(
@@ -108,12 +110,12 @@ void test_drill_verifies_and_cleans() {
     const auto repository = catalog(root / "repository");
     const fs::path destination = root / "drill/result";
     const auto result = execute(repository, btrfsbackup::restore::RestoreRequest{
-        .transaction_id = "tx-drill",
-        .snapshot_id = "snapshot",
-        .source_path = btrfsbackup::restore::RelativeRestorePath{"report.txt"},
-        .destination = destination,
-        .kind = btrfsbackup::restore::RestoreKind::Drill,
-    });
+                                                .transaction_id = "tx-drill",
+                                                .snapshot_id = "snapshot",
+                                                .source_path = btrfsbackup::restore::RelativeRestorePath{"report.txt"},
+                                                .destination = destination,
+                                                .kind = btrfsbackup::restore::RestoreKind::Drill,
+                                            });
     test_helpers::expect_true("drill result", result.drill && !result.committed, "drill should verify without commit");
     test_helpers::expect_true("drill destination", !fs::exists(destination), "drill must not publish destination");
     test_helpers::expect_true(
@@ -123,11 +125,57 @@ void test_drill_verifies_and_cleans() {
     );
 }
 
+void test_preflight_rejects_source_larger_than_destination_space() {
+    const fs::path root = test_helpers::test_root("restore-engine", "insufficient-space");
+    const fs::path source = root / "source.bin";
+    test_helpers::write_file(source, "x");
+    const std::uintmax_t available = fs::space(root).available;
+    test_helpers::expect_true(
+        "finite destination capacity",
+        available < std::numeric_limits<std::uintmax_t>::max(),
+        "destination reports an unbounded capacity"
+    );
+    fs::resize_file(source, available + 1U);
+
+    btrfsbackup::platform::linux::restore::PosixRestoreOperations operations;
+    btrfsbackup::CancellationToken cancellation;
+    try {
+        operations.ensure_sufficient_space(source, root / "output/restored.bin", cancellation);
+        test_helpers::fail("restore space preflight", "oversized restore was accepted");
+    } catch (const btrfsbackup::restore::RestoreError& error) {
+        test_helpers::expect_true(
+            "restore space preflight code",
+            error.code() == btrfsbackup::restore::RestoreErrorCode::InsufficientSpace,
+            "oversized restore reported another error"
+        );
+    }
+}
+
+void test_copy_reports_destination_enospc() {
+    const fs::path root = test_helpers::test_root("restore-engine", "runtime-enospc");
+    const fs::path source = root / "source.bin";
+    test_helpers::write_file(source, "content");
+    btrfsbackup::platform::linux::restore::PosixRestoreOperations operations;
+    btrfsbackup::CancellationToken cancellation;
+    try {
+        (void)operations.copy_and_verify(source, "/dev/full", cancellation);
+        test_helpers::fail("restore runtime ENOSPC", "copy to /dev/full was accepted");
+    } catch (const btrfsbackup::restore::RestoreError& error) {
+        test_helpers::expect_true(
+            "restore runtime ENOSPC code",
+            error.code() == btrfsbackup::restore::RestoreErrorCode::InsufficientSpace,
+            "destination ENOSPC reported another error"
+        );
+    }
+}
+
 } // namespace
 
 int main() {
     test_restores_directory_transactionally();
     test_replaces_only_with_explicit_policy();
     test_drill_verifies_and_cleans();
+    test_preflight_rejects_source_larger_than_destination_space();
+    test_copy_reports_destination_enospc();
     return test_helpers::finish("transactional restore engine tests passed");
 }

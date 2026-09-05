@@ -30,6 +30,11 @@ class IRestoreOperations {
     virtual ~IRestoreOperations() = default;
 
     [[nodiscard]] virtual bool exists(const std::filesystem::path& path) const = 0;
+    virtual void ensure_sufficient_space(
+        const std::filesystem::path& source,
+        const std::filesystem::path& destination,
+        CancellationToken& cancellation
+    ) const = 0;
     virtual void prepare_copy_root(
         const std::filesystem::path& source,
         const std::filesystem::path& path

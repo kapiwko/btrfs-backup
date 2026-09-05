@@ -68,6 +68,8 @@ class FakeRestoreOperations final : public btrfsbackup::restore::IRestoreOperati
   public:
     std::set<fs::path> paths;
     bool cancel_during_copy = false;
+    bool insufficient_space = false;
+    bool prepared = false;
     bool fail_commit = false;
     bool fail_rollback = false;
     fs::path staging;
@@ -78,7 +80,21 @@ class FakeRestoreOperations final : public btrfsbackup::restore::IRestoreOperati
         return paths.contains(path);
     }
 
+    void ensure_sufficient_space(
+        const fs::path&,
+        const fs::path&,
+        btrfsbackup::CancellationToken&
+    ) const override {
+        if (insufficient_space) {
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::InsufficientSpace,
+                "injected insufficient space"
+            );
+        }
+    }
+
     void prepare_copy_root(const fs::path&, const fs::path& path) override {
+        prepared = true;
         paths.insert(path);
     }
 
@@ -242,6 +258,23 @@ void test_cancellation_cleans_without_commit() {
     test_helpers::expect_true("cancel no destination", !operations.paths.contains(plan.destination), "cancellation committed destination");
 }
 
+void test_insufficient_space_fails_before_staging() {
+    const fs::path root = test_helpers::test_root("restore-safety", "insufficient-space");
+    const auto plan = fake_plan(root);
+    FakeRestoreOperations operations;
+    operations.insufficient_space = true;
+    btrfsbackup::restore::RestoreExecutor executor(operations);
+    btrfsbackup::CancellationToken cancellation;
+    expect_restore_error("insufficient space", btrfsbackup::restore::RestoreErrorCode::InsufficientSpace, [&] {
+        (void)executor.execute(plan, cancellation);
+    });
+    test_helpers::expect_true(
+        "insufficient space no staging",
+        !operations.prepared && operations.paths.empty(),
+        "restore created transaction data despite insufficient space"
+    );
+}
+
 void test_commit_failure_restores_previous_destination() {
     const fs::path root = test_helpers::test_root("restore-safety", "rollback");
     const auto plan = fake_plan(root);
@@ -285,6 +318,7 @@ int main() {
     test_rejects_symlink_entries_and_cleans_staging();
     test_plans_from_a_pinned_source_descriptor();
     test_cancellation_cleans_without_commit();
+    test_insufficient_space_fails_before_staging();
     test_commit_failure_restores_previous_destination();
     test_reports_incomplete_rollback();
     return test_helpers::finish("restore traversal cancellation and rollback tests passed");

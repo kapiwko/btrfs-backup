@@ -38,6 +38,8 @@ RestoreResult RestoreExecutor::execute(
     bool previous_moved = false;
     bool committed = false;
     try {
+        operations_.ensure_sufficient_space(plan.source, plan.staging, cancellation);
+        throw_if_cancelled(cancellation);
         if (plan.kind == RestoreKind::Subvolume) {
             operations_.create_subvolume_root(plan.staging);
         } else {

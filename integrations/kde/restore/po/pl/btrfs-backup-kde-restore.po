@@ -122,3 +122,6 @@ msgstr "Pokaż przywrócony plik"
 
 msgid "Close"
 msgstr "Zamknij"
+
+msgid "There is not enough free space to restore this backup."
+msgstr "W miejscu docelowym nie ma wystarczającej ilości wolnego miejsca."
