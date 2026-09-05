@@ -81,7 +81,7 @@ void test_status_use_cases() {
 
     auto current = btrfsbackup::state::poll_status(root / "status", "laptop", "");
     test_helpers::expect_true("polled status", current.has_value(), "current status was not returned");
-    const auto& parsed = std::get<btrfsbackup::state::document::PublicRunStatusV3>(current->status);
+    const auto& parsed = std::get<btrfsbackup::state::document::PublicRunStatusV4>(current->status);
     test_helpers::expect_true(
         "parsed status",
         parsed.state == btrfsbackup::state::document::PublicRunState::Running,

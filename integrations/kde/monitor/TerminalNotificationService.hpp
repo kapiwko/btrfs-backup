@@ -16,6 +16,7 @@ struct TerminalNotificationMessage {
     QString event_id;
     QString title;
     QString text;
+    QString error_code;
     QString profile_id;
 };
 
@@ -29,6 +30,7 @@ class TerminalNotificationService final {
         const QString& profile_id,
         const QString& run_id,
         const QString& profile_name,
+        const QString& operation_kind,
         const QString& terminal_state,
         const QString& error_code
     );

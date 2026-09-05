@@ -35,6 +35,7 @@ void test_progress_and_cancellation() {
         QStringLiteral("default"),
         QStringLiteral("run-1"),
         QStringLiteral("Default backup"),
+        QStringLiteral("backup"),
         [&](const QString& profile_id, const QString& run_id) {
             if (profile_id == QStringLiteral("default") && run_id == QStringLiteral("run-1")) {
                 ++cancellation_requests;
@@ -91,6 +92,7 @@ void test_cancellation_capability_gate() {
         QStringLiteral("default"),
         QStringLiteral("run-no-cancel"),
         QStringLiteral("Default backup"),
+        QStringLiteral("backup"),
         [&](const QString&, const QString&) {
             ++cancellation_requests;
         }
@@ -110,6 +112,7 @@ void test_success() {
         QStringLiteral("archive"),
         QStringLiteral("run-2"),
         QStringLiteral("Archive"),
+        QStringLiteral("backup"),
         [](const QString&, const QString&) {}
     );
     job.setAutoDelete(false);
@@ -124,12 +127,35 @@ void test_success() {
     expect(job.percent() == 100, "successful run reaches 100 percent");
 }
 
+void test_target_validation_has_distinct_description() {
+    QString title;
+    BackupProgressJob job(
+        QStringLiteral("default"),
+        QStringLiteral("validation-1"),
+        QStringLiteral("Home"),
+        QStringLiteral("target-validation"),
+        [](const QString&, const QString&) {}
+    );
+    job.setAutoDelete(false);
+    QObject::connect(
+        &job,
+        &KJob::description,
+        [&](KJob*, const QString& value) { title = value; }
+    );
+    job.start();
+    job.update(0, 0, true, QStringLiteral("Validating backup target"), {}, QStringLiteral("Backup disk"));
+    QCoreApplication::processEvents();
+    expect(title == QStringLiteral("Checking backup target Home"), "target validation has a distinct progress title");
+    job.finish_successfully();
+}
+
 void test_stopping_tracking_is_not_a_terminal_result() {
     int results = 0;
     auto* job = new BackupProgressJob(
         QStringLiteral("default"),
         QStringLiteral("run-3"),
         QStringLiteral("Default backup"),
+        QStringLiteral("backup"),
         [](const QString&, const QString&) {}
     );
     QPointer<BackupProgressJob> tracked_job(job);
@@ -148,7 +174,7 @@ void test_stopping_tracking_is_not_a_terminal_result() {
 
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
-        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":5,"historySchemaVersion":2,"features":["cancel-backup","change-signals"]})")
+        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":6,"historySchemaVersion":2,"features":["cancel-backup","change-signals"]})")
     );
     expect(
         capabilities.has_value() && capabilities->api_major == 1 &&
@@ -165,10 +191,10 @@ void test_shared_manager_protocol() {
     );
 
     const auto status = btrfsbackup::kde::parse_status(QStringLiteral(
-        R"({"schemaVersion":5,"runId":"run-1","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Disk","speedBps":2048,"etaSeconds":60,"sourceProgress":50,"overallProgress":25,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":2,"startedAt":"2026-08-29T15:00:00Z","updatedAt":"2026-08-29T16:00:00Z","lastSuccessAt":"2026-08-25T10:00:00Z","lastAttemptAt":"2026-08-29T16:00:00Z","lastAttemptState":"failed"})"
+        R"({"schemaVersion":6,"runId":"run-1","operationKind":"backup","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Disk","speedBps":2048,"etaSeconds":60,"sourceProgress":50,"overallProgress":25,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":2,"startedAt":"2026-08-29T15:00:00Z","updatedAt":"2026-08-29T16:00:00Z","lastSuccessAt":"2026-08-25T10:00:00Z","lastAttemptAt":"2026-08-29T16:00:00Z","lastAttemptState":"failed"})"
     ));
     expect(
-        status.has_value() && status->run_id == QStringLiteral("run-1") &&
+        status.has_value() && status->run_id == QStringLiteral("run-1") && status->operation_kind == QStringLiteral("backup") &&
             status->speed_bps == 2048 && status->last_attempt_state == QStringLiteral("failed") &&
             btrfsbackup::kde::active_run_state(status->state),
         "shared client decodes active run status"
@@ -209,6 +235,7 @@ int main(int argc, char* argv[]) {
     test_progress_and_cancellation();
     test_cancellation_capability_gate();
     test_success();
+    test_target_validation_has_distinct_description();
     test_stopping_tracking_is_not_a_terminal_result();
     test_shared_manager_protocol();
     if (failures == 0) {

@@ -104,12 +104,13 @@ The engine writes current status atomically:
 <STATUS_ROOT>/<PROFILE_ID>/current.json
 ```
 
-Schema version 3 contains only presentation-safe fields:
+Schema version 4 contains only presentation-safe fields:
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "runId": "20260829T160000Z-1-1",
+  "operationKind": "backup",
   "state": "running",
   "phase": "transferring",
   "activity": "transferring",
@@ -221,8 +222,8 @@ not change the selected program.
 
 ## Compatibility
 
-Profile configuration uses `schemaVersion: 3`. Public current status uses
-`schemaVersion: 3`; private diagnostic history uses `schemaVersion: 2`;
+Profile configuration uses `schemaVersion: 4`. Public current status uses
+`schemaVersion: 4`; private diagnostic history uses `schemaVersion: 2`;
 checkpoint and internal event documents retain their own version 1 contracts.
 Run status intentionally does not contain target
 safe-removal state. Consumers must ignore unknown fields and treat missing

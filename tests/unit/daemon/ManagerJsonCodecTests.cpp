@@ -87,7 +87,8 @@ void test_status_history_and_device() {
         .last_attempt_state = "failed",
     };
     const Json status_document = Json::parse(codec.encode(status));
-    expect_field("status", status_document, "schemaVersion", 5);
+    expect_field("status", status_document, "schemaVersion", 6);
+    expect_field("status", status_document, "operationKind", "backup");
     expect_field("status", status_document, "runId", std::string(status.run.run_id->value()));
     expect_field("status", status_document, "activity", "sizing");
     expect_field("status", status_document, "canCancel", true);

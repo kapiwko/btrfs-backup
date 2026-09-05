@@ -57,6 +57,11 @@ enum class ProgressAccuracy {
     Exact,
 };
 
+enum class OperationKind {
+    Backup,
+    TargetValidation,
+};
+
 struct SuggestedAction {
     std::string value;
 };
@@ -86,6 +91,7 @@ struct RunStatus {
     ProfileId profile_id;
     std::string profile_name;
     RunId run_id;
+    OperationKind operation_kind = OperationKind::Backup;
     RunState state = RunState::Running;
     RunPhase phase = RunPhase::RunStarted;
     std::string message;
