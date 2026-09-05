@@ -135,7 +135,7 @@ class QemuHotplugHost:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run provisioning recovery and USB hotplug in a disposable QEMU guest.")
+    parser = argparse.ArgumentParser(description="Run provisioning recovery and USB/NVMe/SCSI hotplug in a disposable QEMU guest.")
     parser.add_argument("--inner", action="store_true", help=argparse.SUPPRESS)
     arguments = parser.parse_args()
     if arguments.inner:

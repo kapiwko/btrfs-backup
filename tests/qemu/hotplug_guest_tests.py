@@ -91,8 +91,8 @@ class HotplugGuestTests(unittest.TestCase):
         guest_source = inspect.getsource(hotplug_guest)
         host_source = inspect.getsource(HotplugVm.scenario)
         host_markers = set(hotplug_guest.re.findall(r'"(QEMU_[A-Z0-9_]+)"', host_source))
-        dynamic_markers = {"QEMU_HOTPLUG_OK_1", "QEMU_HOTPLUG_OK_2",
-                           "QEMU_TARGET_STOP_1", "QEMU_TARGET_START_2"}
+        dynamic_markers = {"QEMU_HOTPLUG_OK_1", "QEMU_HOTPLUG_OK_2", "QEMU_HOTPLUG_OK_3",
+                           "QEMU_TARGET_STOP_1", "QEMU_TARGET_STOP_2", "QEMU_TARGET_START_3"}
         self.assertFalse(host_markers - dynamic_markers - set(
             hotplug_guest.re.findall(r'"(QEMU_[A-Z0-9_]+)"', guest_source)))
 
