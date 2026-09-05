@@ -574,10 +574,15 @@ void Fixture::verify_profile_update_and_signals() {
 void Fixture::verify_authorization_and_errors() {
     static_cast<void>(call("StartBackup", {"s", "default"}));
     static_cast<void>(call("ValidateTarget", {"s", "default"}));
+    const auto browse = call("OpenBrowseSession", {"s", "default"});
+    const auto coverage = call("ResolveBackupCoverage", {"s", "/home/other-user/private"});
+    require(browse.status != 0, "repository browse was available without authorization");
+    require(coverage.status != 0, "backup coverage was available without authorization");
     const std::string polkit_log = read_file(root_ / "polkit.log");
     require_contains(polkit_log, "io.github.btrfsbackup.start-backup", "start request used the wrong polkit action");
     require_contains(polkit_log, "io.github.btrfsbackup.validate-target", "validate request used the wrong polkit action");
     require_contains(polkit_log, "io.github.btrfsbackup.manage-profile-configuration", "profile update used the wrong polkit action");
+    require_contains(polkit_log, "io.github.btrfsbackup.open-browse-session", "repository access used the wrong polkit action");
 
     const std::string audit = read_file(root_ / "audit/manager.jsonl");
     require_contains(audit, "\"callerUid\":" + std::to_string(getuid()), "manager audit omitted caller UID");
