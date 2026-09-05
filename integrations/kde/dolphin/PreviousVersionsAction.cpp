@@ -79,7 +79,7 @@ QList<QAction*> PreviousVersionsAction::actions(
         if (parts.size() < 2 || parts.at(1) == u".versions"_s)
             return {};
         auto* restore = new QAction(
-            QIcon::fromTheme(u"document-restore"_s),
+            QIcon::fromTheme(u"document-revert"_s),
             i18ndc(translation_domain, "@action:inmenu", "Restore to…"),
             parent_widget
         );

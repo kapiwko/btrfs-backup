@@ -13,7 +13,6 @@ Kirigami.Page {
     required property var controller
     property bool technicalDetailsVisible: false
     signal closeRequested()
-    title: translations.i18n("Restore from backup")
     Component.onCompleted: root.controller.loadDetails()
 
     KI18n.KI18nContext {
@@ -169,7 +168,7 @@ Kirigami.Page {
             }
             QQC2.Button {
                 visible: !root.controller.busy
-                icon.name: "document-restore"
+                icon.name: "document-revert"
                 text: translations.i18n("Restore")
                 highlighted: true
                 enabled: root.controller.planSummary.length > 0
