@@ -34,6 +34,8 @@ void RestoreJob::start() {
             btrfsbackup::restore::RestoreExecutor executor(operations);
             const auto result = executor.execute(plan_, cancellation_);
             QMetaObject::invokeMethod(this, [this, result] {
+                restored_files_ = result.statistics.files;
+                restored_bytes_ = result.statistics.bytes;
                 setProcessedAmount(KJob::Files, result.statistics.files);
                 setProcessedAmount(KJob::Bytes, result.statistics.bytes);
                 finish_successfully(); }, Qt::QueuedConnection);
@@ -64,6 +66,14 @@ btrfsbackup::restore::RestoreErrorCode RestoreJob::restoreErrorCode() const noex
 
 QString RestoreJob::technicalDetails() const {
     return technical_details_;
+}
+
+std::uint64_t RestoreJob::restoredFiles() const noexcept {
+    return restored_files_;
+}
+
+std::uint64_t RestoreJob::restoredBytes() const noexcept {
+    return restored_bytes_;
 }
 
 void RestoreJob::finish_successfully() {

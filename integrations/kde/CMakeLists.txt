@@ -123,6 +123,8 @@ qt_add_executable(btrfs-backup-kde-restore
     restore/RestoreErrorPresentation.hpp
     restore/RestoreJob.cpp
     restore/RestoreJob.hpp
+    models/ByteFormatting.cpp
+    models/ByteFormatting.hpp
 )
 qt_add_qml_module(btrfs-backup-kde-restore
     URI org.btrfsbackup.restore
@@ -133,7 +135,13 @@ qt_add_qml_module(btrfs-backup-kde-restore
         restore/RestorePage.qml
 )
 target_compile_features(btrfs-backup-kde-restore PRIVATE cxx_std_23)
-target_include_directories(btrfs-backup-kde-restore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/restore)
+target_include_directories(
+    btrfs-backup-kde-restore
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/client
+        ${CMAKE_CURRENT_SOURCE_DIR}/models
+        ${CMAKE_CURRENT_SOURCE_DIR}/restore
+)
 target_link_libraries(btrfs-backup-kde-restore PRIVATE
     btrfsbackup_kde_manager_client
     btrfsbackup-platform-linux-base
@@ -143,6 +151,7 @@ target_link_libraries(btrfs-backup-kde-restore PRIVATE
     KF6::I18n
     KF6::I18nQml
     KF6::JobWidgets
+    KF6::KIOGui
     KF6::KIOFileWidgets
     KF6::Notifications
     Qt6::Core
@@ -383,6 +392,28 @@ add_dependencies(
 )
 
 if(BUILD_TESTING)
+    add_executable(kde-restore-job-tests
+        restore/RestoreErrorPresentation.cpp
+        restore/RestoreErrorPresentation.hpp
+        restore/RestoreJob.cpp
+        restore/RestoreJob.hpp
+        restore/tests/RestoreJobTests.cpp
+    )
+    target_compile_features(kde-restore-job-tests PRIVATE cxx_std_23)
+    target_include_directories(kde-restore-job-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/restore)
+    target_link_libraries(kde-restore-job-tests PRIVATE
+        btrfsbackup-platform-linux-restore
+        btrfsbackup-restore
+        Qt6::Core
+        KF6::CoreAddons
+        KF6::I18n
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(kde-restore-job-tests PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME kde-restore-job COMMAND kde-restore-job-tests)
+    set_tests_properties(kde-restore-job PROPERTIES LABELS "kde;restore")
+
     add_executable(kde-restore-presentation-tests
         restore/RepositoryCatalogDecoder.cpp
         restore/RepositoryCatalogDecoder.hpp
@@ -586,6 +617,7 @@ if(BUILD_TESTING)
         btrfs-backup-kde-tests
         dolphin-previous-versions-selection-tests
         kde-manager-api-tests
+        kde-restore-job-tests
         kde-restore-presentation-tests
         kde-terminal-notification-tests
         kio-btrfsbackup-metadata-tests
@@ -691,6 +723,17 @@ if(BUILD_TESTING)
     endif()
     if(QML_TEST_RUNNER_EXECUTABLE)
         add_test(
+            NAME kde-restore-success
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                QT_QUICK_CONTROLS_STYLE=Basic
+                ${QML_TEST_RUNNER_EXECUTABLE}
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/restore/tests/restore-success.qml
+                -import ${CMAKE_BINARY_DIR}
+                -o -,txt
+        )
+        add_test(
             NAME kde-kcm-profile-unlocking-layout
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -731,6 +774,7 @@ if(BUILD_TESTING)
                 -o -,txt
         )
         set_tests_properties(
+            kde-restore-success
             kde-kcm-profile-unlocking-layout
             kde-kcm-profile-device-connection
             kde-kcm-profile-sources-actions

@@ -33,6 +33,9 @@ class RestoreController final : public QObject {
     Q_PROPERTY(QString errorTechnicalDetails READ errorTechnicalDetails NOTIFY stateChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
     Q_PROPERTY(bool completed READ completed NOTIFY stateChanged)
+    Q_PROPERTY(qulonglong restoredFiles READ restoredFiles NOTIFY stateChanged)
+    Q_PROPERTY(qulonglong restoredBytes READ restoredBytes NOTIFY stateChanged)
+    Q_PROPERTY(QString restoredSize READ restoredSize NOTIFY stateChanged)
 
   public:
     explicit RestoreController(QUrl source_url, QObject* parent = nullptr);
@@ -50,12 +53,16 @@ class RestoreController final : public QObject {
     QString errorTechnicalDetails() const;
     bool busy() const;
     bool completed() const;
+    qulonglong restoredFiles() const noexcept;
+    qulonglong restoredBytes() const noexcept;
+    QString restoredSize() const;
 
     Q_INVOKABLE bool preview();
     Q_INVOKABLE void chooseDestination();
     Q_INVOKABLE bool confirmOverwrite();
     Q_INVOKABLE void execute();
     Q_INVOKABLE void cancel();
+    Q_INVOKABLE void openRestoredDirectory();
 
   signals:
     void planChanged();
@@ -79,6 +86,8 @@ class RestoreController final : public QObject {
     bool replace_existing_ = false;
     bool busy_ = false;
     bool completed_ = false;
+    qulonglong restored_files_ = 0;
+    qulonglong restored_bytes_ = 0;
     QString plan_summary_;
     QString error_text_;
     QString error_code_;

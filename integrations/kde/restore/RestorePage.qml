@@ -12,6 +12,7 @@ Kirigami.Page {
 
     required property var controller
     property bool technicalDetailsVisible: false
+    signal closeRequested()
     title: translations.i18n("Restore from backup")
 
     KI18n.KI18nContext {
@@ -20,8 +21,10 @@ Kirigami.Page {
     }
 
     ColumnLayout {
+        id: restoreForm
         anchors.fill: parent
         spacing: Kirigami.Units.largeSpacing
+        visible: !root.controller.completed
 
         Kirigami.FormLayout {
             Layout.fillWidth: true
@@ -76,7 +79,6 @@ Kirigami.Page {
                 Layout.fillWidth: true
                 text: translations.i18n("Code: %1", root.controller.errorCode)
                 opacity: 0.75
-                selectByMouse: true
             }
             QQC2.Button {
                 visible: root.controller.errorTechnicalDetails.length > 0
@@ -134,6 +136,61 @@ Kirigami.Page {
                 onClicked: root.controller.execute()
             }
         }
+    }
+
+    ColumnLayout {
+        id: successView
+        objectName: "restoreSuccessView"
+        anchors.fill: parent
+        spacing: Kirigami.Units.largeSpacing
+        visible: root.controller.completed
+
+        Item { Layout.fillHeight: true }
+
+        Kirigami.Icon {
+            source: "dialog-positive"
+            Layout.alignment: Qt.AlignHCenter
+            implicitWidth: Kirigami.Units.iconSizes.huge
+            implicitHeight: implicitWidth
+        }
+
+        QQC2.Label {
+            objectName: "restoreSuccessTitle"
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            text: translations.i18np("Restored one file", "Restored %1 files", root.controller.restoredFiles)
+            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.35
+            font.weight: Font.DemiBold
+        }
+
+        QQC2.Label {
+            objectName: "restoreSuccessDetails"
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            text: translations.i18n("%1 restored to %2", root.controller.restoredSize, root.controller.destination)
+            wrapMode: Text.Wrap
+            opacity: 0.8
+        }
+
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+
+            QQC2.Button {
+                objectName: "openRestoredDirectoryButton"
+                icon.name: "folder-open-symbolic"
+                text: translations.i18n("Open restored directory")
+                onClicked: root.controller.openRestoredDirectory()
+            }
+            QQC2.Button {
+                objectName: "closeRestoreButton"
+                icon.name: "window-close-symbolic"
+                text: translations.i18n("Close")
+                highlighted: true
+                onClicked: root.closeRequested()
+            }
+        }
+
+        Item { Layout.fillHeight: true }
     }
 
     Connections {

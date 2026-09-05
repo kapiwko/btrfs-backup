@@ -5,6 +5,7 @@
 
 #include <KJob>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <thread>
@@ -25,6 +26,8 @@ class RestoreJob final : public KJob {
     [[nodiscard]] bool hasRestoreError() const noexcept;
     [[nodiscard]] btrfsbackup::restore::RestoreErrorCode restoreErrorCode() const noexcept;
     [[nodiscard]] QString technicalDetails() const;
+    [[nodiscard]] std::uint64_t restoredFiles() const noexcept;
+    [[nodiscard]] std::uint64_t restoredBytes() const noexcept;
 
   protected:
     bool doKill() override;
@@ -39,6 +42,8 @@ class RestoreJob final : public KJob {
     std::jthread worker_;
     std::optional<btrfsbackup::restore::RestoreErrorCode> restore_error_code_;
     QString technical_details_;
+    std::uint64_t restored_files_ = 0;
+    std::uint64_t restored_bytes_ = 0;
     bool started_ = false;
 };
 

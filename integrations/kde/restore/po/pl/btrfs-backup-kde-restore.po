@@ -89,3 +89,18 @@ msgstr "Miejsce docelowe już istnieje"
 
 msgid "%1 already exists. Replace it transactionally?"
 msgstr "%1 już istnieje. Zastąpić je transakcyjnie?"
+
+msgid "Restored one file"
+msgid_plural "Restored %1 files"
+msgstr[0] "Przywrócono jeden plik"
+msgstr[1] "Przywrócono %1 pliki"
+msgstr[2] "Przywrócono %1 plików"
+
+msgid "%1 restored to %2"
+msgstr "Przywrócono %1 do %2"
+
+msgid "Open restored directory"
+msgstr "Otwórz przywrócony katalog"
+
+msgid "Close"
+msgstr "Zamknij"
