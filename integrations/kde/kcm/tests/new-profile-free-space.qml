@@ -231,7 +231,28 @@ Item {
                         Qt.exit(1)
                         return
                     }
-                    Qt.exit(0)
+                    page.resetWorkflow()
+                    Qt.callLater(function() {
+                        const welcome = root.findObject(page, "newProfileWelcomeContent")
+                        if (page.step !== 0 || welcome === null || !welcome.visible) {
+                            console.error("Returning from device preparation did not restore the setup choices")
+                            Qt.exit(1)
+                            return
+                        }
+                        page.workflowMode = "prepare"
+                        page.step = 1
+                        provisioning.refresh()
+                        Qt.callLater(function() {
+                            const storagePage = root.findObject(page, "newProfileStoragePage")
+                            if (page.step !== 1 || storagePage === null || !storagePage.visible
+                                    || storagePage.width <= 0 || storagePage.height <= 0) {
+                                console.error("Re-entering device preparation produced an empty page")
+                                Qt.exit(1)
+                                return
+                            }
+                            Qt.exit(0)
+                        })
+                    })
                 })
             })
         }
