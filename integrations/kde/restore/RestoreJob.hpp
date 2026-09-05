@@ -6,10 +6,12 @@
 #include <KJob>
 
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include <core/Cancellation.hpp>
 #include <restore/RestorePlan.hpp>
+#include <restore/RestoreError.hpp>
 
 namespace btrfsbackup::kde::restore {
 
@@ -20,16 +22,23 @@ class RestoreJob final : public KJob {
     explicit RestoreJob(btrfsbackup::restore::RestorePlan plan, QObject* parent = nullptr);
     ~RestoreJob() noexcept override;
     void start() override;
+    [[nodiscard]] bool hasRestoreError() const noexcept;
+    [[nodiscard]] btrfsbackup::restore::RestoreErrorCode restoreErrorCode() const noexcept;
+    [[nodiscard]] QString technicalDetails() const;
 
   protected:
     bool doKill() override;
 
   private:
-    void finish(bool success, QString error);
+    void finish_successfully();
+    void finish_with_restore_error(btrfsbackup::restore::RestoreErrorCode code, QString details);
+    void finish_with_unexpected_error(QString details);
 
     btrfsbackup::restore::RestorePlan plan_;
     CancellationToken cancellation_;
     std::jthread worker_;
+    std::optional<btrfsbackup::restore::RestoreErrorCode> restore_error_code_;
+    QString technical_details_;
     bool started_ = false;
 };
 
