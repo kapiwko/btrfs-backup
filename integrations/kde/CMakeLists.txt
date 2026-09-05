@@ -115,8 +115,12 @@ install(TARGETS previousversionsaction LIBRARY DESTINATION "${CMAKE_INSTALL_LIBD
 
 qt_add_executable(btrfs-backup-kde-restore
     restore/main.cpp
+    restore/RepositoryCatalogDecoder.cpp
+    restore/RepositoryCatalogDecoder.hpp
     restore/RestoreController.cpp
     restore/RestoreController.hpp
+    restore/RestoreErrorPresentation.cpp
+    restore/RestoreErrorPresentation.hpp
     restore/RestoreJob.cpp
     restore/RestoreJob.hpp
 )
@@ -379,6 +383,26 @@ add_dependencies(
 )
 
 if(BUILD_TESTING)
+    add_executable(kde-restore-presentation-tests
+        restore/RepositoryCatalogDecoder.cpp
+        restore/RepositoryCatalogDecoder.hpp
+        restore/RestoreErrorPresentation.cpp
+        restore/RestoreErrorPresentation.hpp
+        restore/tests/RestorePresentationTests.cpp
+    )
+    target_compile_features(kde-restore-presentation-tests PRIVATE cxx_std_23)
+    target_include_directories(kde-restore-presentation-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/restore)
+    target_link_libraries(kde-restore-presentation-tests PRIVATE
+        btrfsbackup-restore
+        Qt6::Core
+        KF6::I18n
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(kde-restore-presentation-tests PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME kde-restore-presentation COMMAND kde-restore-presentation-tests)
+    set_tests_properties(kde-restore-presentation PROPERTIES LABELS "kde;restore")
+
     add_executable(krunner-command-parser-tests
         krunner/RunnerCommandParser.cpp
         krunner/tests/RunnerCommandParserTests.cpp
@@ -562,6 +586,7 @@ if(BUILD_TESTING)
         btrfs-backup-kde-tests
         dolphin-previous-versions-selection-tests
         kde-manager-api-tests
+        kde-restore-presentation-tests
         kde-terminal-notification-tests
         kio-btrfsbackup-metadata-tests
         kio-repository-snapshot-model-tests

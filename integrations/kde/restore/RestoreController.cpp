@@ -6,6 +6,8 @@
 #include <BrowseSessionClient.hpp>
 
 #include "ManagerApi.hpp"
+#include "RepositoryCatalogDecoder.hpp"
+#include "RestoreErrorPresentation.hpp"
 #include "RestoreJob.hpp"
 
 #include <KLocalizedString>
@@ -16,86 +18,17 @@
 #include <QDBusPendingReply>
 #include <QDir>
 #include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QUuid>
 
 #include <unistd.h>
 
 #include <core/ManagerProtocol.hpp>
-#include <core/RuntimeTime.hpp>
 #include <restore/RestoreError.hpp>
 
 using Qt::StringLiterals::operator""_s;
 
 namespace btrfsbackup::kde::restore {
 namespace {
-
-QString required_string(const QJsonObject& object, const QString& key) {
-    const QJsonValue value = object.value(key);
-    if (!value.isString() || value.toString().isEmpty())
-        throw std::runtime_error("manager returned an invalid repository catalog");
-    return value.toString();
-}
-
-btrfsbackup::RuntimeTimePoint required_time(const QJsonObject& object, const QString& key) {
-    const auto value = btrfsbackup::parse_utc_timestamp(required_string(object, key).toStdString());
-    if (!value)
-        throw std::runtime_error("manager returned an invalid repository timestamp");
-    return *value;
-}
-
-btrfsbackup::restore::RepositoryCatalog parse_repository_catalog(
-    const QString& payload,
-    const std::filesystem::path& root_path
-) {
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
-    if (!document.isObject())
-        throw std::runtime_error("manager returned an invalid repository catalog");
-    const QJsonObject root = document.object();
-    if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"features"_s).isArray() ||
-        !root.value(u"snapshots"_s).isArray() || !root.value(u"generation"_s).isDouble())
-        throw std::runtime_error("manager returned an unsupported repository catalog");
-
-    std::vector<std::string> features;
-    for (const QJsonValue& value : root.value(u"features"_s).toArray()) {
-        if (!value.isString())
-            throw std::runtime_error("manager returned an invalid repository feature");
-        features.push_back(value.toString().toStdString());
-    }
-    std::vector<btrfsbackup::restore::CatalogSnapshot> snapshots;
-    for (const QJsonValue& value : root.value(u"snapshots"_s).toArray()) {
-        if (!value.isObject())
-            throw std::runtime_error("manager returned an invalid repository snapshot");
-        const QJsonObject snapshot = value.toObject();
-        snapshots.push_back({
-            .snapshot_id = required_string(snapshot, u"snapshotId"_s).toStdString(),
-            .host_id = required_string(snapshot, u"hostId"_s).toStdString(),
-            .profile_id = required_string(snapshot, u"profileId"_s).toStdString(),
-            .source_id = required_string(snapshot, u"sourceId"_s).toStdString(),
-            .repository_path = btrfsbackup::restore::RelativeRestorePath{
-                required_string(snapshot, u"relativePath"_s).toStdString()
-            },
-            .created_at = required_time(snapshot, u"createdAt"_s),
-            .uuid = required_string(snapshot, u"uuid"_s).toStdString(),
-            .received_uuid = snapshot.value(u"receivedUuid"_s).toString().toStdString(),
-            .parent_uuid = snapshot.value(u"parentUuid"_s).toString().toStdString(),
-            .verified = snapshot.value(u"verified"_s).toBool(false),
-        });
-    }
-    return {
-        root_path,
-        {
-            .repository_id = required_string(root, u"repositoryId"_s).toStdString(),
-            .target_filesystem_uuid = required_string(root, u"targetFilesystemUuid"_s).toStdString(),
-            .created_at = required_time(root, u"createdAt"_s),
-            .features = std::move(features),
-        },
-        static_cast<std::uint64_t>(root.value(u"generation"_s).toDouble()),
-        std::move(snapshots),
-    };
-}
 
 class BrowseOperationPin final {
   public:
@@ -127,7 +60,10 @@ RestoreController::RestoreController(QUrl source_url, QObject* parent)
     : QObject(parent), source_url_(std::move(source_url)) {
     const QStringList parts = source_url_.path(QUrl::FullyDecoded).split(u'/', Qt::SkipEmptyParts);
     if (source_url_.scheme() != u"btrfsbackup"_s || parts.size() < 2 || parts.at(1) == u".versions"_s) {
-        error_text_ = i18n("The selected backup URL is invalid.");
+        set_error(
+            btrfsbackup::restore::RestoreErrorCode::PathInvalid,
+            QStringLiteral("the selected backup URL is invalid")
+        );
         return;
     }
     profile_id_ = parts.at(0);
@@ -161,6 +97,12 @@ QString RestoreController::planSummary() const {
 QString RestoreController::errorText() const {
     return error_text_;
 }
+QString RestoreController::errorCode() const {
+    return error_code_;
+}
+QString RestoreController::errorTechnicalDetails() const {
+    return error_technical_details_;
+}
 bool RestoreController::busy() const {
     return busy_;
 }
@@ -189,7 +131,7 @@ void RestoreController::setReplaceExisting(bool value) {
 }
 
 bool RestoreController::prepare_plan() {
-    error_text_.clear();
+    clear_error();
     completed_ = false;
     try {
         if (profile_id_.isEmpty() || snapshot_id_.isEmpty() || !QDir::isAbsolutePath(destination_))
@@ -211,10 +153,7 @@ bool RestoreController::prepare_plan() {
             const auto repository = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id_);
             if (!repository)
                 throw std::runtime_error("could not inspect the backup repository");
-            catalog_.emplace(parse_repository_catalog(
-                *repository,
-                std::filesystem::path{"/proc/self/fd"} / std::to_string(session_root_.get())
-            ));
+            catalog_.emplace(RepositoryCatalogDecoder{}.decode(*repository, std::filesystem::path{"/proc/self/fd"} / std::to_string(session_root_.get())));
         } else {
             const auto lease = btrfsbackup::kde::BrowseSessionClient{}.renew(session_id_);
             if (!lease || lease->session_id != session_id_ || lease->profile_id != profile_id_)
@@ -248,14 +187,14 @@ bool RestoreController::prepare_plan() {
             Q_EMIT overwriteConfirmationRequested(destination_);
             return false;
         }
-        error_text_ = QString::fromUtf8(error.what());
+        set_error(error.code(), QString::fromUtf8(error.what()));
         plan_.reset();
         plan_summary_.clear();
         Q_EMIT planChanged();
         Q_EMIT stateChanged();
         return false;
     } catch (const std::exception& error) {
-        error_text_ = QString::fromUtf8(error.what());
+        set_unexpected_error(QString::fromUtf8(error.what()));
         plan_.reset();
         plan_summary_.clear();
         Q_EMIT planChanged();
@@ -291,10 +230,10 @@ void RestoreController::execute() {
         return;
     busy_ = true;
     completed_ = false;
-    error_text_.clear();
+    clear_error();
     if (!btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, true)) {
         busy_ = false;
-        error_text_ = i18n("Could not keep the backup browsing session active.");
+        set_unexpected_error(QStringLiteral("could not keep the backup browsing session active"));
         Q_EMIT stateChanged();
         return;
     }
@@ -305,7 +244,13 @@ void RestoreController::execute() {
         tracker_.unregisterJob(finished);
         busy_ = false;
         completed_ = finished->error() == KJob::NoError;
-        error_text_ = completed_ ? QString{} : finished->errorString();
+        if (completed_) {
+            clear_error();
+        } else if (job_->hasRestoreError()) {
+            set_error(job_->restoreErrorCode(), job_->technicalDetails());
+        } else {
+            set_unexpected_error(job_->technicalDetails());
+        }
         KNotification::event(
             completed_ ? u"restoreSuccess"_s : u"restoreFailed"_s,
             completed_ ? i18n("Restore completed") : i18n("Restore failed"),
@@ -318,6 +263,29 @@ void RestoreController::execute() {
         Q_EMIT stateChanged();
     });
     job_->start();
+}
+
+void RestoreController::clear_error() {
+    error_text_.clear();
+    error_code_.clear();
+    error_technical_details_.clear();
+}
+
+void RestoreController::set_error(
+    btrfsbackup::restore::RestoreErrorCode code,
+    const QString& technical_details
+) {
+    const RestoreErrorPresentation presentation = present_restore_error(code, technical_details);
+    error_text_ = presentation.message;
+    error_code_ = presentation.code;
+    error_technical_details_ = presentation.technical_details;
+}
+
+void RestoreController::set_unexpected_error(const QString& technical_details) {
+    const RestoreErrorPresentation presentation = present_unexpected_restore_error(technical_details);
+    error_text_ = presentation.message;
+    error_code_ = presentation.code;
+    error_technical_details_ = presentation.technical_details;
 }
 
 void RestoreController::cancel() {
