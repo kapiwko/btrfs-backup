@@ -529,7 +529,7 @@ void Fixture::verify_profile_update_and_signals() {
 
     write_file(root_ / "polkit.log.allow", "");
     const auto saved = call("UpdateProfileSettings", {"ssss", "default", "0123456789abcdef0123456789abcdef", fingerprint, R"({"name":"Edited backup","dailyLimit":false,"autoEject":true})"});
-    require(saved.status == 0, "UpdateProfileSettings failed");
+    require(saved.status == 0, "UpdateProfileSettings failed: " + saved.output);
     require_contains(saved.output, "generation", "profile save omitted the new generation");
     const auto profile = read_file(root_ / "etc/profiles/default/profile.json");
     require_contains(profile, "Edited backup", "profile settings update was not published");
@@ -600,6 +600,7 @@ void Fixture::verify_authorization_and_errors() {
     const std::size_t authorization_lines = lines(polkit_log).size();
     const std::size_t daemon_log_size = read_file(root_ / "daemon.log").size();
     write_file(root_ / "polkit.log.allow", "");
+    write_file(root_ / "polkit.log.delay", "");
     auto command = busctl_prefix();
     command.insert(command.end(), {"call", std::string(service), std::string(object), std::string(interface), "StartBackup", "s", "default"});
     ChildProcess disconnected(std::move(command), root_ / "disconnected.log");
@@ -610,6 +611,7 @@ void Fixture::verify_authorization_and_errors() {
                "disconnected caller did not reach polkit");
     disconnected.stop(SIGTERM, 500ms);
     fs::remove(root_ / "polkit.log.allow");
+    fs::remove(root_ / "polkit.log.delay");
     wait_until([this, daemon_log_size] {
         const auto log = read_file(root_ / "daemon.log");
         return log.size() > daemon_log_size &&

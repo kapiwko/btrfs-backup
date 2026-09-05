@@ -64,7 +64,8 @@ int check_authorization(sd_bus_message* message, void* userdata, sd_bus_error* r
         std::ofstream log(context.log_path, std::ios::app);
         log << subject_name << ' ' << (action == nullptr ? "" : action) << '\n';
         log.close();
-        std::this_thread::sleep_for(context.delay);
+        if (std::filesystem::exists(context.log_path + ".delay"))
+            std::this_thread::sleep_for(context.delay);
 
         sd_bus_message* raw_reply = nullptr;
         require_success(sd_bus_message_new_method_return(message, &raw_reply), "create reply");
