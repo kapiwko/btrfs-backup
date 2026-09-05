@@ -39,24 +39,24 @@ class BrowseOperationPin final {
   public:
     explicit BrowseOperationPin(QString session_id)
         : session_id_(std::move(session_id)),
-          active_(btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, true)) {
+          lease_(btrfsbackup::kde::BrowseSessionClient{}.beginOperation(session_id_)) {
     }
     ~BrowseOperationPin() noexcept {
-        if (!active_)
+        if (!lease_)
             return;
         try {
-            (void)btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, false);
+            (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(session_id_, *lease_);
         } catch (...) {}
     }
     BrowseOperationPin(const BrowseOperationPin&) = delete;
     BrowseOperationPin& operator=(const BrowseOperationPin&) = delete;
     [[nodiscard]] explicit operator bool() const noexcept {
-        return active_;
+        return lease_.has_value();
     }
 
   private:
     QString session_id_;
-    bool active_ = false;
+    std::optional<btrfsbackup::kde::BrowseOperationLease> lease_;
 };
 
 } // namespace
@@ -250,7 +250,8 @@ void RestoreController::execute() {
     busy_ = true;
     completed_ = false;
     clear_error();
-    if (!btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, true)) {
+    execution_lease_ = btrfsbackup::kde::BrowseSessionClient{}.beginOperation(session_id_);
+    if (!execution_lease_) {
         busy_ = false;
         set_unexpected_error(QStringLiteral("could not keep the backup browsing session active"));
         Q_EMIT stateChanged();
@@ -330,7 +331,9 @@ void RestoreController::close_session() noexcept {
     catalog_.reset();
     try {
         btrfsbackup::kde::BrowseSessionClient sessions;
-        (void)sessions.setActive(session_id_, false);
+        if (execution_lease_)
+            (void)sessions.endOperation(session_id_, *execution_lease_);
+        execution_lease_.reset();
         (void)sessions.close(session_id_);
     } catch (...) {}
     session_id_.clear();

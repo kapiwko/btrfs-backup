@@ -151,6 +151,12 @@ BrowseSessionId random_session_id() {
     return BrowseSessionId{value.str()};
 }
 
+std::string random_operation_lease_id() {
+    std::string value{random_session_id().value()};
+    value.replace(0, std::string_view{"browse"}.size(), "lease");
+    return value;
+}
+
 std::string iso8601(std::chrono::system_clock::time_point value) {
     const std::time_t seconds = std::chrono::system_clock::to_time_t(value);
     std::tm utc{};
@@ -171,15 +177,19 @@ BrowseSessionService::BrowseSessionService(
     BrowseSessionWallClock wall_clock,
     BrowseSessionEventSink events,
     std::size_t global_limit,
-    std::size_t per_uid_limit
+    std::size_t per_uid_limit,
+    std::size_t operation_lease_limit,
+    BrowseOperationLeaseIdGenerator operation_lease_ids
 ) : authorizer_(authorizer), backend_(backend), lifetime_(lifetime),
     session_ids_(session_ids ? std::move(session_ids) : BrowseSessionIdGenerator{random_session_id}),
     steady_clock_(steady_clock ? std::move(steady_clock) : BrowseSessionSteadyClock{[] { return std::chrono::steady_clock::now(); }}),
     wall_clock_(wall_clock ? std::move(wall_clock) : BrowseSessionWallClock{[] { return std::chrono::system_clock::now(); }}),
-    events_(std::move(events)), global_limit_(global_limit), per_uid_limit_(per_uid_limit) {
+    events_(std::move(events)), global_limit_(global_limit), per_uid_limit_(per_uid_limit),
+    operation_lease_limit_(operation_lease_limit),
+    operation_lease_ids_(operation_lease_ids ? std::move(operation_lease_ids) : BrowseOperationLeaseIdGenerator{random_operation_lease_id}) {
     if (lifetime_ <= std::chrono::seconds::zero())
         throw std::invalid_argument("browse session lifetime must be positive");
-    if (global_limit_ == 0 || per_uid_limit_ == 0 || per_uid_limit_ > global_limit_)
+    if (global_limit_ == 0 || per_uid_limit_ == 0 || per_uid_limit_ > global_limit_ || operation_lease_limit_ == 0)
         throw std::invalid_argument("browse session limits are invalid");
     backend_.cleanup_stale();
 }
@@ -213,7 +223,16 @@ BrowseSessionInfo BrowseSessionService::open(
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "browse session identifier collision");
     backend_.open(profile, id, caller_uid);
     const std::string key{id.value()};
-    Session session{id, profile, caller_bus_name, caller_uid, {}, {}};
+    Session session{
+        .id = id,
+        .profile_id = profile,
+        .caller_bus_name = caller_bus_name,
+        .caller_uid = caller_uid,
+        .deadline = {},
+        .expires_at = {},
+        .legacy_active_operations = 0,
+        .operation_leases = {},
+    };
     extend(session);
     auto [position, inserted] = sessions_.emplace(key, std::move(session));
     (void)inserted;
@@ -263,10 +282,39 @@ void BrowseSessionService::set_active(
 ) {
     auto session = owned_session(caller_bus_name, session_id);
     if (active) {
-        ++session->second.active_operations;
-    } else if (session->second.active_operations > 0) {
-        --session->second.active_operations;
+        if (session->second.legacy_active_operations >= operation_lease_limit_)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "legacy browse operation pin limit reached");
+        ++session->second.legacy_active_operations;
+    } else if (session->second.legacy_active_operations > 0) {
+        --session->second.legacy_active_operations;
     }
+    extend(session->second);
+}
+
+std::string BrowseSessionService::begin_operation(
+    const std::string& caller_bus_name,
+    const std::string& session_id
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    if (session->second.operation_leases.size() >= operation_lease_limit_)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "browse operation lease limit reached");
+    std::string lease_id = operation_lease_ids_();
+    if (lease_id.empty() || lease_id.size() > 128)
+        throw std::runtime_error("browse operation lease generator returned an invalid identifier");
+    if (!session->second.operation_leases.insert(lease_id).second)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "browse operation lease identifier collision");
+    extend(session->second);
+    return lease_id;
+}
+
+void BrowseSessionService::end_operation(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& lease_id
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    if (lease_id.empty() || lease_id.size() > 128 || session->second.operation_leases.erase(lease_id) != 1)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "browse operation lease is unknown");
     extend(session->second);
 }
 
@@ -392,7 +440,8 @@ std::string BrowseSessionService::inspect_repository(
 }
 
 void BrowseSessionService::close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) {
-    session->second.active_operations = 0;
+    session->second.legacy_active_operations = 0;
+    session->second.operation_leases.clear();
     session->second.deadline = std::chrono::steady_clock::time_point::min();
     const Session record = session->second;
     backend_.close(record.id);
@@ -405,7 +454,8 @@ void BrowseSessionService::close_noexcept(
     std::map<std::string, Session>::iterator session,
     BrowseSessionCloseReason reason
 ) noexcept {
-    session->second.active_operations = 0;
+    session->second.legacy_active_operations = 0;
+    session->second.operation_leases.clear();
     session->second.deadline = std::chrono::steady_clock::time_point::min();
     const Session record = session->second;
     bool succeeded = true;
@@ -440,7 +490,8 @@ void BrowseSessionService::expire() noexcept {
     } catch (...) {}
     const auto now = steady_clock_();
     for (auto session = sessions_.begin(); session != sessions_.end();) {
-        if (session->second.active_operations > 0 || session->second.deadline > now) {
+        if (session->second.legacy_active_operations > 0 || !session->second.operation_leases.empty() ||
+            session->second.deadline > now) {
             ++session;
             continue;
         }
