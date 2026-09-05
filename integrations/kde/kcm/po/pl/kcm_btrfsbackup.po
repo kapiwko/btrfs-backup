@@ -1229,6 +1229,36 @@ msgstr[2] "%1 dniach"
 msgid "The background monitor sends a desktop notification asking you to connect the backup disk."
 msgstr "Monitor działający w tle wysyła powiadomienie z prośbą o podłączenie dysku kopii zapasowej."
 
+msgid "Reminders"
+msgstr "Przypomnienia"
+
+msgid "Backup notifications"
+msgstr "Powiadomienia o kopiach"
+
+msgid "Overdue backups"
+msgstr "Zaległe kopie"
+
+msgid "The background monitor asks you to connect the backup disk."
+msgstr "Monitor działający w tle prosi o podłączenie dysku kopii zapasowej."
+
+msgid "Backup target space"
+msgstr "Miejsce na celu kopii"
+
+msgid "Notify me when free space is running low"
+msgstr "Powiadom mnie, gdy zaczyna brakować wolnego miejsca"
+
+msgid "Warning below:"
+msgstr "Ostrzeżenie poniżej:"
+
+msgid "Critical below:"
+msgstr "Stan krytyczny poniżej:"
+
+msgid "%1% free"
+msgstr "%1% wolnego"
+
+msgid "The critical notification also appears when free space falls below the minimum configured for a profile."
+msgstr "Powiadomienie krytyczne pojawia się również po spadku wolnego miejsca poniżej minimum skonfigurowanego dla profilu."
+
 msgid "Operation identifier: %1"
 msgstr "Identyfikator operacji: %1"
 

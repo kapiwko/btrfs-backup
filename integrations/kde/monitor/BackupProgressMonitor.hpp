@@ -43,20 +43,28 @@ class BackupProgressMonitor final : public QObject {
   private:
     using Profile = btrfsbackup::kde::ProfileSummary;
     using Status = btrfsbackup::kde::RunStatus;
+    using Target = btrfsbackup::kde::TargetStatus;
 
     void connect_to_manager();
     void manager_unavailable();
     void request_profiles();
     void request_status(const Profile& profile);
+    void request_target_status(const Profile& profile);
     void request_cancel(const QString& profile_id, const QString& run_id);
     void apply_profiles(const QString& payload);
     void apply_status(const Profile& profile, const QString& payload);
+    void apply_target_status(const Profile& profile, const QString& payload);
     void create_job(const Profile& profile, const Status& status);
     void finish_job(const QString& profile_id, const Status& status);
     void evaluate_reminders();
     void evaluate_reminder(
         const Profile& profile,
         const Status& status,
+        const BackupReminderConfiguration& configuration
+    );
+    void evaluate_target_storage(
+        const Profile& profile,
+        const Target& target,
         const BackupReminderConfiguration& configuration
     );
     QDBusConnection bus_;
@@ -68,8 +76,11 @@ class BackupProgressMonitor final : public QObject {
     QHash<QString, Profile> profiles_;
     QHash<QString, QPointer<BackupProgressJob>> jobs_;
     QHash<QString, Status> statuses_;
+    QHash<QString, Target> target_statuses_;
     QSet<QString> pending_status_requests_;
     QSet<QString> queued_status_requests_;
+    QSet<QString> pending_target_requests_;
+    QSet<QString> queued_target_requests_;
     QSet<QString> manager_features_;
     bool active_ = false;
     bool capabilities_verified_ = false;
