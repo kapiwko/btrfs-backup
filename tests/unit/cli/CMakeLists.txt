@@ -28,6 +28,7 @@ add_btrfsbackup_test(
     btrfsbackup-cli
     btrfsbackup-config-json
     btrfsbackup-config-ports
+    btrfsbackup-platform-linux-config
 )
 add_btrfsbackup_test(
     btrfsbackup-runner-command-tests
@@ -75,4 +76,11 @@ add_btrfsbackup_test(
     btrfsbackup-cli
     btrfsbackup-config-json
     btrfsbackup-platform-linux
+)
+add_btrfsbackup_test(
+    btrfsbackup-upgrade-command-tests
+    UpgradeCommandTests.cpp
+    upgrade-command-tests
+    btrfsbackup-cli
+    btrfsbackup-config-json
 )

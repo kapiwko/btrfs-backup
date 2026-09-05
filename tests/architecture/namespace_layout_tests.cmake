@@ -11,6 +11,7 @@ set(namespace_layout
     "src/cli/restore|btrfsbackup::cli::restore"
     "src/cli/status|btrfsbackup::cli::status"
     "src/cli/target|btrfsbackup::cli::target"
+    "src/cli/upgrade|btrfsbackup::cli::upgrade"
     "src/config/json|btrfsbackup::config::json"
     "src/config/wizard|btrfsbackup::config::wizard"
     "src/provisioning|btrfsbackup::provisioning"
