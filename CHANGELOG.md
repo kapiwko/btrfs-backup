@@ -195,7 +195,9 @@ preflight until it reports `READY`.
 11. previous-version breadcrumbs show the selected source path, and restore
    launches preserve `btrfsbackup:` row URLs instead of copying them locally;
 12. the restore dialog keeps long destinations inside the window and presents
-   the entry type, size, modification time and backup date before restoring.
+   the entry type, size, modification time and backup date before restoring;
+13. device-inspection progress is centered horizontally and vertically in the
+   available System Settings page, including with wrapped translations.
 
 ### Manager And Desktop Reliability
 
