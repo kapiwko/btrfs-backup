@@ -97,11 +97,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
-    <method name="SetBrowseSessionActive">
-      <arg name="sessionId" type="s" direction="in"/>
-      <arg name="active" type="b" direction="in"/>
-      <arg name="payload" type="s" direction="out"/>
-    </method>
     <method name="BeginBrowseOperation">
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>

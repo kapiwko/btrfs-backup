@@ -486,7 +486,6 @@ void Fixture::verify_read_api() {
         "SetProfileEnabled",
         "OpenBrowseSession",
         "RenewBrowseSession",
-        "SetBrowseSessionActive",
         "BeginBrowseOperation",
         "EndBrowseOperation",
         "CloseBrowseSession",
@@ -513,6 +512,10 @@ void Fixture::verify_read_api() {
     };
     for (const std::string_view method : methods)
         require_contains(introspection.output, method, "manager introspection omits a method");
+    require(
+        !introspection.output.contains("SetBrowseSessionActive"),
+        "manager introspection still exposes the removed counted browse-operation API"
+    );
     constexpr std::array signals{"ProfilesChanged", "StatusChanged", "HistoryChanged", "DeviceStateChanged"};
     for (const std::string_view signal : signals)
         require_contains(introspection.output, signal, "manager introspection omits a signal");

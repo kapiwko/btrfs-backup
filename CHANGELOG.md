@@ -150,9 +150,9 @@ preflight until it reports `READY`.
 9. previous-version discovery is batched into bounded manager pages and cached
    per browse session, removing the synchronous D-Bus N+1 path for current
    daemons while retaining a legacy fallback for older services;
-10. current KDE clients keep browse sessions alive with bounded, identified
-   operation leases; duplicate, foreign and mismatched releases are rejected,
-   while the counted API remains as an older-daemon compatibility path;
+10. KDE clients keep browse sessions alive with bounded, identified operation
+   leases; duplicate, foreign and mismatched releases are rejected, and the
+   earlier counted operation-pin API has been removed;
 11. restore catalog decoding has a dedicated validated boundary, while restore
    failures expose a friendly message, stable code and optional technical
    details separately;

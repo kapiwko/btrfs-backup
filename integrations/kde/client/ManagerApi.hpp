@@ -136,7 +136,6 @@ class ManagerClient {
     [[nodiscard]] QDBusPendingCall resolveBackupCoverage(const QString& local_path) const;
     [[nodiscard]] QDBusPendingCall openBrowseSession(const QString& profile_id) const;
     [[nodiscard]] QDBusPendingCall renewBrowseSession(const QString& session_id) const;
-    [[nodiscard]] QDBusPendingCall setBrowseSessionActive(const QString& session_id, bool active) const;
     [[nodiscard]] QDBusPendingCall beginBrowseOperation(const QString& session_id) const;
     [[nodiscard]] QDBusPendingCall endBrowseOperation(const QString& session_id, const QString& lease_id) const;
     [[nodiscard]] QDBusPendingCall closeBrowseSession(const QString& session_id) const;
