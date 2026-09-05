@@ -4,13 +4,13 @@
 
 #include "BackupKcm.hpp"
 
+#include "DesktopLauncher.hpp"
+
 #include <KPluginFactory>
 
 #include <QDesktopServices>
 #include <QGuiApplication>
 #include <QClipboard>
-#include <QProcess>
-#include <QStandardPaths>
 #include <QUrl>
 
 namespace btrfsbackup::kde::kcm {
@@ -21,17 +21,7 @@ BackupKcm::BackupKcm(QObject* parent, const KPluginMetaData& metadata)
 }
 
 void BackupKcm::openSystemLog() {
-    QProcess::startDetached(
-        QStringLiteral("konsole"),
-        {
-            QStringLiteral("--hold"),
-            QStringLiteral("-e"),
-            QStringLiteral("journalctl"),
-            QStringLiteral("-u"),
-            QStringLiteral("btrfs-backupd.service"),
-            QStringLiteral("--no-pager"),
-        }
-    );
+    launcher::launch(launcher::open_system_log(), this);
 }
 
 void BackupKcm::openSupportPage() {
@@ -39,9 +29,9 @@ void BackupKcm::openSupportPage() {
 }
 
 void BackupKcm::openPartitionManager() {
-    const QString executable = QStandardPaths::findExecutable(QStringLiteral("partitionmanager"));
-    if (!executable.isEmpty()) {
-        QProcess::startDetached(executable);
+    const auto request = launcher::open_partition_manager();
+    if (launcher::application_available(request)) {
+        launcher::launch(request, this);
         return;
     }
     QDesktopServices::openUrl(QUrl(QStringLiteral("appstream://org.kde.partitionmanager.desktop")));
@@ -58,7 +48,7 @@ void BackupKcm::copyText(const QString& text) {
 }
 
 bool BackupKcm::partitionManagerAvailable() const {
-    return !QStandardPaths::findExecutable(QStringLiteral("partitionmanager")).isEmpty();
+    return launcher::application_available(launcher::open_partition_manager());
 }
 
 QString BackupKcm::toLocalFile(const QUrl& url) const {

@@ -3,6 +3,7 @@
 
 #include "PreviousVersionsAction.hpp"
 
+#include "DesktopLauncher.hpp"
 #include "ManagerApi.hpp"
 #include "PreviousVersionsSelection.hpp"
 
@@ -20,7 +21,6 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QPointer>
-#include <QProcess>
 #include <QWidget>
 
 #include <optional>
@@ -86,8 +86,13 @@ QList<QAction*> PreviousVersionsAction::actions(
         const QString source = urls.front().toString(QUrl::FullyEncoded);
         const QPointer<QWidget> parent = parent_widget;
         connect(restore, &QAction::triggered, this, [source, parent] {
-            if (!QProcess::startDetached(u"btrfs-backup-kde-restore"_s, {u"--url"_s, source}))
-                show_restore_start_error(parent.data());
+            btrfsbackup::kde::launcher::launch(
+                btrfsbackup::kde::launcher::open_restore_application(QUrl(source)),
+                parent.data(),
+                [parent](const QString&) {
+                    show_restore_start_error(parent.data());
+                }
+            );
         });
         return {restore};
     }
