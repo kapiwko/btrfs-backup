@@ -43,7 +43,10 @@ dbus::ManagerErrorCode manager_error_code(SystemdJobFailure failure) {
             dbus::ManagerErrorCode::Conflict,
             "profile changed before operation execution"
         );
-    throw dbus::ManagerOperationError(manager_error_code(error.failure), std::string(operation) + " failed");
+    std::string message = std::string(operation) + " failed";
+    if (!error.detail.empty())
+        message += ": " + error.detail;
+    throw dbus::ManagerOperationError(manager_error_code(error.failure), message);
 }
 
 } // namespace

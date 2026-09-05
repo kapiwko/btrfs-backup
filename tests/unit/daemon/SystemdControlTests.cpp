@@ -423,6 +423,29 @@ void test_backend_maps_typed_systemd_failures() {
     );
 }
 
+void test_backend_preserves_private_systemd_diagnostic() {
+    FakeProfiles profiles;
+    FakeCancellationRequests cancellations;
+    FakeUnits units;
+    units.transient_result = std::unexpected(SystemdJobError{
+        SystemdJobFailure::UnitFailed,
+        "Unit name collides with an installed template",
+        1,
+    });
+    SystemOperationalControlBackend backend(profiles, cancellations, units, "/tmp/btrfs-backup-systemd-control-tests");
+
+    try {
+        backend.eject_target(context(profiles));
+        test_helpers::fail("systemd failure diagnostic", "failed eject was accepted");
+    } catch (const ManagerOperationError& error) {
+        test_helpers::expect_contains(
+            "systemd failure diagnostic",
+            error.what(),
+            "Unit name collides with an installed template"
+        );
+    }
+}
+
 } // namespace
 
 int main() {
@@ -433,5 +456,6 @@ int main() {
     test_command_adapter_reports_unit_activity();
     test_waited_transient_job_preserves_service_exit_status();
     test_backend_maps_typed_systemd_failures();
+    test_backend_preserves_private_systemd_diagnostic();
     return test_helpers::finish("systemd control tests");
 }

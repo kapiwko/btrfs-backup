@@ -99,8 +99,8 @@ void test_synchronous_target_operations_carry_identity() {
     );
     test_helpers::expect_true(
         "eject unit",
-        eject.unit == "btrfs-backup-eject@operation-1.service",
-        "eject unit is not operation-specific"
+        eject.unit == "btrfs-backup-authorized-eject@operation-1.service",
+        "eject unit collides with the installed automatic eject template"
     );
     test_helpers::expect_true(
         "eject executable",

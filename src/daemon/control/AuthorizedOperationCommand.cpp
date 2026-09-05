@@ -124,7 +124,7 @@ std::string authorized_target_validation_unit(const AuthorizedOperationContext& 
 
 TransientUnitRequest authorized_target_eject_unit(const AuthorizedOperationContext& context) {
     const std::string profile_id(context.profile_id.value());
-    TransientUnitRequest unit = transient_unit(context, "eject", true);
+    TransientUnitRequest unit = transient_unit(context, "authorized-eject", true);
     unit.command = {
         installed_program("btrfs-backupctl"),
         "target",
