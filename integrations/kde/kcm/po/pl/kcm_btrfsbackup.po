@@ -1190,6 +1190,21 @@ msgstr "Źródło Btrfs"
 msgid "%1 — %2"
 msgstr "%1 — %2"
 
+msgid "Backup sources"
+msgstr "Źródła kopii zapasowej"
+
+msgid "Add at least one Btrfs subvolume to this profile."
+msgstr "Dodaj do tego profilu co najmniej jeden podwolumin Btrfs."
+
+msgid "Backup source"
+msgstr "Źródło kopii zapasowej"
+
+msgid "%1 · %2 local / %3 target"
+msgstr "%1 · %2 lokalnie / %3 na celu"
+
+msgid "Add at least one valid backup source."
+msgstr "Dodaj co najmniej jedno prawidłowe źródło kopii zapasowej."
+
 msgid "The key is stored in a root-only system directory and allows backups to unlock the target without a prompt. The recovery passphrase remains available if the key is lost or removed."
 msgstr "Klucz jest przechowywany w katalogu systemowym dostępnym tylko dla roota i pozwala kopiom zapasowym odblokować nośnik bez pytania. Hasło odzyskiwania pozostaje dostępne w razie utraty lub usunięcia klucza."
 

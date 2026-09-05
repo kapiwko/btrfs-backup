@@ -124,9 +124,17 @@ Item {
         property var sourceCandidates: [{
             id: "source-home",
             path: "/home",
+            displayName: "Home folder — /home",
             filesystemUuid: "source-fs",
             mountRoot: "/home",
             localSnapshotRoot: "/home/.snapshots/btrfs-backup"
+        }, {
+            id: "source-work",
+            path: "/srv/work",
+            displayName: "Btrfs source — /srv/work",
+            filesystemUuid: "work-fs",
+            mountRoot: "/srv/work",
+            localSnapshotRoot: "/srv/work/.snapshots/btrfs-backup"
         }]
         property bool busy: false
         property string errorMessage: ""
@@ -139,7 +147,7 @@ Item {
         function buildPlan(selection, mode) { ++buildPlanCalls; lastBuildMode = mode }
         function inspectExistingTarget(selection, passphrase) {}
         function clearSelection() { ++clearSelectionCalls }
-        function start(profileId, profileName, source, passphrase, confirmation, automaticKey) {}
+        function start(profileId, profileName, sources, passphrase, confirmation, automaticKey) {}
         function poll() {}
         function cancel() {}
         function clearError() {}
@@ -166,7 +174,8 @@ Item {
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
                     || page.unavailableDevices.length !== 3
-                    || page.selectedSourceCandidate?.id !== "source-home") {
+                    || page.selectedSources.length !== 1
+                    || page.selectedSources[0].candidateId !== "source-home") {
                 console.error("Free-space source candidate bindings are invalid")
                 Qt.exit(1)
                 return
@@ -209,10 +218,12 @@ Item {
             const automaticKeyExplanation = root.findObject(page, "automaticKeyExplanation")
             const passphraseField = root.findObject(page, "passphraseField")
             const confirmationField = root.findObject(page, "confirmationField")
+            const provisioningSources = root.findObject(page, "provisioningSources")
             if (configurationForm === null || profileDetailsForm === null || encryptionForm === null
                     || profileIdentifierHelp === null || profileIdentifierHelp.text.length === 0
                     || automaticKeyField === null || automaticKeyExplanation === null
                     || passphraseField === null || confirmationField === null
+                    || provisioningSources === null
                     || profileDetailsForm.width > page.width
                     || encryptionForm.width > page.width
                     || !root.horizontallyCentered(profileDetailsForm, configurationForm)
@@ -222,6 +233,15 @@ Item {
                     || !root.fitsInside(passphraseField, encryptionForm)
                     || !root.fitsInside(confirmationField, encryptionForm)) {
                 console.error("Provisioning forms are not bounded or documented")
+                Qt.exit(1)
+                return
+            }
+            provisioningSources.addSource("Work", "/srv/work", 7, 14, "source-work")
+            if (page.selectedSources.length !== 2
+                    || page.selectedSources[1].candidateId !== "source-work"
+                    || page.selectedSources[1].localRetention !== 7
+                    || page.selectedSources[1].remoteRetention !== 14) {
+                console.error("Multiple provisioning sources cannot be selected")
                 Qt.exit(1)
                 return
             }
