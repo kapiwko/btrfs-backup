@@ -44,6 +44,14 @@ add_test(
 )
 
 add_test(
+    NAME arch-migration-transaction-cli-tests
+    COMMAND
+        ${PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/docker/arch_migration_transaction.py
+        --help
+)
+
+add_test(
     NAME legacy-shell-harness-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -173,6 +181,7 @@ add_test(
 set_tests_properties(
     bash-syntax-tests
     real-btrfs-runner-cli-tests
+    arch-migration-transaction-cli-tests
     legacy-shell-harness-tests
     qemu-guest-payload-tests
     qemu-hotplug-runner-cli-tests
