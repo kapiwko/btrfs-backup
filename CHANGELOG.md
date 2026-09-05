@@ -141,6 +141,8 @@ preflight until it reports `READY`.
    catalog documents only with explicit `--apply`;
 7. the manager exposes bounded, stable name-sorted directory pages, and KIO
    streams every page instead of rejecting directories above 10,000 entries;
+   page selection uses a bounded heap, reducing work on very large directories
+   while retaining only the requested page plus one lookahead entry;
 8. restore catalog decoding has a dedicated validated boundary, while restore
    failures expose a friendly message, stable code and optional technical
    details separately;

@@ -70,6 +70,13 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-browse-directory-page-collector-tests
+    BrowseDirectoryPageCollectorTests.cpp
+    browse-directory-page-collector-tests
+    btrfsbackup-daemon-system-control
+)
+
+add_btrfsbackup_test(
     btrfsbackup-profile-administration-service-tests
     ProfileAdministrationServiceTests.cpp
     profile-administration-service-tests
