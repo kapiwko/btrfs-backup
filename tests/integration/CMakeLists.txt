@@ -60,8 +60,8 @@ add_test(
 )
 
 add_test(
-    NAME qemu-guest-payload-tests
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/hotplug_guest_payload_tests.py
+    NAME qemu-hotplug-guest-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/hotplug_guest_tests.py
 )
 
 add_test(
@@ -183,7 +183,7 @@ set_tests_properties(
     real-btrfs-runner-cli-tests
     arch-migration-transaction-cli-tests
     legacy-shell-harness-tests
-    qemu-guest-payload-tests
+    qemu-hotplug-guest-tests
     qemu-hotplug-runner-cli-tests
     qemu-hotplug-runner-tests
     screenshot-automation-tests
