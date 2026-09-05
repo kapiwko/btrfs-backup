@@ -57,49 +57,52 @@ preflight until it reports `READY`.
 
 ### Backup Device Provisioning
 
-1. the System Settings workflow supports four explicit modes: formatting an
+1. returning from device creation and opening it again no longer produces an
+   empty KCM page; the workflow now uses a non-scrollable KCM container around
+   its own step-specific scroll view;
+2. the System Settings workflow supports four explicit modes: formatting an
    existing partition, creating a partition in unallocated GPT space, erasing
    and repartitioning an entire selected disk, and adopting an existing
    compatible target;
-2. existing-partition mode destroys signatures and data only on the selected
+3. existing-partition mode destroys signatures and data only on the selected
    partition, unallocated-space mode creates one partition within the selected
    free extent, and whole-device mode destroys the selected disk's partition
    table and all of its contents; adoption performs read-only inspection and
    does not format the target;
-3. newly prepared targets use LUKS2 with Btrfs, while adoption accepts only a
+4. newly prepared targets use LUKS2 with Btrfs, while adoption accepts only a
    validated LUKS2+Btrfs repository layout supported by this release;
-4. the profile identifier is reserved before the first destructive operation
+5. the profile identifier is reserved before the first destructive operation
    and final profile publication is create-only, preventing a preparation from
    overwriting another configuration;
-5. the manager and helper revalidate device identity, geometry, signatures,
+6. the manager and helper revalidate device identity, geometry, signatures,
    mounts, swap, holders and the source filesystem at their respective trust
    boundaries before allowing the first write;
-6. LVM physical-volume and Linux MD RAID member signatures are treated as
+7. LVM physical-volume and Linux MD RAID member signatures are treated as
    unsupported block stacks and cannot be selected for destructive
    preparation;
-7. destructive storage commands run only in a separately hardened transient
+8. destructive storage commands run only in a separately hardened transient
    systemd helper with a per-operation device allow list; the manager
    coordinates authorization and durable transaction state;
-8. the helper starts with access only to the selected disk and its concrete
+9. the helper starts with access only to the selected disk and its concrete
    existing child partitions so their safety state can be revalidated. After
    inspection it retains only the selected or newly created partition; mapper devices
    are added by exact `major:minor` only after they exist; mapper control is
    granted only for the bounded LUKS open/close interval. Each replacement
    clears the preceding allow list, so sibling disks, unrelated mappers and
    permissions from an earlier operation are not inherited;
-9. revisioned root-only transactions support restart recovery after
+10. revisioned root-only transactions support restart recovery after
    interruption and preserve the first cleanup failure. The store rejects
    unsafe directory ownership or modes, symlinks, non-regular records,
    insecure locks and reservations, and duplicate corrupted records without
    blocking on special files or replacing diagnostic evidence;
-10. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
+11. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
    a stable error and explicit manual-recovery guidance rather than guessing;
-11. version 1.0 does not migrate installed 3.x profiles in place; operators must
+12. version 1.0 does not migrate installed 3.x profiles in place; operators must
    prepare schema-v4 configuration before upgrading as described above;
-12. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
+13. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
    requires that scope to be selected explicitly and keeps rejected devices
    visible with their blocker;
-13. source choices use user-facing names, automatic-key storage and recovery
+14. source choices use user-facing names, automatic-key storage and recovery
    implications are explained, and failed operations show completed steps,
    cleanup outcome, a copyable diagnostic report and recovery guidance.
 
