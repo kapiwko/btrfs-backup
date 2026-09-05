@@ -118,6 +118,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="limit" type="u" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="ListPreviousVersions">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="sourceId" type="s" direction="in"/>
+      <arg name="relativePath" type="s" direction="in"/>
+      <arg name="continuationToken" type="s" direction="in"/>
+      <arg name="limit" type="u" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="InspectBrowseEntry">
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="relativePath" type="s" direction="in"/>

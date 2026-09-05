@@ -130,6 +130,20 @@ QDBusPendingCall ManagerClient::listBrowseDirectoryPage(
     );
 }
 
+QDBusPendingCall ManagerClient::listPreviousVersions(
+    const QString& session_id,
+    const QString& profile_id,
+    const QString& source_id,
+    const QString& relative_path,
+    const QString& continuation_token,
+    uint limit
+) const {
+    return call(
+        QLatin1String(manager_protocol::method::list_previous_versions),
+        {session_id, profile_id, source_id, relative_path, continuation_token, limit}
+    );
+}
+
 QDBusPendingCall ManagerClient::inspectBrowseEntry(const QString& session_id, const QString& path) const {
     return call(QLatin1String(manager_protocol::method::inspect_browse_entry), {session_id, path});
 }

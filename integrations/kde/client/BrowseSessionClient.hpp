@@ -26,6 +26,14 @@ class BrowseSessionClient {
         const QString& continuation_token,
         uint limit
     ) const;
+    [[nodiscard]] std::optional<QString> listPreviousVersions(
+        const QString& session_id,
+        const QString& profile_id,
+        const QString& source_id,
+        const QString& relative_path,
+        const QString& continuation_token,
+        uint limit
+    ) const;
     [[nodiscard]] std::optional<QString> inspectEntry(const QString& session_id, const QString& path) const;
     [[nodiscard]] std::optional<QString> inspectRepository(const QString& session_id) const;
     [[nodiscard]] QDBusUnixFileDescriptor openRoot(const QString& session_id) const;

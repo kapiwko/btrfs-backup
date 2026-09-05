@@ -46,6 +46,10 @@ class Backend final : public IBrowseSessionBackend {
     std::vector<std::string> opened;
     std::vector<std::string> closed;
     std::string page_after_name;
+    std::size_t versions_offset = 0;
+    std::string versions_profile;
+    std::string versions_source;
+    std::filesystem::path versions_path;
     std::vector<std::filesystem::path> coverage_paths;
     void open(const ProfileId& profile, const BrowseSessionId& id, std::uint32_t uid) override {
         opened.push_back(std::string(profile.value()) + ":" + std::string(id.value()) + ":" + std::to_string(uid));
@@ -75,6 +79,32 @@ class Backend final : public IBrowseSessionBackend {
         if (maximum_entries == 1 && after_name.empty())
             return {{{"alpha", false, 4, 0400, 123}}, "alpha"};
         return {{{"omega", false, 4, 0400, 123}}, {}};
+    }
+    btrfsbackup::daemon::control::PreviousVersionsPage list_previous_versions(
+        const BrowseSessionId&,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::filesystem::path& relative_path,
+        std::size_t offset,
+        std::size_t
+    ) override {
+        versions_offset = offset;
+        versions_profile = profile_id;
+        versions_source = source_id;
+        versions_path = relative_path;
+        return offset == 0
+            ? btrfsbackup::daemon::control::PreviousVersionsPage{
+                  {{{"new", "2026-09-05T12:00:00Z", {"file.txt", false, 4, 0400, 123}}}},
+                  1,
+                  true,
+                  {},
+              }
+            : btrfsbackup::daemon::control::PreviousVersionsPage{
+                  {{{"old", "2026-09-04T12:00:00Z", {"file.txt", false, 4, 0400, 123}}}},
+                  2,
+                  false,
+                  {},
+              };
     }
     btrfsbackup::daemon::control::BrowseEntryInfo inspect_entry(
         const BrowseSessionId&,
@@ -397,6 +427,59 @@ void test_directory_pages_bind_tokens_to_session_and_path() {
     });
 }
 
+void test_previous_versions_pages_bind_tokens_to_session_and_query() {
+    Authorizer authorizer;
+    Backend backend;
+    int next = 0;
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [&] {
+        return BrowseSessionId{"browse-versions-" + std::to_string(++next)};
+    });
+    const auto first_session = service.open(":1.90", 1000, "default");
+    const auto second_session = service.open(":1.90", 1000, "default");
+    const auto first = service.list_previous_versions(
+        ":1.90", first_session.session_id, "default", "home", "documents/file.txt", "", 1
+    );
+    test_helpers::expect_true(
+        "previous versions first page",
+        first.entries.size() == 1 && first.entries.front().snapshot_id == "new" && !first.continuation_token.empty() &&
+            backend.versions_profile == "default" && backend.versions_source == "home" &&
+            backend.versions_path == "documents/file.txt",
+        "previous versions query was not forwarded or paged"
+    );
+    const auto second = service.list_previous_versions(
+        ":1.90",
+        first_session.session_id,
+        "default",
+        "home",
+        "documents/file.txt",
+        first.continuation_token,
+        1
+    );
+    test_helpers::expect_true(
+        "previous versions continuation",
+        backend.versions_offset == 1 && second.entries.size() == 1 && second.continuation_token.empty(),
+        "previous versions continuation did not advance"
+    );
+    expect_error("previous versions profile binding", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_previous_versions(":1.90", first_session.session_id, "archive", "home", "documents/file.txt", "", 1);
+    });
+    expect_error("previous versions source binding", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_previous_versions(":1.90", first_session.session_id, "default", "root", "documents/file.txt", first.continuation_token, 1);
+    });
+    expect_error("previous versions path binding", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_previous_versions(":1.90", first_session.session_id, "default", "home", "other", first.continuation_token, 1);
+    });
+    expect_error("previous versions session binding", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_previous_versions(":1.90", second_session.session_id, "default", "home", "documents/file.txt", first.continuation_token, 1);
+    });
+    expect_error("previous versions zero page", ManagerErrorCode::InvalidRequest, [&] {
+        (void)service.list_previous_versions(":1.90", first_session.session_id, "default", "home", ".", "", 0);
+    });
+    expect_error("foreign previous versions", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.list_previous_versions(":1.91", first_session.session_id, "default", "home", ".", "", 1);
+    });
+}
+
 } // namespace
 
 int main() {
@@ -411,5 +494,6 @@ int main() {
     test_concurrent_operation_pins_are_counted();
     test_session_limits_are_enforced_before_backend_open();
     test_directory_pages_bind_tokens_to_session_and_path();
+    test_previous_versions_pages_bind_tokens_to_session_and_query();
     return test_helpers::finish("browse session service tests");
 }

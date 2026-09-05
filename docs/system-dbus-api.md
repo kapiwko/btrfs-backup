@@ -61,6 +61,7 @@ schema versions are not advertised as public API versions.
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
 | `ListBrowseDirectory` | `(s sessionId, s relativePath)` | `(s)` | lists regular files and directories below an owned session root |
 | `ListBrowseDirectoryPage` | `(s sessionId, s relativePath, s continuationToken, u limit)` | `(s)` | lists one stable name-sorted page of up to 512 entries |
+| `ListPreviousVersions` | `(s sessionId, s profileId, s sourceId, s relativePath, s continuationToken, u limit)` | `(s)` | lists one newest-first page of snapshots that contain the requested entry |
 | `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
 | `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
 | `OpenBrowseRoot` | `(s sessionId)` | `(h)` | returns a pinned read-only repository root descriptor for restore |
@@ -166,6 +167,34 @@ manager selects that bounded working set in `O(n log page-size)` time instead
 of shifting a sorted page for every candidate. The legacy
 `ListBrowseDirectory` method remains available for API compatibility and
 retains its 10,000-entry safety limit.
+
+API minor version 10 adds `ListPreviousVersions`. It replaces one synchronous
+`InspectBrowseEntry` round trip per candidate snapshot with pages of up to 512
+existing versions. The continuation token is valid only for the same owned
+session, profile, source and normalized relative path. Repository discovery and
+the resolved query are cached for the lifetime of the browse session, so later
+pages do not rescan the catalog or repeat filesystem probes. KDE clients fall
+back to the legacy per-snapshot calls only when an older daemon reports
+`org.freedesktop.DBus.Error.UnknownMethod`.
+
+Each response uses schema version 1:
+
+```json
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "snapshotId": "2026-09-05T120000Z",
+      "createdAt": "2026-09-05T12:00:00Z",
+      "kind": "file",
+      "size": 4096,
+      "mode": 33024,
+      "modifiedAt": 1788609600
+    }
+  ],
+  "continuationToken": ""
+}
+```
 
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
 `cleanupResult`. They are presentation-safe recovery evidence: clients can show

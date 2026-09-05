@@ -78,6 +78,9 @@ int list_browse_directory(sd_bus_message* message, void* userdata, sd_bus_error*
 int list_browse_directory_page(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->browse_methods().list_browse_directory_page(message, error);
 }
+int list_previous_versions(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->browse_methods().list_previous_versions(message, error);
+}
 int inspect_browse_entry(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->browse_methods().inspect_browse_entry(message, error);
 }
@@ -154,6 +157,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_browse_directory, "ss", "s", list_browse_directory, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_browse_directory_page, "sssu", "s", list_browse_directory_page, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::list_previous_versions, "sssssu", "s", list_previous_versions, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::inspect_browse_entry, "ss", "s", inspect_browse_entry, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_file, "ss", "h", open_browse_file, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_root, "s", "h", open_browse_root, SD_BUS_VTABLE_UNPRIVILEGED),

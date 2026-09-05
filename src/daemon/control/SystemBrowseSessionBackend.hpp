@@ -46,6 +46,14 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         const std::string& after_name,
         std::size_t maximum_entries
     ) override;
+    [[nodiscard]] PreviousVersionsPage list_previous_versions(
+        const BrowseSessionId& session_id,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::filesystem::path& relative_path,
+        std::size_t offset,
+        std::size_t maximum_entries
+    ) override;
     [[nodiscard]] BrowseEntryInfo inspect_entry(
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
@@ -64,6 +72,17 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     ) override;
 
   private:
+    struct CachedSnapshot {
+        std::string snapshot_id;
+        std::string profile_id;
+        std::string source_id;
+        std::filesystem::path repository_path;
+        std::string created_at;
+        bool verified = false;
+    };
+    struct PreviousVersionsCacheEntry {
+        std::vector<PreviousVersionInfo> entries;
+    };
     struct TargetLease {
         btrfsbackup::config::Profile profile;
         btrfsbackup::platform::linux::filesystem::FileLock lock;
@@ -80,6 +99,10 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         bool view_mounted = false;
         bool target_mounted_by_backend = false;
         bool target_released = false;
+        bool repository_cached = false;
+        std::string repository_document;
+        std::vector<CachedSnapshot> snapshots;
+        std::map<std::string, PreviousVersionsCacheEntry> previous_versions;
     };
 
     TargetLease& acquire_target(const btrfsbackup::config::Profile& profile);
@@ -93,6 +116,7 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     void write_marker(const BrowseSessionId& id, const SessionMount& mount);
     [[nodiscard]] std::optional<SessionMount> read_marker(const std::filesystem::path& marker) const;
     void cleanup_record(const BrowseSessionId& session_id, SessionMount& mount, bool release_live_target);
+    void ensure_repository_cache(SessionMount& mount);
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::backup::IMountInspector& mounts_;

@@ -31,6 +31,19 @@ struct BrowseDirectoryPage {
     std::string continuation_token;
 };
 
+struct PreviousVersionInfo {
+    std::string snapshot_id;
+    std::string created_at;
+    BrowseEntryInfo entry;
+};
+
+struct PreviousVersionsPage {
+    std::vector<PreviousVersionInfo> entries;
+    std::size_t next_offset = 0;
+    bool has_more = false;
+    std::string continuation_token;
+};
+
 class IBrowseSessionBackend {
   public:
     virtual ~IBrowseSessionBackend() = default;
@@ -50,6 +63,14 @@ class IBrowseSessionBackend {
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path,
         const std::string& after_name,
+        std::size_t maximum_entries
+    ) = 0;
+    [[nodiscard]] virtual PreviousVersionsPage list_previous_versions(
+        const BrowseSessionId& session_id,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::filesystem::path& relative_path,
+        std::size_t offset,
         std::size_t maximum_entries
     ) = 0;
     [[nodiscard]] virtual BrowseEntryInfo inspect_entry(
@@ -135,6 +156,15 @@ class BrowseSessionService final {
         const std::string& caller_bus_name,
         const std::string& session_id,
         const std::string& relative_path
+    );
+    [[nodiscard]] PreviousVersionsPage list_previous_versions(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::string& relative_path,
+        const std::string& continuation_token,
+        std::size_t requested_entries
     );
     [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
         const std::string& caller_bus_name,
