@@ -13,6 +13,7 @@
 #include <optional>
 
 #include <restore/RepositoryCatalog.hpp>
+#include <restore/RestoreError.hpp>
 #include <restore/RestorePlan.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
@@ -28,6 +29,8 @@ class RestoreController final : public QObject {
     Q_PROPERTY(bool replaceExisting READ replaceExisting WRITE setReplaceExisting NOTIFY planChanged)
     Q_PROPERTY(QString planSummary READ planSummary NOTIFY planChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY stateChanged)
+    Q_PROPERTY(QString errorCode READ errorCode NOTIFY stateChanged)
+    Q_PROPERTY(QString errorTechnicalDetails READ errorTechnicalDetails NOTIFY stateChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
     Q_PROPERTY(bool completed READ completed NOTIFY stateChanged)
 
@@ -43,6 +46,8 @@ class RestoreController final : public QObject {
     void setReplaceExisting(bool value);
     QString planSummary() const;
     QString errorText() const;
+    QString errorCode() const;
+    QString errorTechnicalDetails() const;
     bool busy() const;
     bool completed() const;
 
@@ -59,6 +64,9 @@ class RestoreController final : public QObject {
 
   private:
     bool prepare_plan();
+    void clear_error();
+    void set_error(btrfsbackup::restore::RestoreErrorCode code, const QString& technical_details);
+    void set_unexpected_error(const QString& technical_details);
     void close_session() noexcept;
 
     QUrl source_url_;
@@ -73,6 +81,8 @@ class RestoreController final : public QObject {
     bool completed_ = false;
     QString plan_summary_;
     QString error_text_;
+    QString error_code_;
+    QString error_technical_details_;
     std::optional<btrfsbackup::restore::RepositoryCatalog> catalog_;
     std::optional<btrfsbackup::restore::RestorePlan> plan_;
     RestoreJob* job_ = nullptr;

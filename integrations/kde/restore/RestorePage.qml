@@ -11,6 +11,7 @@ Kirigami.Page {
     id: root
 
     required property var controller
+    property bool technicalDetailsVisible: false
     title: translations.i18n("Restore from backup")
 
     KI18n.KI18nContext {
@@ -65,6 +66,41 @@ Kirigami.Page {
             visible: root.controller.errorText.length > 0
             text: root.controller.errorText
             type: Kirigami.MessageType.Error
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.controller.errorCode.length > 0
+
+            QQC2.Label {
+                Layout.fillWidth: true
+                text: translations.i18n("Code: %1", root.controller.errorCode)
+                opacity: 0.75
+                selectByMouse: true
+            }
+            QQC2.Button {
+                visible: root.controller.errorTechnicalDetails.length > 0
+                text: root.technicalDetailsVisible
+                    ? translations.i18n("Hide technical details")
+                    : translations.i18n("Show technical details")
+                icon.name: root.technicalDetailsVisible ? "arrow-up-symbolic" : "arrow-down-symbolic"
+                onClicked: root.technicalDetailsVisible = !root.technicalDetailsVisible
+            }
+        }
+
+        QQC2.ScrollView {
+            Layout.fillWidth: true
+            Layout.maximumHeight: Kirigami.Units.gridUnit * 7
+            visible: root.technicalDetailsVisible
+                && root.controller.errorTechnicalDetails.length > 0
+
+            QQC2.TextArea {
+                text: root.controller.errorTechnicalDetails
+                readOnly: true
+                wrapMode: TextEdit.Wrap
+                selectByMouse: true
+                Accessible.name: translations.i18n("Technical error details")
+            }
         }
 
         QQC2.ProgressBar {
