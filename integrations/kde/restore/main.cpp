@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     application.setApplicationName(QStringLiteral("btrfs-backup-kde-restore"));
     application.setOrganizationDomain(QStringLiteral("io.github.btrfsbackup"));
     application.setDesktopFileName(QStringLiteral("io.github.btrfsbackup.Restore"));
-    application.setWindowIcon(QIcon::fromTheme(QStringLiteral("document-restore")));
+    application.setWindowIcon(QIcon::fromTheme(QStringLiteral("document-revert")));
     KLocalizedString::setApplicationDomain("btrfs-backup-kde-restore");
     QCommandLineParser parser;
     parser.addHelpOption();
