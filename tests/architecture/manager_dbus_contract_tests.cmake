@@ -272,8 +272,8 @@ assert_authorized_method(
 )
 assert_contains(
     "${compact_polkit_policy}"
-    "<actionid=\"io.github.btrfsbackup.open-browse-session\"><description>Openaread-onlyBtrfsbackupbrowsingsession</description><message>Authenticationisrequiredtobrowsebackupcontents</message><defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults></action>"
-    "administrator authentication for active repository browsing"
+    "<actionid=\"io.github.btrfsbackup.open-browse-session\"><description>Openaread-onlyBtrfsbackupbrowsingsession</description><message>Authenticationisrequiredtobrowsebackupcontents</message><defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults></action>"
+    "cached administrator authentication for active repository browsing"
 )
 assert_unprivileged_method(
     renew_browse_session RenewBrowseSession s s
