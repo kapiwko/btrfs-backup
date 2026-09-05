@@ -494,6 +494,7 @@ void Fixture::verify_read_api() {
         "ListPreviousVersions",
         "InspectBrowseEntry",
         "OpenBrowseFile",
+        "OpenBrowseEntry",
         "OpenBrowseRoot",
         "InspectBrowseRepository",
         "ResolveBackupCoverage",

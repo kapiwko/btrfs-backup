@@ -65,6 +65,7 @@ schema versions are not advertised as public API versions.
 | `ListPreviousVersions` | `(s sessionId, s profileId, s sourceId, s relativePath, s continuationToken, u limit)` | `(s)` | lists one newest-first page of snapshots that contain the requested entry |
 | `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
 | `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
+| `OpenBrowseEntry` | `(s sessionId, s relativePath)` | `(h)` | returns an authorized descriptor pinned directly to a restorable file or directory |
 | `OpenBrowseRoot` | `(s sessionId)` | `(h)` | returns a pinned read-only repository root descriptor for restore |
 | `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
 | `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
@@ -206,6 +207,10 @@ An unexpired operation lease prevents idle expiration, while closing the session
 or losing the caller's bus name clears every lease. Browse operations use only
 the identified lease methods, so a completion cannot decrement unrelated work.
 
+API minor version 12 adds `OpenBrowseEntry`. Restore clients receive a descriptor
+pinned directly to an authorized file or directory, so private repository layout
+directories do not block access to content allowed by the stored permissions.
+
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
 `cleanupResult`. They are presentation-safe recovery evidence: clients can show
 which durable steps completed and whether the temporary mapper was closed
@@ -307,6 +312,7 @@ currently open profile, including changes published by the CLI.
 | `ListBrowseDirectoryPage` | session ownership, path confinement and continuation-token binding | none |
 | `InspectBrowseEntry` | session ownership and path confinement | none |
 | `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
+| `OpenBrowseEntry` | session ownership, path confinement, stored permissions and supported entry type | none |
 | `OpenBrowseRoot` | session ownership and pinned read-only root | none |
 | `ResolveBackupCoverage` | repository access | `io.github.btrfsbackup.open-browse-session` |
 

@@ -30,7 +30,8 @@ bool is_pinned_descriptor_component(const std::filesystem::path& path) {
     try {
         const int descriptor = std::stoi(descriptor_text);
         struct stat status{};
-        return descriptor >= 0 && ::fstat(descriptor, &status) == 0 && S_ISDIR(status.st_mode);
+        return descriptor >= 0 && ::fstat(descriptor, &status) == 0 &&
+            (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode));
     } catch (...) {
         return false;
     }
@@ -81,7 +82,11 @@ void reject_symlink_components(const std::filesystem::path& path, RestoreErrorCo
 void validate_source(const std::filesystem::path& source) {
     reject_symlink_components(source, RestoreErrorCode::PathInvalid);
     std::error_code error;
-    const std::filesystem::file_status status = std::filesystem::symlink_status(source, error);
+    std::filesystem::file_status status;
+    if (source.parent_path() == "/proc/self/fd")
+        status = std::filesystem::status(source, error);
+    else
+        status = std::filesystem::symlink_status(source, error);
     if (error || (!std::filesystem::is_regular_file(status) && !std::filesystem::is_directory(status))) {
         throw RestoreError(RestoreErrorCode::PathInvalid, "restore source is not a regular file or directory");
     }
@@ -90,25 +95,22 @@ void validate_source(const std::filesystem::path& source) {
     }
 }
 
-} // namespace
-
-RestorePlan RestorePlanner::plan(const RepositoryCatalog& catalog, const RestoreRequest& request) const {
-    if (!valid_transaction_id(request.transaction_id)) {
+RestorePlan build_plan(
+    const CatalogSnapshot& snapshot,
+    const RestoreRequest& request,
+    const std::filesystem::path& source
+) {
+    if (!valid_transaction_id(request.transaction_id))
         throw RestoreError(RestoreErrorCode::PathInvalid, "restore transaction id is invalid");
-    }
     validate_destination(request.destination);
-    const CatalogSnapshot& snapshot = catalog.snapshot(request.snapshot_id);
-    const std::filesystem::path source = catalog.root() / snapshot.repository_path.value() / request.source_path.value();
     validate_source(source);
 
     std::error_code exists_error;
     const bool destination_exists = std::filesystem::exists(std::filesystem::symlink_status(request.destination, exists_error));
-    if (exists_error && exists_error != std::errc::no_such_file_or_directory) {
+    if (exists_error && exists_error != std::errc::no_such_file_or_directory)
         throw RestoreError(RestoreErrorCode::DestinationUnsafe, "restore destination cannot be inspected");
-    }
-    if (destination_exists && request.existing_destination == ExistingDestinationPolicy::Fail) {
+    if (destination_exists && request.existing_destination == ExistingDestinationPolicy::Fail)
         throw RestoreError(RestoreErrorCode::DestinationExists, "restore destination already exists: " + request.destination.string());
-    }
 
     const std::string stem = ".btrfs-backup-restore-" + request.transaction_id;
     const std::filesystem::path parent = request.destination.parent_path();
@@ -124,6 +126,24 @@ RestorePlan RestorePlanner::plan(const RepositoryCatalog& catalog, const Restore
         .existing_destination = request.existing_destination,
         .destination_exists = destination_exists,
     };
+}
+
+} // namespace
+
+RestorePlan RestorePlanner::plan(const RepositoryCatalog& catalog, const RestoreRequest& request) const {
+    const CatalogSnapshot& snapshot = catalog.snapshot(request.snapshot_id);
+    const std::filesystem::path source = catalog.root() / snapshot.repository_path.value() / request.source_path.value();
+    return build_plan(snapshot, request, source);
+}
+
+RestorePlan RestorePlanner::plan_from_pinned_source(
+    const RepositoryCatalog& catalog,
+    const RestoreRequest& request,
+    const std::filesystem::path& source
+) const {
+    if (source.parent_path() != "/proc/self/fd" || !is_pinned_descriptor_component(source))
+        throw RestoreError(RestoreErrorCode::PathInvalid, "restore source is not a pinned descriptor");
+    return build_plan(catalog.snapshot(request.snapshot_id), request, source);
 }
 
 } // namespace btrfsbackup::restore

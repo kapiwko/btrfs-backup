@@ -303,6 +303,25 @@ int ManagerBrowseMethods::open_browse_file(sd_bus_message* message, sd_bus_error
     );
 }
 
+int ManagerBrowseMethods::open_browse_entry(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const char* relative_path = nullptr;
+            const int read_result = sd_bus_message_read(message, "ss", &session_id, &relative_path);
+            if (read_result < 0)
+                return read_result;
+            auto entry = browse_sessions_.open_entry(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id,
+                relative_path == nullptr ? "" : relative_path
+            );
+            return sd_bus_reply_method_return(message, "h", entry.get());
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerBrowseMethods::open_browse_root(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {

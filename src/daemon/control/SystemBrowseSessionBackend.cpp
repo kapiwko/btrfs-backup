@@ -518,6 +518,17 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_file(
     return filesystem_access_.open_file(root, path, &session->second.identity);
 }
 
+OwnedFileDescriptor SystemBrowseSessionBackend::open_entry(
+    const BrowseSessionId& session_id,
+    const fs::path& relative_path
+) {
+    auto session = sessions_.find(std::string(session_id.value()));
+    if (session == sessions_.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
+    const auto [root, path] = authorized_snapshot_path(session->second, relative_path);
+    return filesystem_access_.open_entry(root, path, &session->second.identity);
+}
+
 OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId& session_id) {
     const auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())

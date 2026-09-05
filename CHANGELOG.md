@@ -163,7 +163,9 @@ preflight until it reports `READY`.
 13. browse filesystem traversal and marker persistence now have dedicated,
    unit-tested components while target lease and mount orchestration remain in
    the system browse backend; marker schema v1 and cleanup ordering are
-   unchanged.
+   unchanged;
+14. restore planning receives a descriptor pinned directly to the selected
+   authorized entry, avoiding inaccessible private repository layout parents.
 
 ### KDE Desktop Integration
 

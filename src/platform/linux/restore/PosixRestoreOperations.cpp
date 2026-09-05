@@ -43,7 +43,8 @@ bool is_pinned_descriptor_component(const std::filesystem::path& path) {
     try {
         const int descriptor = std::stoi(descriptor_text);
         struct stat status{};
-        return descriptor >= 0 && ::fstat(descriptor, &status) == 0 && S_ISDIR(status.st_mode);
+        return descriptor >= 0 && ::fstat(descriptor, &status) == 0 &&
+            (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode));
     } catch (...) {
         return false;
     }
@@ -76,7 +77,10 @@ void reject_symlink_components(const std::filesystem::path& path, bool leaf_may_
 
 struct stat lstat_or_throw(const std::filesystem::path& path) {
     struct stat status{};
-    if (::lstat(path.c_str(), &status) != 0) {
+    const int result = path.parent_path() == "/proc/self/fd"
+        ? ::stat(path.c_str(), &status)
+        : ::lstat(path.c_str(), &status);
+    if (result != 0) {
         throw btrfsbackup::restore::RestoreError(
             btrfsbackup::restore::RestoreErrorCode::CopyFailed,
             "could not inspect restore path " + path.string() + ": " + std::strerror(errno)
@@ -107,11 +111,7 @@ void verify_regular_file(
         throw_if_cancelled(cancellation);
         left.read(left_buffer.data(), static_cast<std::streamsize>(left_buffer.size()));
         right.read(right_buffer.data(), static_cast<std::streamsize>(right_buffer.size()));
-        if (left.gcount() != right.gcount() || !std::equal(
-                left_buffer.begin(),
-                left_buffer.begin() + left.gcount(),
-                right_buffer.begin()
-            )) {
+        if (left.gcount() != right.gcount() || !std::equal(left_buffer.begin(), left_buffer.begin() + left.gcount(), right_buffer.begin())) {
             throw btrfsbackup::restore::RestoreError(
                 btrfsbackup::restore::RestoreErrorCode::VerificationFailed,
                 "restored file content differs: " + destination.string()

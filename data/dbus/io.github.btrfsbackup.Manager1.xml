@@ -141,6 +141,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="relativePath" type="s" direction="in"/>
       <arg name="file" type="h" direction="out"/>
     </method>
+    <method name="OpenBrowseEntry">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="relativePath" type="s" direction="in"/>
+      <arg name="entry" type="h" direction="out"/>
+    </method>
     <method name="OpenBrowseRoot">
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="root" type="h" direction="out"/>
