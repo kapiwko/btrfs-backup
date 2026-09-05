@@ -1,0 +1,49 @@
+.TH BTRFS-BACKUP 8 "September 2026" "btrfs-backup 1.0.0" "System Administration"
+.SH NAME
+btrfs-backup \- run an encrypted removable Btrfs backup
+.SH SYNOPSIS
+.B btrfs-backup
+.RB [ --profile " " ID ]
+.RB [ --force ]
+.RB [ --validate ]
+.RB [ --no-eject ]
+.SH DESCRIPTION
+.B btrfs-backup
+runs the configured backup profile. It validates and mounts the exact LUKS2
+target, creates read-only source snapshots, transfers them with Btrfs
+send/receive, applies retention and optionally ejects the target.
+.PP
+Automatic runs are normally started by the installed udev and systemd units.
+The command is also suitable for a manual run.
+.SH OPTIONS
+.TP
+.BI --profile " ID"
+Use the named profile. The default is
+.BR default .
+.TP
+.B --force
+Run even when the profile has already completed successfully today.
+.TP
+.B --validate
+Mount and validate the target and configuration without creating snapshots.
+.TP
+.B --no-eject
+Leave the target mounted after a manual invocation.
+.TP
+.BR -h , " --help"
+Show command help.
+.SH FILES
+.TP
+.I /etc/btrfs-backup/profiles/ID/profile.json
+Canonical profile configuration.
+.TP
+.I /run/btrfs-backup/profiles
+Current status and cancellation state.
+.TP
+.I /var/lib/btrfs-backup
+Persistent history and recovery state.
+.SH SEE ALSO
+.BR btrfs-backupctl (1),
+.BR btrfs (8),
+.BR cryptsetup (8),
+.BR systemd (1)

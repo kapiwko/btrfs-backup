@@ -227,6 +227,32 @@ install(
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/tmpfiles.d"
 )
 install(
+    FILES data/man/btrfs-backupctl.1
+    DESTINATION "${CMAKE_INSTALL_MANDIR}/man1"
+)
+install(
+    FILES data/man/btrfs-backup.8
+    DESTINATION "${CMAKE_INSTALL_MANDIR}/man8"
+)
+install(
+    FILES
+        data/completions/bash/btrfs-backup
+        data/completions/bash/btrfs-backupctl
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/bash-completion/completions"
+)
+install(
+    FILES
+        data/completions/zsh/_btrfs-backup
+        data/completions/zsh/_btrfs-backupctl
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/zsh/site-functions"
+)
+install(
+    FILES
+        data/completions/fish/btrfs-backup.fish
+        data/completions/fish/btrfs-backupctl.fish
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d"
+)
+install(
     FILES README.md CHANGELOG.md LICENSE
     DESTINATION "${CMAKE_INSTALL_DOCDIR}"
 )

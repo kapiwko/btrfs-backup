@@ -1,0 +1,6 @@
+_btrfs_backup()
+{
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    COMPREPLY=( $(compgen -W '--profile --force --validate --no-eject --help' -- "$cur") )
+}
+complete -F _btrfs_backup btrfs-backup
