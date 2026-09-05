@@ -120,22 +120,25 @@ ColumnLayout {
 
     Connections {
         target: root.workflow.provisioning
-        function onSourceCandidatesChanged() { root.selectDefaultSource() }
+        function onSourceCandidatesChanged() { root.selectDefaultSources() }
     }
 
-    Component.onCompleted: selectDefaultSource()
+    Component.onCompleted: selectDefaultSources()
 
-    function selectDefaultSource() {
+    function selectDefaultSources() {
         if (sources.length > 0 || (workflow.provisioning.sourceCandidates?.length ?? 0) === 0)
             return
-        const candidate = workflow.provisioning.sourceCandidates[0]
-        sources = [{
+        const candidates = workflow.provisioning.sourceCandidates
+        let defaults = candidates.filter(candidate => candidate.path === "/" || candidate.path === "/home")
+        if (defaults.length === 0)
+            defaults = [candidates[0]]
+        sources = defaults.map(candidate => ({
             candidateId: candidate.id,
             name: sourceName(candidate),
             subvolume: candidate.path,
             localRetention: 30,
             remoteRetention: 30
-        }]
+        }))
     }
 
     function sourceName(candidate) {
