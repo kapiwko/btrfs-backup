@@ -20,6 +20,7 @@ KCMUtils.ScrollViewKCM {
     property var editorOverride: null
     property var directoryOverride: null
     property var historyOverride: null
+    property var reminderSettingsOverride: null
     property var profileStatusOverrides: ({})
     readonly property var editor: editorOverride !== null
         ? editorOverride
@@ -30,6 +31,9 @@ KCMUtils.ScrollViewKCM {
         : (typeof kcm !== "undefined" ? kcm.profileHistory : null)
     readonly property var credentialModel: typeof kcm !== "undefined" ? kcm.targetCredentials : null
     readonly property var provisioningModel: typeof kcm !== "undefined" ? kcm.deviceProvisioning : null
+    readonly property var reminderSettings: reminderSettingsOverride !== null
+        ? reminderSettingsOverride
+        : (typeof kcm !== "undefined" ? kcm.backupReminderSettings : null)
 
     KI18n.KI18nContext {
         id: translations
@@ -62,6 +66,7 @@ KCMUtils.ScrollViewKCM {
             directory: root.directory
             profileStatusOverrides: root.profileStatusOverrides
             profileSummaryFor: (status, profile) => root.profileSummary(status, profile)
+            reminderSettings: root.reminderSettings
             onProfileRequested: profileId => root.openProfileDetails(profileId, false)
             onEditProfileRequested: profileId => root.openProfileDetails(profileId, true)
             onSystemLogRequested: if (typeof kcm !== "undefined") kcm.openSystemLog()

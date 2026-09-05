@@ -70,6 +70,10 @@ DeviceProvisioningModel* BackupKcm::deviceProvisioning() {
     return &device_provisioning_;
 }
 
+BackupReminderSettings* BackupKcm::backupReminderSettings() {
+    return &backup_reminder_settings_;
+}
+
 } // namespace btrfsbackup::kde::kcm
 
 K_PLUGIN_CLASS_WITH_JSON(btrfsbackup::kde::kcm::BackupKcm, "kcm_btrfsbackup.json")
