@@ -7,24 +7,24 @@
       "mode": "connected",
       "page": "",
       "path": "plasma-widget-connected.png",
-      "bytes": 95671,
-      "sha256": "d97782ced5d84c905cd7b2a888845c8055ef8939da3162d06ff68bb8d76f7f54"
+      "bytes": 96260,
+      "sha256": "b709182d7ad66b2224e7e28db504c7ff858b72ea5ca8796104bbbb6ca2a84c7f"
     },
     {
       "scenario": "plasma-widget",
       "mode": "disconnected",
       "page": "",
       "path": "plasma-widget-disconnected.png",
-      "bytes": 93694,
-      "sha256": "cbfa692d7d1de43738a29c7007e4a33d4394cc5a9146df7a1aed17196a289727"
+      "bytes": 94245,
+      "sha256": "dec9dfd7f6614b424cadf99ea0bedf96fe3c714c696f9a20258d97aca4201e75"
     },
     {
       "scenario": "plasma-widget",
       "mode": "transferring",
       "page": "",
       "path": "plasma-widget-transferring.png",
-      "bytes": 123570,
-      "sha256": "51b253dd3f23dfc59c13fdf9d8d7bac39ce1f017f8c7cddacd26380f1d47c4c4"
+      "bytes": 97000,
+      "sha256": "1afaf2cd7c208505b25662ff67c7053a013c862d56b22a67be2ca616171c0218"
     },
     {
       "scenario": "notification",
@@ -79,8 +79,8 @@
       "mode": "transferring",
       "page": "",
       "path": "system-settings-transferring.png",
-      "bytes": 72274,
-      "sha256": "a59c1662fe7559fa26291194464e9fde0babbb8c751c9fece28e2eac931dd145"
+      "bytes": 72295,
+      "sha256": "ef432bdd3c4e871fec0da0b07c86fe2daa3de3e77e57488b11ebe820e8c9fe29"
     },
     {
       "scenario": "system-settings",
@@ -119,32 +119,32 @@
       "mode": "connected",
       "page": "new-profile-adopt",
       "path": "system-settings-new-profile-adopt.png",
-      "bytes": 79044,
-      "sha256": "9991138b521a8df22731419dd0c39ae92a81df111b2c361fdeedbe42042317d5"
+      "bytes": 95861,
+      "sha256": "c5cb89755d3c20b830515b07b52ff68e9b79ad5de82c6a0e5a1d4b4f6050c5a1"
     },
     {
       "scenario": "system-settings",
       "mode": "connected",
       "page": "new-profile-adopt-partition",
       "path": "system-settings-new-profile-adopt-partition.png",
-      "bytes": 98283,
-      "sha256": "71a55504ef437e94591b80f198a8e08cf0dde64b44518f6a373979dd2a598a6f"
+      "bytes": 101452,
+      "sha256": "544f6fcd3193773ec9b6fe21e25c500566cbc5b0b956d1a4154d11a39da727bf"
     },
     {
       "scenario": "system-settings",
       "mode": "connected",
       "page": "new-profile-prepare",
       "path": "system-settings-new-profile-prepare.png",
-      "bytes": 92518,
-      "sha256": "ca640329aba68beb8c0dce893cd285a4f60ab5d7cbca2b62a1eb9178f9a89848"
+      "bytes": 97097,
+      "sha256": "58ca70701ad6711e3c1c3548fd9602e2cf56766da047773986558837dcdab98b"
     },
     {
       "scenario": "system-settings",
       "mode": "connected",
       "page": "new-profile-prepare-partition",
       "path": "system-settings-new-profile-prepare-partition.png",
-      "bytes": 107662,
-      "sha256": "ad24810acb96def18cca12ffa8a14fa0c18da7757f0b514d872ab0c30a638096"
+      "bytes": 104277,
+      "sha256": "9b192ff7ae01865b2cf5f1cbaa1d168bf74e8188579b6c2d880b27211a9877ea"
     }
   ]
 }
