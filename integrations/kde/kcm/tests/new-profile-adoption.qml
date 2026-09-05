@@ -142,6 +142,7 @@ Item {
         function poll() {}
         function cancel() {}
         function clearError() {}
+        function formatBytes(bytes) { return String(bytes) + " B" }
     }
 
     UI.NewProfilePage {

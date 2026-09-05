@@ -31,6 +31,7 @@ class DeviceProvisioningModel final : public QObject {
     [[nodiscard]] QVariantList sourceCandidates() const;
     [[nodiscard]] bool busy() const;
     [[nodiscard]] QString errorMessage() const;
+    Q_INVOKABLE QString formatBytes(qint64 bytes) const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void buildPlan(const QVariantMap& selection, const QString& mode);

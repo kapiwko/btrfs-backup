@@ -14,6 +14,7 @@ ColumnLayout {
     required property var regions
     required property string selectedRegionId
     required property bool preview
+    required property var formatBytes
     property int logicalSectorSize: 512
 
     spacing: Kirigami.Units.smallSpacing
@@ -160,10 +161,4 @@ ColumnLayout {
             ? Kirigami.Theme.textColor : Kirigami.Theme.highlightedTextColor
     }
 
-    function formatBytes(value) {
-        const gib = value / 1073741824
-        if (gib >= 1)
-            return translations.i18n("%1 GiB", Math.round(gib * 10) / 10)
-        return translations.i18n("%1 MiB", Math.round(value / 1048576))
-    }
 }

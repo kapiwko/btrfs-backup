@@ -84,7 +84,25 @@ KCMUtils.AbstractKCM {
     function deviceAvailable(device) {
         return !(device?.systemDevice ?? false)
             && !(device?.mounted ?? false)
+            && (device?.blockers?.length ?? 0) === 0
             && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device)))
+    }
+
+    function blockerReason(blocker) {
+        const code = typeof blocker === "string" ? blocker : String(blocker?.code ?? "")
+        switch (code) {
+        case "active-swap": return translations.i18n("The device is active swap space")
+        case "block-holder": return translations.i18n("The device is used by another storage layer")
+        case "mounted-filesystem": return translations.i18n("The device contains a mounted filesystem")
+        case "read-only-device": return translations.i18n("The device is read-only")
+        case "unsupported-block-stack": return translations.i18n("The device is managed by an unsupported storage stack")
+        case "ambiguous-signatures": return translations.i18n("The device contains ambiguous filesystem signatures")
+        case "holder-state-unavailable":
+        case "dependency-state-unavailable":
+        case "signature-state-unavailable":
+            return translations.i18n("The device safety state could not be verified")
+        default: return translations.i18n("The device is not safe to use as a backup target")
+        }
     }
 
     function unavailableReason(device) {
@@ -92,11 +110,28 @@ KCMUtils.AbstractKCM {
             return translations.i18n("System disk — it cannot be used as a backup target")
         if (device?.mounted ?? false)
             return translations.i18n("The device or one of its partitions is mounted")
+        if ((device?.blockers?.length ?? 0) > 0)
+            return root.blockerReason(device.blockers[0])
         if (root.adoption && !root.deviceIsExternal(device))
             return translations.i18n("Only removable or externally connected targets can be adopted")
         if (root.adoption && !root.deviceHasAdoptionCandidate(device))
             return translations.i18n("No compatible LUKS2 and Btrfs repository was found")
         return translations.i18n("The device is not safe to use as a backup target")
+    }
+
+
+    function regionUnavailableReason(region) {
+        if (region?.mounted ?? false)
+            return translations.i18n("This partition is mounted")
+        if ((region?.blockers?.length ?? 0) > 0)
+            return root.blockerReason(region.blockers[0])
+        if (root.adoption && !(region?.suitableForAdoption ?? false))
+            return translations.i18n("This partition is not a compatible backup target")
+        if (region?.kind === "unallocated" && !(region?.suitableForBackupPartition ?? false))
+            return translations.i18n("This free area cannot hold a backup partition")
+        if (region?.kind === "existing-partition" && !(region?.suitableForReformat ?? false))
+            return translations.i18n("This partition cannot be safely reformatted")
+        return ""
     }
 
     function operationSteps() {
@@ -336,7 +371,7 @@ KCMUtils.AbstractKCM {
                             Kirigami.TitleSubtitle {
                                 Layout.fillWidth: true
                                 title: translations.i18n("Storage device %1", deviceRow.modelData.displayIndex)
-                                    + " — " + root.formatBytes(deviceRow.modelData.sizeBytes)
+                                    + " — " + root.provisioning.formatBytes(deviceRow.modelData.sizeBytes)
                                 subtitle: (deviceRow.modelData.transport || translations.i18n("unknown connection"))
                                     + " · " + (root.deviceHasConfiguredTarget(deviceRow.modelData)
                                         ? translations.i18n("contains a configured backup target")
@@ -378,7 +413,7 @@ KCMUtils.AbstractKCM {
                             enabled: false
                             contentItem: Kirigami.TitleSubtitle {
                                 title: translations.i18n("Storage device %1", modelData.displayIndex)
-                                    + " — " + root.formatBytes(modelData.sizeBytes)
+                                    + " — " + root.provisioning.formatBytes(modelData.sizeBytes)
                                 subtitle: root.unavailableReason(modelData)
                                 selected: false
                             }
@@ -457,11 +492,13 @@ KCMUtils.AbstractKCM {
                                     title: (partitionRow.modelData.kind === "unallocated"
                                         ? translations.i18n("Free space")
                                         : translations.i18n("Partition %1", partitionRow.modelData.partitionNumber)) + " — "
-                                        + root.formatBytes(Number(partitionRow.modelData.sectorCount)
+                                        + root.provisioning.formatBytes(Number(partitionRow.modelData.sectorCount)
                                             * Number(root.selectedDevice.logicalSectorSize || 512))
-                                    subtitle: partitionRow.modelData.kind === "unallocated"
-                                        ? translations.i18n("Available for a new backup partition")
-                                        : partitionRow.modelData.configuredBackupTarget
+                                    subtitle: !partitionRow.enabled
+                                        ? root.regionUnavailableReason(partitionRow.modelData)
+                                        : partitionRow.modelData.kind === "unallocated"
+                                            ? translations.i18n("Available for a new backup partition")
+                                            : partitionRow.modelData.configuredBackupTarget
                                             ? translations.i18n("Already used by a backup profile")
                                             : partitionRow.modelData.encrypted
                                                 ? translations.i18n("encrypted partition")
@@ -512,6 +549,7 @@ KCMUtils.AbstractKCM {
                             ?? root.provisioning.plan.freeRegionId ?? ""
                         preview: false
                         logicalSectorSize: root.provisioning.plan.before?.logicalSectorSize ?? 512
+                        formatBytes: value => root.provisioning.formatBytes(value)
                     }
                     Kirigami.Heading {
                         text: root.adoption ? translations.i18n("After adoption") : translations.i18n("After preparation")
@@ -523,6 +561,7 @@ KCMUtils.AbstractKCM {
                         selectedRegionId: root.provisioning.plan.partitionId ?? "planned-backup-partition"
                         preview: true
                         logicalSectorSize: root.provisioning.plan.after?.logicalSectorSize ?? 512
+                        formatBytes: value => root.provisioning.formatBytes(value)
                     }
                     QQC2.Label {
                         Layout.fillWidth: true
@@ -813,10 +852,6 @@ KCMUtils.AbstractKCM {
         root.selectedDevice = null
         root.selectedTarget = null
         root.provisioning.clearSelection()
-    }
-    function formatBytes(value) {
-        const gib = Number(value) / 1073741824
-        return translations.i18nc("disk size in gibibytes", "%1 GiB", Math.round(gib * 10) / 10)
     }
     function phaseText(phase) {
         switch (phase) {
