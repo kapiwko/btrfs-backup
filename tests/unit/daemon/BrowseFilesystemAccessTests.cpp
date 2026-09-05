@@ -141,21 +141,26 @@ void test_stored_permissions_and_acl_are_enforced() {
     const fs::path root = test_helpers::test_root("browse-filesystem", "permissions");
     test_helpers::write_file(root / "allowed.txt", "allowed");
     test_helpers::write_file(root / "denied.txt", "denied");
-    fs::permissions(root / "allowed.txt", fs::perms::owner_read);
+    const bool running_as_root = getuid() == 0;
+    fs::permissions(
+        root / "allowed.txt",
+        running_as_root ? fs::perms::others_read : fs::perms::owner_read
+    );
     fs::permissions(root / "denied.txt", fs::perms::none);
-    const BrowseAccessIdentity owner{
-        .uid = static_cast<std::uint32_t>(getuid()),
-        .groups = {static_cast<std::uint32_t>(getgid())},
+    const BrowseAccessIdentity mode_reader{
+        .uid = running_as_root ? 1U : static_cast<std::uint32_t>(getuid()),
+        .groups = {running_as_root ? 1U : static_cast<std::uint32_t>(getgid())},
     };
     BrowseFilesystemAccess access;
     test_helpers::expect_true(
         "owner read permission",
-        access.open_file(root, "allowed.txt", &owner).valid(),
-        "stored owner read permission was rejected"
+        access.open_file(root, "allowed.txt", &mode_reader).valid(),
+        "stored read permission was rejected"
     );
-    expect_rejected("owner read denied", [&] { (void)access.open_file(root, "denied.txt", &owner); });
+    expect_rejected("read denied", [&] { (void)access.open_file(root, "denied.txt", &mode_reader); });
 
-    const std::string acl_group = std::to_string(getgid());
+    const std::uint32_t acl_group_id = static_cast<std::uint32_t>(getgid());
+    const std::string acl_group = std::to_string(acl_group_id);
     const bool acl_fixtures_ready = set_acl(root, "u::rwx,g::---,g:" + acl_group + ":r-x,m::r-x,o::---") &&
         set_acl(root / "allowed.txt", "u::r--,g::---,g:" + acl_group + ":r--,m::r--,o::---") &&
         set_acl(root / "denied.txt", "u::r--,g::---,g:" + acl_group + ":r--,m::---,o::---");
@@ -164,8 +169,8 @@ void test_stored_permissions_and_acl_are_enforced() {
         return;
     }
     const BrowseAccessIdentity named_group{
-        .uid = 12345,
-        .groups = {static_cast<std::uint32_t>(getgid())},
+        .uid = static_cast<std::uint32_t>(getuid()) == 23456U ? 23457U : 23456U,
+        .groups = {acl_group_id},
     };
     test_helpers::expect_true(
         "named ACL read permission",
