@@ -56,4 +56,21 @@ std::vector<RepositorySnapshot> matching_versions(
     return result;
 }
 
+std::optional<QUrl> version_target_url(
+    const QString& profile_id,
+    const QString& snapshot_id,
+    const QString& requested_path
+) {
+    if (profile_id.isEmpty() || snapshot_id.isEmpty() || requested_path.isEmpty() ||
+        requested_path.startsWith(u'/') || requested_path.split(u'/').contains(u".."_s))
+        return std::nullopt;
+    QUrl target;
+    target.setScheme(u"btrfsbackup"_s);
+    QString target_path = u"/"_s + profile_id + u"/"_s + snapshot_id;
+    if (requested_path != u"."_s)
+        target_path += u"/"_s + requested_path;
+    target.setPath(target_path);
+    return target;
+}
+
 } // namespace btrfsbackup::kde::kio

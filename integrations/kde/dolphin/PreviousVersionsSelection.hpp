@@ -6,6 +6,12 @@
 #include <QList>
 #include <QUrl>
 
+#include <optional>
+
+namespace btrfsbackup::kde {
+struct BackupCoverage;
+}
+
 namespace btrfsbackup::kde::dolphin {
 
 enum class PreviousVersionsOutcome {
@@ -19,6 +25,10 @@ enum class PreviousVersionsOutcome {
     bool request_succeeded,
     bool document_valid,
     bool has_match
+);
+[[nodiscard]] std::optional<QUrl> select_previous_versions_url(
+    const QList<btrfsbackup::kde::BackupCoverage>& coverage,
+    qsizetype selected_index
 );
 
 } // namespace btrfsbackup::kde::dolphin
