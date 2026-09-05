@@ -191,7 +191,10 @@ preflight until it reports `READY`.
    unsupported and incomplete repositories, and simultaneous cleanup failures.
 6. component-based DEB and RPM generation preserves the public package name
    `btrfs-backup` instead of leaking CPack's internal `Unspecified` component
-   name into package metadata.
+   name into package metadata;
+7. `TODO.md` now records the explicit 1.0 go/no-go decision, locally verified
+   gates, remaining remote-CI and package-upgrade enforcement work, and the
+   accepted non-blocking P2 hardware-matrix risk.
 
 ## 0.3.3 - 2026-08-30
 
