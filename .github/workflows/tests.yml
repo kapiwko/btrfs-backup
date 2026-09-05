@@ -68,6 +68,10 @@ jobs:
             preset: gcc-debug
           - compiler: Clang
             preset: clang-debug
+          - compiler: GCC (manager disabled)
+            preset: gcc-manager-disabled
+          - compiler: Clang (manager disabled)
+            preset: clang-manager-disabled
     steps:
       - name: Prepare Arch Linux
         run: |
