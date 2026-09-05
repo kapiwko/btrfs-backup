@@ -131,7 +131,6 @@ PlasmaExtras.ExpandableListItem {
                     statusLabel: root.statusText(root.profileStatus.run.state)
                     targetStateLabel: root.targetStateText(root.profileStatus.target.state)
                     lastSuccessLabel: root.lastSuccessText(root.profileStatus.run.lastSuccessAt)
-                    relativeStorageTime: root.relativeTime(root.profileStatus.target.storageMeasuredAt)
                     etaLabel: root.formatEta(root.profileStatus.run.etaSeconds)
                     durationLabel: root.formatDuration(root.profileStatus.run.elapsedSeconds)
                     operationLabel: root.operationResultText(root.profileStatus.lastOperation)

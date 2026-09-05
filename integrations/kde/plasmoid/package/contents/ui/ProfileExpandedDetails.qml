@@ -25,7 +25,6 @@ ColumnLayout {
     required property string statusLabel
     required property string targetStateLabel
     required property string lastSuccessLabel
-    required property string relativeStorageTime
     required property string etaLabel
     required property string durationLabel
     required property string operationLabel
@@ -198,9 +197,6 @@ ColumnLayout {
             usedText: details.profileStatus.target.usedText
             availableText: details.profileStatus.target.availableText
             usagePercent: details.profileStatus.target.usagePercent
-            live: details.profileStatus.target.storageLive
-            measuredAt: details.profileStatus.target.storageMeasuredAt
-            relativeMeasurementTime: details.relativeStorageTime
             belowMinimum: details.profileStatus.target.spaceBelowMinimum
         }
 
