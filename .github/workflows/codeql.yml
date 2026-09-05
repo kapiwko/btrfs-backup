@@ -1,0 +1,45 @@
+name: CodeQL
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze-cpp:
+    name: Analyze C++
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            btrfs-progs \
+            build-essential \
+            cmake \
+            libacl1-dev \
+            libblkid-dev \
+            libbtrfsutil-dev \
+            libcryptsetup-dev \
+            libfdisk-dev \
+            libmount-dev \
+            libsystemd-dev \
+            libudev-dev \
+            ninja-build \
+            nlohmann-json3-dev \
+            pkg-config
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          languages: c-cpp
+          queries: security-extended
+      - name: Build analyzed targets
+        run: |
+          cmake --preset gcc-debug -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF
+          cmake --build --preset gcc-debug --parallel "$(nproc)"
+      - name: Analyze
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
