@@ -145,6 +145,14 @@ class ManagerClient {
         const QString& continuation_token,
         uint limit
     ) const;
+    [[nodiscard]] QDBusPendingCall listPreviousVersions(
+        const QString& session_id,
+        const QString& profile_id,
+        const QString& source_id,
+        const QString& relative_path,
+        const QString& continuation_token,
+        uint limit
+    ) const;
     [[nodiscard]] QDBusPendingCall inspectBrowseEntry(const QString& session_id, const QString& path) const;
     [[nodiscard]] QDBusPendingCall inspectBrowseRepository(const QString& session_id) const;
     [[nodiscard]] QDBusPendingCall openBrowseFile(const QString& session_id, const QString& path) const;

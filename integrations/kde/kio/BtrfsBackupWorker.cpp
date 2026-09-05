@@ -138,6 +138,28 @@ std::optional<RemoteEntry> remote_entry(const QString& session_id, const QString
     return parse_remote_entry(object);
 }
 
+std::optional<btrfsbackup::kde::kio::PreviousVersionsPage> remote_previous_versions(
+    const QString& session_id,
+    const QString& profile_id,
+    const QString& source_id,
+    const QString& relative_path,
+    const QString& continuation_token,
+    QString& error_name
+) {
+    constexpr uint page_size = 512;
+    btrfsbackup::kde::BrowseSessionClient client;
+    const auto payload = client.listPreviousVersions(
+        session_id,
+        profile_id,
+        source_id,
+        relative_path,
+        continuation_token,
+        page_size
+    );
+    error_name = client.lastErrorName();
+    return payload ? btrfsbackup::kde::kio::parse_previous_versions_page(*payload) : std::nullopt;
+}
+
 std::optional<QHash<QString, btrfsbackup::kde::kio::RepositorySnapshot>> remote_snapshots(const QString& session_id) {
     const auto payload = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id);
     return payload ? btrfsbackup::kde::kio::parse_repository_snapshots(*payload) : std::nullopt;
@@ -344,15 +366,70 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
     const QString source_id = parts.front();
     const QString requested = parts.size() > 1 ? parts.mid(1).join(u'/') : u"."_s;
-    const auto snapshots = btrfsbackup::kde::kio::matching_versions(active->snapshots, url.profile, source_id);
+    QString continuation_token;
+    QString error_name;
+    bool first_page = true;
+    do {
+        const auto page = remote_previous_versions(
+            active->id,
+            url.profile,
+            source_id,
+            requested,
+            continuation_token,
+            error_name
+        );
+        if (!page) {
+            if (first_page && btrfsbackup::kde::kio::previous_versions_method_unavailable(error_name))
+                break;
+            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
+        }
+        if (!page->continuation_token.isEmpty() && page->continuation_token == continuation_token)
+            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
+        KIO::UDSEntryList entries;
+        for (const auto& version : page->entries) {
+            if (wasKilled())
+                return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
+            const auto target = btrfsbackup::kde::kio::version_target_url(url.profile, version.snapshot_id, requested);
+            if (!target)
+                return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
+            const RemoteEntry remote{
+                requested == u"."_s ? version.snapshot_id : requested.section(u'/', -1),
+                version.directory,
+                version.size,
+                version.mode,
+                version.modified_at,
+            };
+            KIO::UDSEntry entry;
+            entry.fastInsert(KIO::UDSEntry::UDS_NAME, version.snapshot_id);
+            entry.fastInsert(KIO::UDSEntry::UDS_DISPLAY_NAME, QLocale{}.toString(version.created_at.toLocalTime(), QLocale::ShortFormat));
+            entry.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, version.directory ? S_IFDIR : S_IFREG);
+            entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(version.size));
+            entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, version.created_at.toSecsSinceEpoch());
+            entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(version.mode & 0777));
+            entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(remote));
+            entry.fastInsert(KIO::UDSEntry::UDS_URL, target->toString(QUrl::FullyEncoded));
+            entries.push_back(std::move(entry));
+        }
+        listEntries(entries);
+        continuation_token = page->continuation_token;
+        first_page = false;
+    } while (!continuation_token.isEmpty());
+    if (!first_page)
+        return KIO::WorkerResult::pass();
 
+    const auto snapshots = btrfsbackup::kde::kio::matching_versions(active->snapshots, url.profile, source_id);
     KIO::UDSEntryList entries;
     for (const auto& snapshot : snapshots) {
+        if (wasKilled())
+            return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
         std::filesystem::path repository_entry{snapshot.repository_path.toStdString()};
         if (requested != u"."_s)
             repository_entry /= requested.toStdString();
         const auto remote = remote_entry(active->id, QString::fromStdString(repository_entry.string()));
         if (!remote)
+            continue;
+        const auto target = btrfsbackup::kde::kio::version_target_url(url.profile, snapshot.id, requested);
+        if (!target)
             continue;
         KIO::UDSEntry entry;
         entry.fastInsert(KIO::UDSEntry::UDS_NAME, snapshot.id);
@@ -362,9 +439,6 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
         entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, snapshot.created_at.toSecsSinceEpoch());
         entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(remote->mode & 0777));
         entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(*remote));
-        const auto target = btrfsbackup::kde::kio::version_target_url(url.profile, snapshot.id, requested);
-        if (!target)
-            continue;
         entry.fastInsert(KIO::UDSEntry::UDS_URL, target->toString(QUrl::FullyEncoded));
         entries.push_back(std::move(entry));
     }

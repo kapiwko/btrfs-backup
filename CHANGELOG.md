@@ -147,10 +147,13 @@ preflight until it reports `READY`.
    streams every page instead of rejecting directories above 10,000 entries;
    page selection uses a bounded heap, reducing work on very large directories
    while retaining only the requested page plus one lookahead entry;
-9. restore catalog decoding has a dedicated validated boundary, while restore
+9. previous-version discovery is batched into bounded manager pages and cached
+   per browse session, removing the synchronous D-Bus N+1 path for current
+   daemons while retaining a legacy fallback for older services;
+10. restore catalog decoding has a dedicated validated boundary, while restore
    failures expose a friendly message, stable code and optional technical
    details separately;
-10. the restore application finishes with a dedicated outcome view showing the
+11. the restore application finishes with a dedicated outcome view showing the
    restored file count, byte size and destination, with an action to open the
    restored directory.
 
