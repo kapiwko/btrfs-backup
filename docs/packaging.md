@@ -138,9 +138,9 @@ profile-specific mount units, and mount-dependency drop-ins after an explicit
 user command.
 
 Packages keep lifecycle code to one read-only 1.0 profile preflight. DEB, RPM
-and Gentoo abort when it fails. Pacman reports a failing Arch install scriptlet
-but continues the transaction, so Arch administrators must complete preflight
-and the v4 export before invoking the package manager. Standard state and
+and Gentoo abort when it fails. Arch uses an ALPM pre-transaction hook with
+`AbortOnFail`; the hook must already be installed by the latest 0.3.x bridge
+package before a 1.0 transaction begins. Standard state and
 runtime directory modes are declared through `systemd-tmpfiles`;
 distribution-native hooks handle cache and manager reloads.
 Profile regeneration remains an explicit administrator operation after

@@ -44,12 +44,11 @@ execute_process(
     RESULT_VARIABLE pkgbuild_list_result
 )
 if(NOT pkgbuild_list_result EQUAL 0 OR
-   NOT pkgbuild_entries MATCHES "btrfs-backup[.]install")
+   NOT pkgbuild_entries MATCHES "90-btrfs-backup-v4-migration[.]hook")
     message(FATAL_ERROR "Arch definition is missing the pre-upgrade gate")
 endif()
 
 foreach(gate IN ITEMS
-        "packaging/arch/btrfs-backup.install"
         "packaging/debian/preinst"
         "packaging/gentoo/btrfs-backup.ebuild.in"
         "packaging/rpm/btrfs-backup.spec.in")
@@ -57,6 +56,20 @@ foreach(gate IN ITEMS
     if(NOT gate_content MATCHES "btrfs-backupctl upgrade preflight" OR
        NOT gate_content MATCHES "profile export-v4 --all")
         message(FATAL_ERROR "${gate} is missing the migration preflight contract")
+    endif()
+endforeach()
+
+file(READ "${SOURCE_DIR}/packaging/arch/90-btrfs-backup-v4-migration.hook" arch_gate)
+foreach(fragment IN ITEMS
+        "Operation = Upgrade"
+        "Type = Package"
+        "Target = btrfs-backup"
+        "When = PreTransaction"
+        "Exec = /usr/bin/btrfs-backupctl upgrade preflight"
+        "AbortOnFail")
+    string(FIND "${arch_gate}" "${fragment}" position)
+    if(position EQUAL -1)
+        message(FATAL_ERROR "Arch migration hook is missing: ${fragment}")
     endif()
 endforeach()
 

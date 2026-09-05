@@ -26,10 +26,12 @@ check() {
 }
 
 package_btrfs-backup() {
-  install=btrfs-backup.install
   depends=('btrfs-progs>=6.0' 'coreutils' 'cryptsetup' 'gcc-libs' 'polkit' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
   optdepends=('btrfs-backup-kde: Plasma status widget')
   DESTDIR="$pkgdir" cmake --install build --component Unspecified
+  install -Dm644 \
+    "$srcdir/$pkgbase-$pkgver/packaging/arch/90-btrfs-backup-v4-migration.hook" \
+    "$pkgdir/usr/share/libalpm/hooks/90-btrfs-backup-v4-migration.hook"
 }
 
 package_btrfs-backup-kde() {
