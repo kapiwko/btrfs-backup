@@ -198,7 +198,8 @@ class BrowseSessionService final {
         const std::string& session_id
     );
     void close_for_caller(const std::string& caller_bus_name) noexcept;
-    void close_for_profile(const ProfileId& profile_id);
+    void begin_target_eject(const ProfileId& profile_id);
+    void end_target_eject(const ProfileId& profile_id) noexcept;
     void expire() noexcept;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
         const std::string& caller_bus_name,
@@ -238,6 +239,7 @@ class BrowseSessionService final {
     std::size_t operation_lease_limit_;
     BrowseOperationLeaseIdGenerator operation_lease_ids_;
     std::map<std::string, Session> sessions_;
+    std::set<ProfileId> ejecting_profiles_;
 };
 
 } // namespace btrfsbackup::daemon::control

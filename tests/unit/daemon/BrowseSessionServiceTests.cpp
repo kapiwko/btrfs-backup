@@ -286,7 +286,14 @@ void test_target_eject_closes_idle_profile_sessions() {
     (void)service.open(":1.43", 1001, "archive");
     (void)service.open(":1.44", 1002, "default");
 
-    service.close_for_profile(ProfileId{"default"});
+    service.begin_target_eject(ProfileId{"default"});
+
+    expect_error("browse reopen during eject", ManagerErrorCode::Busy, [&] {
+        (void)service.open(":1.42", 1000, "default");
+    });
+    (void)service.open(":1.43", 1001, "archive");
+    service.end_target_eject(ProfileId{"default"});
+    (void)service.open(":1.42", 1000, "default");
 
     test_helpers::expect_true(
         "eject profile scope",
@@ -315,11 +322,12 @@ void test_target_eject_preserves_active_browse_operation() {
     const std::string lease = service.begin_operation(":1.45", opened.session_id);
 
     expect_error("active browse blocks eject", ManagerErrorCode::Busy, [&] {
-        service.close_for_profile(ProfileId{"default"});
+        service.begin_target_eject(ProfileId{"default"});
     });
     test_helpers::expect_true("active browse preserved", backend.closed.empty(), "active browse was interrupted");
     service.end_operation(":1.45", opened.session_id, lease);
-    service.close_for_profile(ProfileId{"default"});
+    service.begin_target_eject(ProfileId{"default"});
+    service.end_target_eject(ProfileId{"default"});
 }
 
 void test_expiration_and_cleanup_failure_are_contained() {
