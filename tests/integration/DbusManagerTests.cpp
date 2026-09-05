@@ -402,7 +402,7 @@ void Fixture::create_documents() {
                                               "\n",
                0644);
     write_file(root_ / "etc/btrfs-backup.conf", "CONFIG_VERSION=1\nSTATE_ROOT=" + (root_ / "state").string() + "\n");
-    initial_status_ = R"({"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-29T15:59:00Z","updatedAt":"2026-08-29T16:00:00Z"})"
+    initial_status_ = R"({"schemaVersion":4,"runId":"20260829T160000Z-1-1","operationKind":"backup","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-29T15:59:00Z","updatedAt":"2026-08-29T16:00:00Z"})"
                       "\n";
     write_file(root_ / "status/default/current.json", initial_status_, 0644);
     const std::string history = R"({"schemaVersion":2,"profileId":"default","profileName":"Default backup","runId":"20260825T100000Z-1-1","state":"failed","phase":"failed","message":"private","currentSourceName":"Home","targetName":"Backup disk","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-25T09:59:00Z","updatedAt":"2026-08-25T10:00:00Z","finishedAt":"2026-08-25T10:00:00Z","errorCode":"private.failure","errorMessage":"private failure","details":{"device":"/dev/private"},"recoverable":false,"suggestedAction":"","canCancel":false,"bytesProcessed":40,"bytesTotalEstimated":100,"runBytesProcessed":40,"speedBps":0,"etaSeconds":-1,"sourceProgress":40,"overallProgress":40,"progressAccuracy":"exact","exitCode":1})"
@@ -445,7 +445,7 @@ void Fixture::verify_read_api() {
                    "Plasma backend did not load the initial manager state");
         const fs::path status_path = root_ / "status/default/current.json";
         fs::rename(status_path, status_path.string() + ".running");
-        write_file(status_path.string() + ".next", R"({"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-29T15:59:00Z","updatedAt":"2026-08-29T16:00:00Z"})"
+        write_file(status_path.string() + ".next", R"({"schemaVersion":4,"runId":"20260829T160000Z-1-1","operationKind":"backup","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-29T15:59:00Z","updatedAt":"2026-08-29T16:00:00Z"})"
                                                    "\n",
                    0644);
         fs::rename(status_path.string() + ".next", status_path);

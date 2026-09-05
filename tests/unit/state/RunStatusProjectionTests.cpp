@@ -266,12 +266,14 @@ void test_target_validation_updates_status_without_backup_history() {
         root / "status" / "default" / "current.json"
     );
     test_helpers::expect_true("validation running state", current.at("state") == "validating", "validation looked like a running backup");
+    test_helpers::expect_true("validation operation kind", current.at("operationKind") == "target-validation", "validation operation kind was lost");
     test_helpers::expect_true("validation running phase", current.at("phase") == "validating-target", "wrong validation phase");
     test_helpers::expect_true("validation can cancel", current.at("canCancel") == true, "validation cannot be cancelled");
 
     sink.on_backup_run_event(btrfsbackup::backup::TargetValidationCompleted{profile_id, run_id});
     current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("validation terminal state", current.at("state") == "validated", "validation looked like a successful backup");
+    test_helpers::expect_true("validation terminal operation kind", current.at("operationKind") == "target-validation", "terminal validation operation kind was lost");
     test_helpers::expect_true("validation terminal phase", current.at("phase") == "validated", "wrong validation terminal phase");
     test_helpers::expect_true("validation terminal cancel", current.at("canCancel") == false, "completed validation can be cancelled");
     test_helpers::expect_true("validation history absent", !fs::exists(root / "history" / "default"), "validation entered backup history");

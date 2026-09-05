@@ -18,6 +18,7 @@ BackupProgressJob::BackupProgressJob(
     QString profile_id,
     QString run_id,
     QString profile_name,
+    QString operation_kind,
     CancelRequest cancel_request,
     QObject* parent
 )
@@ -25,6 +26,7 @@ BackupProgressJob::BackupProgressJob(
       profile_id_(std::move(profile_id)),
       run_id_(std::move(run_id)),
       profile_name_(std::move(profile_name)),
+      operation_kind_(std::move(operation_kind)),
       cancel_request_(std::move(cancel_request)) {
 }
 
@@ -151,6 +153,15 @@ void BackupProgressJob::update_capabilities() {
 }
 
 void BackupProgressJob::publish_description() {
+    if (operation_kind_ == QStringLiteral("target-validation")) {
+        Q_EMIT description(
+            this,
+            i18n("Checking backup target %1", profile_name_),
+            {i18n("Target"), target_name_},
+            {}
+        );
+        return;
+    }
     Q_EMIT description(
         this,
         i18n("Backing up %1", profile_name_),

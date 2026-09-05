@@ -20,8 +20,32 @@ Comment=A backup failed
 Action=Popup
 Urgency=Critical
 
+[Event/targetValidated]
+Name=Backup target checked
+Comment=A backup target passed validation
+Action=Popup
+Urgency=Normal
+
+[Event/backupSkipped]
+Name=Backup skipped
+Comment=A scheduled backup was already completed for this period
+Action=Popup
+Urgency=Normal
+
+[Event/targetValidationFailed]
+Name=Backup target check failed
+Comment=A backup target failed validation
+Action=Popup
+Urgency=Critical
+
 [Event/backupCancelled]
 Name=Backup cancelled
 Comment=A backup was cancelled
+Action=
+Urgency=Normal
+
+[Event/targetValidationCancelled]
+Name=Backup target check cancelled
+Comment=A backup target check was cancelled
 Action=
 Urgency=Normal

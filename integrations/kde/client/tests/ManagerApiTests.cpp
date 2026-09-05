@@ -92,7 +92,7 @@ void test_profile_configuration_health_is_decoded() {
 
 void test_run_transfer_bytes_are_decoded() {
     const auto run = btrfsbackup::kde::parse_status(QStringLiteral(R"({
-        "schemaVersion":5,"runId":"run-1","state":"running","phase":"transferring",
+        "schemaVersion":6,"runId":"run-1","operationKind":"backup","state":"running","phase":"transferring",
         "activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home",
         "targetName":"Backup disk","bytesProcessed":1048576,"bytesTotalEstimated":4194304,
         "speedBps":1024,"etaSeconds":20,"sourceProgress":25,"overallProgress":25,
@@ -101,6 +101,7 @@ void test_run_transfer_bytes_are_decoded() {
         "lastSuccessAt":"","lastAttemptAt":"","lastAttemptState":""
     })"));
     expect(run.has_value(), "run status with transfer byte counts was rejected");
+    expect(run.has_value() && run->operation_kind == QStringLiteral("backup"), "operation kind was not decoded");
     expect(run.has_value() && run->bytes_processed == 1048576, "processed byte count was not decoded");
     expect(run.has_value() && run->bytes_total_estimated == 4194304, "estimated byte count was not decoded");
 }

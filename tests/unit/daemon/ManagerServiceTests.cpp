@@ -33,8 +33,9 @@ btrfsbackup::daemon::ManagerPaths manager_paths(const fs::path& root) {
 
 std::string public_status() {
     return R"({
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "runId": "20260829T160000Z-1-1",
+  "operationKind": "backup",
   "state": "running",
   "phase": "sizing",
   "activity": "sizing",
@@ -115,7 +116,7 @@ void test_capabilities_and_profiles() {
     );
     test_helpers::expect_true(
         "manager status schema",
-        capabilities.public_status_schema_version == 5,
+        capabilities.public_status_schema_version == 6,
         "manager did not advertise the backup summary schema"
     );
     test_helpers::expect_true(

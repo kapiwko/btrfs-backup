@@ -308,6 +308,7 @@ void BackupProgressMonitor::create_job(const Profile& profile, const Status& sta
         profile.id,
         status.run_id,
         profile.name.isEmpty() ? profile.id : profile.name,
+        status.operation_kind,
         [this](const QString& profile_id, const QString& run_id) {
             request_cancel(profile_id, run_id);
         },
@@ -328,6 +329,7 @@ void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& 
         profile_id,
         status.run_id,
         profile == profiles_.cend() ? profile_id : profile->name,
+        status.operation_kind,
         status.state,
         status.error_code
     );

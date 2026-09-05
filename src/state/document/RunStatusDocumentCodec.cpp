@@ -23,8 +23,9 @@ using document::ExtensibleValue;
 using document::PrivateRunHistoryV2;
 using document::PublicActivity;
 using document::PublicErrorCode;
+using document::PublicOperationKind;
 using document::PublicRunState;
-using document::PublicRunStatusV3;
+using document::PublicRunStatusV4;
 using document::TransferProgress;
 
 Json parse_document(std::string_view content, int schema_version, const char* kind) {
@@ -182,6 +183,14 @@ PublicActivity parse_activity(const std::string& value) {
     return PublicActivity::Unknown;
 }
 
+PublicOperationKind parse_operation_kind(const std::string& value) {
+    if (value == "backup")
+        return PublicOperationKind::Backup;
+    if (value == "target-validation")
+        return PublicOperationKind::TargetValidation;
+    return PublicOperationKind::Unknown;
+}
+
 PublicErrorCode parse_public_error(const std::string& value) {
     if (value.empty())
         return PublicErrorCode::None;
@@ -281,7 +290,7 @@ RunDetails parse_details(const Json& input) {
     return result;
 }
 
-void validate_public_semantics(const PublicRunStatusV3& status) {
+void validate_public_semantics(const PublicRunStatusV4& status) {
     if (status.phase.value.empty()) {
         throw ValidationError("status JSON phase must not be empty");
     }
@@ -290,6 +299,9 @@ void validate_public_semantics(const PublicRunStatusV3& status) {
     }
     if (status.activity == PublicActivity::Unknown && status.unknown_activity.empty()) {
         throw ValidationError("status JSON unknown activity must retain its value");
+    }
+    if (status.operation_kind == PublicOperationKind::Unknown && status.unknown_operation_kind.empty()) {
+        throw ValidationError("status JSON unknown operationKind must retain its value");
     }
     const auto validate_percent = [](const std::optional<int>& value, const char* field) {
         if (value.has_value() && (*value < 0 || *value > 100)) {
@@ -321,7 +333,7 @@ void validate_public_semantics(const PublicRunStatusV3& status) {
 
 namespace document {
 
-std::string public_run_state_name(const PublicRunStatusV3& status) {
+std::string public_run_state_name(const PublicRunStatusV4& status) {
     switch (status.state) {
     case PublicRunState::Idle:
         return "idle";
@@ -351,7 +363,7 @@ std::string public_run_state_name(const PublicRunStatusV3& status) {
     return status.unknown_state;
 }
 
-std::string public_activity_name(const PublicRunStatusV3& status) {
+std::string public_activity_name(const PublicRunStatusV4& status) {
     switch (status.activity) {
     case PublicActivity::Preparing:
         return "preparing";
@@ -369,6 +381,18 @@ std::string public_activity_name(const PublicRunStatusV3& status) {
     return status.unknown_activity;
 }
 
+std::string public_operation_kind_name(const PublicRunStatusV4& status) {
+    switch (status.operation_kind) {
+    case PublicOperationKind::Backup:
+        return "backup";
+    case PublicOperationKind::TargetValidation:
+        return "target-validation";
+    case PublicOperationKind::Unknown:
+        return status.unknown_operation_kind;
+    }
+    return status.unknown_operation_kind;
+}
+
 std::string public_error_code_name(PublicErrorCode code) {
     switch (code) {
     case PublicErrorCode::None:
@@ -381,14 +405,16 @@ std::string public_error_code_name(PublicErrorCode code) {
     return {};
 }
 
-PublicRunStatusV3 RunStatusDocumentCodec::parse_public(std::string_view content) const {
-    const Json input = parse_document(content, 3, "public status");
+PublicRunStatusV4 RunStatusDocumentCodec::parse_public(std::string_view content) const {
+    const Json input = parse_document(content, 4, "public status");
     const std::string state_value = required_string(input, "state");
     const std::string phase_value = required_string(input, "phase");
     const std::string activity_value = required_string(input, "activity");
+    const std::string operation_kind_value = required_string(input, "operationKind");
     const std::string run_id = required_string(input, "runId");
-    PublicRunStatusV3 result{
+    PublicRunStatusV4 result{
         .run_id = run_id.empty() ? std::nullopt : std::optional<RunId>{RunId{run_id}},
+        .operation_kind = parse_operation_kind(operation_kind_value),
         .state = parse_state(state_value),
         .phase = extensible(phase_value, known_phase(phase_value)),
         .activity = parse_activity(activity_value),
@@ -399,12 +425,15 @@ PublicRunStatusV3 RunStatusDocumentCodec::parse_public(std::string_view content)
         .progress = parse_progress(input),
         .unknown_state = parse_state(state_value) == PublicRunState::Unknown ? state_value : std::string{},
         .unknown_activity = parse_activity(activity_value) == PublicActivity::Unknown ? activity_value : std::string{},
+        .unknown_operation_kind = parse_operation_kind(operation_kind_value) == PublicOperationKind::Unknown
+            ? operation_kind_value
+            : std::string{},
     };
     validate_public_semantics(result);
     return result;
 }
 
-std::optional<PublicRunStatusV3> RunStatusDocumentCodec::try_parse_public(std::string_view content) const noexcept {
+std::optional<PublicRunStatusV4> RunStatusDocumentCodec::try_parse_public(std::string_view content) const noexcept {
     try {
         return parse_public(content);
     } catch (...) {
@@ -448,11 +477,12 @@ PrivateRunHistoryV2 RunStatusDocumentCodec::parse_private(std::string_view conte
     return result;
 }
 
-std::string RunStatusDocumentCodec::serialize_public(const PublicRunStatusV3& status) const {
+std::string RunStatusDocumentCodec::serialize_public(const PublicRunStatusV4& status) const {
     validate_public_semantics(status);
     const Json result = {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"runId", status.run_id.has_value() ? std::string(status.run_id->value()) : std::string{}},
+        {"operationKind", public_operation_kind_name(status)},
         {"state", public_run_state_name(status)},
         {"phase", status.phase.value},
         {"activity", public_activity_name(status)},
@@ -509,7 +539,7 @@ std::string RunStatusDocumentCodec::serialize_private(const PrivateRunHistoryV2&
     return json::dump_json(result);
 }
 
-PublicRunStatusV3 make_public_status(const RunStatus& status) {
+PublicRunStatusV4 make_public_status(const RunStatus& status) {
     const std::string state = run_state_name(status.state);
     const std::string phase = run_phase_name(status.phase);
     PublicActivity activity = PublicActivity::Preparing;
@@ -533,6 +563,9 @@ PublicRunStatusV3 make_public_status(const RunStatus& status) {
     }
     return {
         .run_id = status.run_id,
+        .operation_kind = status.operation_kind == state::OperationKind::TargetValidation
+            ? PublicOperationKind::TargetValidation
+            : PublicOperationKind::Backup,
         .state = parse_state(state),
         .phase = extensible(phase, true),
         .activity = activity,
@@ -551,6 +584,7 @@ PublicRunStatusV3 make_public_status(const RunStatus& status) {
         },
         .unknown_state = {},
         .unknown_activity = {},
+        .unknown_operation_kind = {},
     };
 }
 
