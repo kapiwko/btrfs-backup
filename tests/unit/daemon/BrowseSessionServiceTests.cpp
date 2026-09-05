@@ -222,7 +222,9 @@ void test_foreign_caller_cannot_close_session() {
     BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-owned"}; });
     (void)service.open(":1.30", 1000, "default");
     expect_error("foreign renew", ManagerErrorCode::NotAuthorized, [&] { (void)service.renew(":1.31", "browse-owned"); });
-    expect_error("foreign pin", ManagerErrorCode::NotAuthorized, [&] { service.set_active(":1.31", "browse-owned", true); });
+    expect_error("foreign lease", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.begin_operation(":1.31", "browse-owned");
+    });
     expect_error("foreign close", ManagerErrorCode::NotAuthorized, [&] { service.close(":1.31", "browse-owned"); });
     expect_error("foreign list", ManagerErrorCode::NotAuthorized, [&] {
         (void)service.list_directory(":1.31", "browse-owned", ".");
@@ -275,7 +277,7 @@ void test_expiration_and_cleanup_failure_are_contained() {
     expect_error("closed absent", ManagerErrorCode::NotFound, [&] { service.close(":1.50", "browse-expiring"); });
 }
 
-void test_failed_disconnect_unpins_session_for_cleanup_retry() {
+void test_failed_disconnect_clears_leases_for_cleanup_retry() {
     Authorizer authorizer;
     Backend backend;
     BrowseSessionService service(
@@ -285,7 +287,7 @@ void test_failed_disconnect_unpins_session_for_cleanup_retry() {
         [] { return BrowseSessionId{"browse-disconnected-active"}; }
     );
     const auto opened = service.open(":1.55", 1000, "default");
-    service.set_active(":1.55", opened.session_id, true);
+    (void)service.begin_operation(":1.55", opened.session_id);
     backend.fail_close = true;
     service.close_for_caller(":1.55");
     backend.fail_close = false;
@@ -297,7 +299,7 @@ void test_failed_disconnect_unpins_session_for_cleanup_retry() {
     );
 }
 
-void test_renewal_uses_monotonic_deadline_and_active_pin() {
+void test_renewal_uses_monotonic_deadline_and_operation_lease() {
     Authorizer authorizer;
     Backend backend;
     auto monotonic = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
@@ -320,38 +322,14 @@ void test_renewal_uses_monotonic_deadline_and_active_pin() {
         "renewal did not refresh the display expiry"
     );
     monotonic += std::chrono::seconds{11};
-    service.set_active(":1.60", opened.session_id, true);
+    const std::string lease = service.begin_operation(":1.60", opened.session_id);
     monotonic += std::chrono::hours{1};
     service.expire();
     test_helpers::expect_true("active session pinned", backend.closed.empty(), "active operation expired");
-    service.set_active(":1.60", opened.session_id, false);
+    service.end_operation(":1.60", opened.session_id, lease);
     monotonic += std::chrono::seconds{11};
     service.expire();
     test_helpers::expect_true("inactive session expired", backend.closed.size() == 1, "inactive session remained");
-}
-
-void test_concurrent_operation_pins_are_counted() {
-    Authorizer authorizer;
-    Backend backend;
-    auto monotonic = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
-    BrowseSessionService service(
-        authorizer,
-        backend,
-        std::chrono::seconds{10},
-        [] { return BrowseSessionId{"browse-concurrent"}; },
-        [&] { return monotonic; }
-    );
-    const auto opened = service.open(":1.61", 1000, "default");
-    service.set_active(":1.61", opened.session_id, true);
-    service.set_active(":1.61", opened.session_id, true);
-    monotonic += std::chrono::hours{1};
-    service.set_active(":1.61", opened.session_id, false);
-    service.expire();
-    test_helpers::expect_true("one concurrent lease remains", backend.closed.empty(), "one completion released every operation pin");
-    service.set_active(":1.61", opened.session_id, false);
-    monotonic += std::chrono::seconds{11};
-    service.expire();
-    test_helpers::expect_true("all concurrent leases released", backend.closed.size() == 1, "released session did not expire");
 }
 
 void test_operation_leases_are_balanced_bounded_and_owned() {
@@ -540,9 +518,8 @@ int main() {
     test_foreign_caller_cannot_close_session();
     test_disconnect_only_closes_callers_sessions();
     test_expiration_and_cleanup_failure_are_contained();
-    test_failed_disconnect_unpins_session_for_cleanup_retry();
-    test_renewal_uses_monotonic_deadline_and_active_pin();
-    test_concurrent_operation_pins_are_counted();
+    test_failed_disconnect_clears_leases_for_cleanup_retry();
+    test_renewal_uses_monotonic_deadline_and_operation_lease();
     test_operation_leases_are_balanced_bounded_and_owned();
     test_session_limits_are_enforced_before_backend_open();
     test_directory_pages_bind_tokens_to_session_and_path();

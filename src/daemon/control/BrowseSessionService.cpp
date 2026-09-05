@@ -230,7 +230,6 @@ BrowseSessionInfo BrowseSessionService::open(
         .caller_uid = caller_uid,
         .deadline = {},
         .expires_at = {},
-        .legacy_active_operations = 0,
         .operation_leases = {},
     };
     extend(session);
@@ -273,22 +272,6 @@ BrowseSessionInfo BrowseSessionService::renew(
     auto session = owned_session(caller_bus_name, session_id);
     extend(session->second);
     return session_info(session->second);
-}
-
-void BrowseSessionService::set_active(
-    const std::string& caller_bus_name,
-    const std::string& session_id,
-    bool active
-) {
-    auto session = owned_session(caller_bus_name, session_id);
-    if (active) {
-        if (session->second.legacy_active_operations >= operation_lease_limit_)
-            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "legacy browse operation pin limit reached");
-        ++session->second.legacy_active_operations;
-    } else if (session->second.legacy_active_operations > 0) {
-        --session->second.legacy_active_operations;
-    }
-    extend(session->second);
 }
 
 std::string BrowseSessionService::begin_operation(
@@ -440,7 +423,6 @@ std::string BrowseSessionService::inspect_repository(
 }
 
 void BrowseSessionService::close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) {
-    session->second.legacy_active_operations = 0;
     session->second.operation_leases.clear();
     session->second.deadline = std::chrono::steady_clock::time_point::min();
     const Session record = session->second;
@@ -454,7 +436,6 @@ void BrowseSessionService::close_noexcept(
     std::map<std::string, Session>::iterator session,
     BrowseSessionCloseReason reason
 ) noexcept {
-    session->second.legacy_active_operations = 0;
     session->second.operation_leases.clear();
     session->second.deadline = std::chrono::steady_clock::time_point::min();
     const Session record = session->second;
@@ -490,8 +471,7 @@ void BrowseSessionService::expire() noexcept {
     } catch (...) {}
     const auto now = steady_clock_();
     for (auto session = sessions_.begin(); session != sessions_.end();) {
-        if (session->second.legacy_active_operations > 0 || !session->second.operation_leases.empty() ||
-            session->second.deadline > now) {
+        if (!session->second.operation_leases.empty() || session->second.deadline > now) {
             ++session;
             continue;
         }

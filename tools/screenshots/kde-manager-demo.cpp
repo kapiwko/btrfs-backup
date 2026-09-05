@@ -104,10 +104,6 @@ class ScreenshotManager final : public QObject {
         return browseSession(QStringLiteral("home"));
     }
 
-    QString SetBrowseSessionActive(const QString&, bool) const {
-        return QStringLiteral(R"({"accepted":true})");
-    }
-
     QString CloseBrowseSession(const QString&) const {
         return QStringLiteral(R"({"accepted":true})");
     }

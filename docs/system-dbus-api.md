@@ -57,7 +57,6 @@ schema versions are not advertised as public API versions.
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
-| `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | legacy counted operation pin retained for API 2 compatibility |
 | `BeginBrowseOperation` | `(s sessionId)` | `(s)` | acquires an identified, caller-owned operation lease |
 | `EndBrowseOperation` | `(s sessionId, s leaseId)` | `(s)` | releases exactly one identified operation lease |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
@@ -198,14 +197,14 @@ Each response uses schema version 1:
 }
 ```
 
-API minor version 11 adds `BeginBrowseOperation` and `EndBrowseOperation`.
+API minor version 11 replaces the unreleased counted operation-pin method with
+`BeginBrowseOperation` and `EndBrowseOperation`.
 `BeginBrowseOperation` returns a schema-versioned `leaseId`; the same caller
 must return that identifier to the same session. Unknown, duplicate, foreign and
 mismatched releases fail, and each session may hold at most 64 operation leases.
 An unexpired operation lease prevents idle expiration, while closing the session
-or losing the caller's bus name clears every lease. Current KDE clients use the
-identified methods and fall back to `SetBrowseSessionActive` only when an older
-daemon reports `org.freedesktop.DBus.Error.UnknownMethod`.
+or losing the caller's bus name clears every lease. Browse operations use only
+the identified lease methods, so a completion cannot decrement unrelated work.
 
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
 `cleanupResult`. They are presentation-safe recovery evidence: clients can show
@@ -301,7 +300,6 @@ currently open profile, including changes published by the CLI.
 | `DeleteProfile` | administrative | `io.github.btrfsbackup.delete-profile-configuration` |
 | `OpenBrowseSession` | repository access | `io.github.btrfsbackup.open-browse-session` |
 | `RenewBrowseSession` | session ownership | none |
-| `SetBrowseSessionActive` | session ownership | none |
 | `BeginBrowseOperation` | session ownership and per-session lease limit | none |
 | `EndBrowseOperation` | session and lease ownership | none |
 | `CloseBrowseSession` | session ownership | none |
