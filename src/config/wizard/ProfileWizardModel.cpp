@@ -47,12 +47,16 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
         if (!used_names.insert(source_id).second) {
             throw ValidationError("duplicate source name: " + source_id);
         }
-        source.name = source_id;
+        source.name = source_answer.name.empty() ? source_id : source_answer.name;
         source.enabled = true;
         source.subvolume = SourceSubvolumePath{source_answer.subvolume};
         source.local_snapshot_dir = LocalSnapshotRoot{source_answer.local_snapshot_dir};
-        source.remote_retention = RetentionCount{answers.remote_retention};
-        source.local_retention = RetentionCount{answers.local_retention};
+        source.remote_retention = RetentionCount{
+            source_answer.remote_retention.value_or(answers.remote_retention)
+        };
+        source.local_retention = RetentionCount{
+            source_answer.local_retention.value_or(answers.local_retention)
+        };
         profile.sources.push_back(source);
     }
 

@@ -122,13 +122,24 @@ int ManagerProvisioningMethods::start_device_preparation(sd_bus_message* message
                 .profile_name = request.value("profileName", ""),
                 .plan_id = request.value("planId", ""),
                 .source_candidate_id = request.value("sourceCandidateId", ""),
-                .source_subvolume = {},
-                .source_filesystem_uuid = {},
-                .source_mount_root = {},
-                .local_snapshot_dir = {},
+                .sources = {},
                 .passphrase_label = request.value("passphraseLabel", ""),
                 .create_automatic_key = request.value("createAutomaticKey", true),
             };
+            if (request.contains("sources")) {
+                for (const auto& source : request.at("sources")) {
+                    parsed.sources.push_back({
+                        .candidate_id = source.value("candidateId", ""),
+                        .name = source.value("name", ""),
+                        .subvolume = {},
+                        .filesystem_uuid = {},
+                        .mount_root = {},
+                        .local_snapshot_dir = {},
+                        .local_retention = source.value("localRetention", std::size_t{30}),
+                        .remote_retention = source.value("remoteRetention", std::size_t{30}),
+                    });
+                }
+            }
             const std::string profile = parsed.profile_id;
             return support_.reply_operational_json(
                 message,

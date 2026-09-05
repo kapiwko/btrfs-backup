@@ -57,13 +57,22 @@ class Backend final : public IDeviceProvisioningBackend {
     btrfsbackup::provisioning::ExistingTargetClassification inspection_classification =
         btrfsbackup::provisioning::ExistingTargetClassification::CompatibleRepository;
     std::vector<SourceCandidate> list_source_candidates() override {
-        return {{
-            .id = {},
-            .path = "/home",
-            .filesystem_uuid = "source-fs-uuid",
-            .mount_root = "/home",
-            .local_snapshot_root = "/home/.snapshots/btrfs-backup",
-        }};
+        return {
+            {
+                .id = {},
+                .path = "/home",
+                .filesystem_uuid = "source-fs-uuid",
+                .mount_root = "/home",
+                .local_snapshot_root = "/home/.snapshots/btrfs-backup",
+            },
+            {
+                .id = {},
+                .path = "/srv/work",
+                .filesystem_uuid = "work-fs-uuid",
+                .mount_root = "/srv/work",
+                .local_snapshot_root = "/srv/work/.snapshots/btrfs-backup",
+            },
+        };
     }
     std::vector<std::string> inspect_safety(
         const btrfsbackup::daemon::control::DevicePreparationTarget&
@@ -196,10 +205,7 @@ DevicePreparationRequest request(std::string plan_id = "plan-1", std::string sou
         .profile_name = "Test",
         .plan_id = std::move(plan_id),
         .source_candidate_id = std::move(source_candidate_id),
-        .source_subvolume = "/untrusted/source",
-        .source_filesystem_uuid = "untrusted-uuid",
-        .source_mount_root = "/untrusted/mount",
-        .local_snapshot_dir = "/untrusted/snapshots",
+        .sources = {},
         .passphrase_label = "Recovery",
         .create_automatic_key = true,
     };
@@ -325,11 +331,13 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     test_helpers::expect_true("secret descriptor", backend.received_fd == 17, "descriptor not forwarded");
     test_helpers::expect_true(
         "resolved source candidate",
-        backend.received_request.source_candidate_id == source_candidate_id &&
-            backend.received_request.source_subvolume == "/home" &&
-            backend.received_request.source_filesystem_uuid == "source-fs-uuid" &&
-            backend.received_request.source_mount_root == "/home" &&
-            backend.received_request.local_snapshot_dir == "/home/.snapshots/btrfs-backup/test",
+        backend.received_request.sources.size() == 1 &&
+            backend.received_request.sources.front().candidate_id == source_candidate_id &&
+            backend.received_request.sources.front().subvolume == "/home" &&
+            backend.received_request.sources.front().filesystem_uuid == "source-fs-uuid" &&
+            backend.received_request.sources.front().mount_root == "/home" &&
+            backend.received_request.sources.front().local_snapshot_dir ==
+                "/home/.snapshots/btrfs-backup/test",
         "source fields supplied by the caller were not replaced with the stored candidate"
     );
     authorizer.allowed = false;
@@ -601,10 +609,12 @@ void test_source_candidates_are_caller_bound_and_invalidated_by_relisting() {
     static_cast<void>(service.start(":1.61", 1000, plan_request(plan.id, current_source.id), 17));
     test_helpers::expect_true(
         "stored source resolution",
-        backend.starts == 1 && backend.received_request.source_subvolume == "/home" &&
-            backend.received_request.source_filesystem_uuid == "source-fs-uuid" &&
-            backend.received_request.source_mount_root == "/home" &&
-            backend.received_request.local_snapshot_dir == "/home/.snapshots/btrfs-backup/test",
+        backend.starts == 1 && backend.received_request.sources.size() == 1 &&
+            backend.received_request.sources.front().subvolume == "/home" &&
+            backend.received_request.sources.front().filesystem_uuid == "source-fs-uuid" &&
+            backend.received_request.sources.front().mount_root == "/home" &&
+            backend.received_request.sources.front().local_snapshot_dir ==
+                "/home/.snapshots/btrfs-backup/test",
         "stored source metadata was not forwarded to the backend"
     );
 }
@@ -645,6 +655,66 @@ void test_source_candidate_expires_independently_of_newer_plan() {
     }
     test_helpers::expect_true("expired source backend", backend.starts == 0, "backend started for expired source");
 }
+
+void test_multiple_sources_are_resolved_with_individual_options() {
+    Authorizer authorizer;
+    Backend backend;
+    TopologyReader reader;
+    int sequence = 0;
+    DeviceProvisioningService service(
+        authorizer,
+        backend,
+        std::chrono::minutes(5),
+        [&] { return "multiple-source-token-" + std::to_string(++sequence); },
+        {},
+        &reader
+    );
+    const auto candidates = service.list_source_candidates(":1.80");
+    const auto topology = service.inspect_storage_topology(":1.80");
+    const auto plan = service.build_device_preparation_plan(
+        ":1.80",
+        topology.generation,
+        topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
+    auto multiple = request(plan.id, "");
+    multiple.sources = {
+        {
+            .candidate_id = candidates.at(0).id,
+            .name = "Home files",
+            .subvolume = "/untrusted/home",
+            .filesystem_uuid = "untrusted-home",
+            .mount_root = "/untrusted/home",
+            .local_snapshot_dir = "/untrusted/home-snapshots",
+            .local_retention = 7,
+            .remote_retention = 14,
+        },
+        {
+            .candidate_id = candidates.at(1).id,
+            .name = "Work files",
+            .subvolume = "/untrusted/work",
+            .filesystem_uuid = "untrusted-work",
+            .mount_root = "/untrusted/work",
+            .local_snapshot_dir = "/untrusted/work-snapshots",
+            .local_retention = 10,
+            .remote_retention = 20,
+        },
+    };
+    static_cast<void>(service.start(":1.80", 1000, multiple, 17));
+    test_helpers::expect_true(
+        "multiple resolved sources",
+        backend.received_request.sources.size() == 2 &&
+            backend.received_request.sources.at(0).subvolume == "/home" &&
+            backend.received_request.sources.at(0).name == "Home files" &&
+            backend.received_request.sources.at(0).local_retention == 7 &&
+            backend.received_request.sources.at(1).subvolume == "/srv/work" &&
+            backend.received_request.sources.at(1).filesystem_uuid == "work-fs-uuid" &&
+            backend.received_request.sources.at(1).local_snapshot_dir ==
+                "/srv/work/.snapshots/btrfs-backup/test" &&
+            backend.received_request.sources.at(1).remote_retention == 20,
+        "multiple source metadata or options were not resolved"
+    );
+}
 } // namespace
 
 int main() {
@@ -656,5 +726,6 @@ int main() {
     test_free_space_plan_uses_backend_geometry();
     test_source_candidates_are_caller_bound_and_invalidated_by_relisting();
     test_source_candidate_expires_independently_of_newer_plan();
+    test_multiple_sources_are_resolved_with_individual_options();
     return test_helpers::finish("device provisioning service tests");
 }
