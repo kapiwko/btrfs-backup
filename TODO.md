@@ -2,10 +2,9 @@
 
 ## 4.0 Release Gate
 
-Current decision: **NO-GO** until the last 3.2.x bridge release ships the ALPM
-pre-transaction migration hook and the three real upgrade paths pass. The 4.0
-package definition now preserves that `AbortOnFail` hook, but an incoming
-package cannot install a hook early enough to guard its own transaction.
+Current decision: **NO-GO** until the remote test and release workflows pass
+for the final candidate commit. A 3.x bridge release is not part of this gate;
+the project has no deployed 3.x profile base that requires migration support.
 
 ### Verified Gates
 
@@ -17,39 +16,32 @@ The following are evidence, not active tasks:
 - restore shows its plan and structured outcome and uses stable error codes;
 - provisioning requires an explicit destructive scope, explains exclusions
   and reports completed, pending and recovery steps;
-- migration preflight is read-only, bulk v4 export is atomic and
-  non-overwriting, and runtime profile loading remains v4-only;
 - untrusted transaction records, occupied block stacks and unsupported target
   layouts are rejected;
-- QEMU verifies provisioning recovery, USB hotplug and exact systemd helper
-  device isolation for `c5524906`;
-- the full local base and KDE suites pass for `947e9553` with 139/139 and
-  166/166 tests respectively;
-- the real-Btrfs/LUKS suite passes for the same runtime tree as `c5524906`,
-  including package installation, provisioning, full and incremental backup,
-  interruption, retention, browse, restore, system D-Bus and systemd isolation;
-- two independent complete release builds for `947e9553` produced matching
-  hashes for all 14 artifacts after fixing Arch archive member ordering;
-- a real Plasma 6 Wayland smoke run loaded the current plasmoid and its QML
-  module, 12/12 UI scenarios passed, and the rendered disconnected state was
-  inspected;
-- a real Arch upgrade from `v3.2.0` without profiles succeeds; with a legacy
-  profile pacman reports the preflight scriptlet failure but still installs
-  4.0, which is the remaining blocker;
-- remote compiler, sanitizer, clang-tidy, strict-warnings, D-Bus, KDE and
-  systemd-security gates passed for `3bd8d71e`; the complete packaging, QEMU and
-  real-Btrfs release workflow last passed remotely for its parent `1cb7757a`.
+- QEMU covers provisioning recovery and hotplug through emulated USB, NVMe and
+  SCSI controllers with exact systemd helper device isolation;
+- GCC and Clang presets cover builds with and without the system manager;
+- seeded libFuzzer smoke tests cover profile JSON and security-relevant path
+  inputs under AddressSanitizer and UndefinedBehaviorSanitizer;
+- pull requests have pinned CodeQL analysis and Conventional Commit title
+  gates;
+- native installation includes man pages and Bash, Zsh and Fish completions;
+- the reference platform, package support levels and LUKS header recovery
+  procedure are documented;
+- the full local base and KDE suites, the privileged real-Btrfs/LUKS suite,
+  reproducible release builds and a real Plasma 6 Wayland smoke run have passed
+  during 4.0 development.
 
 ### Required Before 4.0
 
-Backport `upgrade preflight` and `profile export-v4` plus
-`90-btrfs-backup-v4-migration.hook` to the final 3.2.x bridge package. Verify
-legacy rejection, exported-and-saved v4 success, and no-profile success in real
-pacman transactions. Then rerun the remote release gates for the final
-candidate.
+Push the final candidate and require the compiler, sanitizer, fuzz, static
+analysis, CodeQL, D-Bus, KDE and systemd-security checks. Then run the manual
+release gates for packaging, reproducibility, QEMU and real Btrfs against that
+same commit. Record the resulting commit and workflow links in the release
+notes.
 
 ### Accepted Non-Blocking 4.0 Residual Risk
 
-The P2 controller, physical-device, extended power-loss and wider
-kernel/systemd matrix remains in [ROADMAP.md](ROADMAP.md). It does not block
-4.0 unless it reveals a regression.
+Physical-device coverage, a wider kernel/systemd matrix and the extended QEMU
+failure-injection matrix remain in [ROADMAP.md](ROADMAP.md). They do not block
+4.0 unless they reveal a regression.
