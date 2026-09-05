@@ -219,6 +219,43 @@ void test_caller_disconnect_during_authorization() {
     test_helpers::expect_true("disconnected caller effect", backend.effects.empty(), "disconnected caller reached backend");
 }
 
+void test_eject_preparation_runs_after_authorization() {
+    RecordingAuthorizer authorizer;
+    RecordingBackend backend;
+    std::vector<std::string> prepared;
+    OperationalControlService service(
+        authorizer,
+        backend,
+        {},
+        [&](const ProfileId& profile_id) {
+            prepared.emplace_back(profile_id.value());
+            test_helpers::expect_true(
+                "eject preparation order",
+                backend.effects.empty(),
+                "eject backend ran before browse sessions were prepared"
+            );
+        }
+    );
+
+    (void)service.eject_target(":1.55", "default");
+    test_helpers::expect_true(
+        "eject preparation",
+        prepared == std::vector<std::string>{"default"} &&
+            backend.effects == std::vector<std::string>{"eject:default"},
+        "authorized eject did not prepare browse sessions before the backend effect"
+    );
+
+    authorizer.allowed = false;
+    expect_manager_error("denied eject preparation", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.eject_target(":1.56", "default");
+    });
+    test_helpers::expect_true(
+        "denied eject preparation skipped",
+        prepared.size() == 1,
+        "unauthorized eject closed browse sessions"
+    );
+}
+
 void test_profile_change_during_authorization() {
     RecordingAuthorizer authorizer;
     RecordingBackend backend;
@@ -245,6 +282,7 @@ int main() {
     test_cancellation_outcomes();
     test_authorization_is_caller_bound_and_not_cached();
     test_caller_disconnect_during_authorization();
+    test_eject_preparation_runs_after_authorization();
     test_profile_change_during_authorization();
     return test_helpers::finish("operational control service tests");
 }

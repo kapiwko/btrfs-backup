@@ -183,7 +183,6 @@ int run_dbus_server(
         bus.reset(raw_bus);
 
     PolkitAuthorizer authorizer(bus.get());
-    control::OperationalControlService operational(authorizer, operational_backend);
     control::ProfileAdministrationService profile_administration(authorizer, profile_administration_backend);
     control::CredentialAdministrationService credential_administration(authorizer, credential_administration_backend);
     control::DeviceProvisioningService device_provisioning(
@@ -207,6 +206,9 @@ int run_dbus_server(
             case control::BrowseSessionCloseReason::Requested:
                 reason = "closed";
                 break;
+            case control::BrowseSessionCloseReason::TargetEject:
+                reason = "target-eject";
+                break;
             case control::BrowseSessionCloseReason::CallerDisconnected:
                 reason = "caller-disconnected";
                 break;
@@ -219,6 +221,12 @@ int run_dbus_server(
             }
             (void)audit_log.write({event.caller_uid, "close-browse-session", event.profile_id, event.succeeded ? reason : "cleanup-failed", event.succeeded ? "none" : "cleanup-failed"});
         }
+    );
+    control::OperationalControlService operational(
+        authorizer,
+        operational_backend,
+        {},
+        [&](const ProfileId& profile_id) { browse_sessions.close_for_profile(profile_id); }
     );
     ManagerDbusObject object(
         service,

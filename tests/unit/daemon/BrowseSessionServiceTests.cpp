@@ -259,6 +259,60 @@ void test_disconnect_only_closes_callers_sessions() {
     service.close(":1.41", "browse-b");
 }
 
+void test_target_eject_closes_idle_profile_sessions() {
+    Authorizer authorizer;
+    Backend backend;
+    std::vector<BrowseSessionEvent> events;
+    int next = 0;
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::minutes{15},
+        [&] { return BrowseSessionId{"browse-eject-" + std::to_string(++next)}; },
+        {},
+        {},
+        [&](const BrowseSessionEvent& event) { events.push_back(event); }
+    );
+    (void)service.open(":1.42", 1000, "default");
+    (void)service.open(":1.43", 1001, "archive");
+    (void)service.open(":1.44", 1002, "default");
+
+    service.close_for_profile(ProfileId{"default"});
+
+    test_helpers::expect_true(
+        "eject profile scope",
+        backend.closed == std::vector<std::string>{"browse-eject-1", "browse-eject-3"},
+        "target eject left a profile session open or closed another profile"
+    );
+    test_helpers::expect_true(
+        "eject close events",
+        events.size() == 2 && events.front().reason == BrowseSessionCloseReason::TargetEject &&
+            events.back().reason == BrowseSessionCloseReason::TargetEject,
+        "target eject session cleanup was not audited"
+    );
+    service.close(":1.43", "browse-eject-2");
+}
+
+void test_target_eject_preserves_active_browse_operation() {
+    Authorizer authorizer;
+    Backend backend;
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::minutes{15},
+        [] { return BrowseSessionId{"browse-eject-active"}; }
+    );
+    const auto opened = service.open(":1.45", 1000, "default");
+    const std::string lease = service.begin_operation(":1.45", opened.session_id);
+
+    expect_error("active browse blocks eject", ManagerErrorCode::Busy, [&] {
+        service.close_for_profile(ProfileId{"default"});
+    });
+    test_helpers::expect_true("active browse preserved", backend.closed.empty(), "active browse was interrupted");
+    service.end_operation(":1.45", opened.session_id, lease);
+    service.close_for_profile(ProfileId{"default"});
+}
+
 void test_expiration_and_cleanup_failure_are_contained() {
     Authorizer authorizer;
     Backend backend;
@@ -523,6 +577,8 @@ int main() {
     test_coverage_requires_browse_authorization();
     test_foreign_caller_cannot_close_session();
     test_disconnect_only_closes_callers_sessions();
+    test_target_eject_closes_idle_profile_sessions();
+    test_target_eject_preserves_active_browse_operation();
     test_expiration_and_cleanup_failure_are_contained();
     test_failed_disconnect_clears_leases_for_cleanup_retry();
     test_renewal_uses_monotonic_deadline_and_operation_lease();

@@ -87,10 +87,12 @@ std::optional<ManagerAuthorizationAction> manager_method_authorization_action(
 OperationalControlService::OperationalControlService(
     IManagerAuthorizer& authorizer,
     IOperationalControlBackend& backend,
-    OperationIdGenerator operation_ids
+    OperationIdGenerator operation_ids,
+    TargetEjectPreparation prepare_target_eject
 ) : authorizer_(authorizer),
     backend_(backend),
-    operation_ids_(operation_ids ? std::move(operation_ids) : OperationIdGenerator{generate_operation_id}) {
+    operation_ids_(operation_ids ? std::move(operation_ids) : OperationIdGenerator{generate_operation_id}),
+    prepare_target_eject_(std::move(prepare_target_eject)) {
 }
 
 void OperationalControlService::require_authorized(
@@ -187,6 +189,8 @@ OperationResult OperationalControlService::eject_target(
     const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::EjectTarget);
     const AuthorizedOperationContext context = authorized_context(validated_profile, version);
+    if (prepare_target_eject_)
+        prepare_target_eject_(validated_profile);
     backend_.eject_target(context);
     return {
         .operation = manager_protocol::feature::eject_target,

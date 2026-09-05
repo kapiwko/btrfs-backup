@@ -320,9 +320,10 @@ The manager applies the caller's UID and supplementary groups to stored mode and
 POSIX ACL checks before opening repository contents. An owned session may list confined entries
 and receive only already-open, read-only regular-file descriptors. The daemon rejects absolute
 paths, traversal, symlinks, devices and other special files, so repository
-directory permissions never need to be weakened for Dolphin. Eject still
-acquires the target lease and refuses to run while
-the target is in use:
+directory permissions never need to be weakened for Dolphin. An authorized
+manual eject closes idle browse sessions for that profile before it acquires the
+target lease. An active browse operation returns `Busy`; other target use also
+blocks eject:
 
 ```xml
 <defaults>

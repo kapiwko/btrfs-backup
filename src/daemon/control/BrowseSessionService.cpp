@@ -465,6 +465,25 @@ void BrowseSessionService::close_for_caller(const std::string& caller_bus_name) 
     }
 }
 
+void BrowseSessionService::close_for_profile(const ProfileId& profile_id) {
+    const bool active_operation = std::ranges::any_of(sessions_, [&](const auto& item) {
+        return item.second.profile_id == profile_id && !item.second.operation_leases.empty();
+    });
+    if (active_operation)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Busy,
+            "backup browsing operation is active"
+        );
+    for (auto session = sessions_.begin(); session != sessions_.end();) {
+        if (session->second.profile_id != profile_id) {
+            ++session;
+            continue;
+        }
+        auto current = session++;
+        close_session(current, BrowseSessionCloseReason::TargetEject);
+    }
+}
+
 void BrowseSessionService::expire() noexcept {
     try {
         backend_.cleanup_stale();
