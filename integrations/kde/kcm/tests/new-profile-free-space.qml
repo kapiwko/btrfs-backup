@@ -25,6 +25,11 @@ Item {
         return position.x >= -1 && position.x + item.width <= container.width + 1
     }
 
+    function horizontallyCentered(item, container) {
+        const position = item.mapToItem(container, 0, 0)
+        return Math.abs(position.x + item.width / 2 - container.width / 2) <= 1
+    }
+
     readonly property var partition: ({
         kind: "existing-partition",
         candidateId: "partition-1",
@@ -196,6 +201,7 @@ Item {
                 Qt.exit(1)
                 return
             }
+            const configurationForm = root.findObject(page, "provisioningConfigurationForm")
             const profileDetailsForm = root.findObject(page, "profileDetailsForm")
             const encryptionForm = root.findObject(page, "encryptionForm")
             const profileIdentifierHelp = root.findObject(page, "profileIdentifierHelp")
@@ -203,12 +209,14 @@ Item {
             const automaticKeyExplanation = root.findObject(page, "automaticKeyExplanation")
             const passphraseField = root.findObject(page, "passphraseField")
             const confirmationField = root.findObject(page, "confirmationField")
-            if (profileDetailsForm === null || encryptionForm === null
+            if (configurationForm === null || profileDetailsForm === null || encryptionForm === null
                     || profileIdentifierHelp === null || profileIdentifierHelp.text.length === 0
                     || automaticKeyField === null || automaticKeyExplanation === null
                     || passphraseField === null || confirmationField === null
                     || profileDetailsForm.width > page.width
                     || encryptionForm.width > page.width
+                    || !root.horizontallyCentered(profileDetailsForm, configurationForm)
+                    || !root.horizontallyCentered(encryptionForm, configurationForm)
                     || !root.fitsInside(automaticKeyField, encryptionForm)
                     || !root.fitsInside(automaticKeyExplanation, encryptionForm)
                     || !root.fitsInside(passphraseField, encryptionForm)
