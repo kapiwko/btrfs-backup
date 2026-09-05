@@ -31,6 +31,7 @@ struct TargetServiceDependencies {
     std::filesystem::path keyfile_trust_root = "/";
     std::string systemd_cryptsetup_command;
     std::function<std::filesystem::path(const std::filesystem::path&)> canonical_device;
+    std::function<void(const std::filesystem::path&)> unmount_filesystem;
 };
 
 struct ActivateTargetRequest {

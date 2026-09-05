@@ -87,6 +87,46 @@ void run_ignored(btrfsbackup::backup::ICommandRunner& commands, const std::vecto
     (void)commands.run(argv);
 }
 
+void unmount_expected_target(
+    btrfsbackup::backup::ICommandRunner& commands,
+    const std::function<std::vector<btrfsbackup::backup::MountEntry>()>& read_mounts,
+    const std::function<void(const fs::path&)>& unmount_filesystem,
+    const fs::path& mount_point,
+    const fs::path& mapper,
+    const std::string& mount_unit
+) {
+    const auto expected_mount = [&](const std::vector<btrfsbackup::backup::MountEntry>& mounts) {
+        return btrfsbackup::backup::mount_uses_mapper(mounts, mount_point, mapper);
+    };
+
+    const btrfsbackup::backup::CommandResult stopped = commands.run({"systemctl", "stop", mount_unit});
+    std::vector<btrfsbackup::backup::MountEntry> mounts = read_mounts();
+    if (!btrfsbackup::backup::mount_at(mounts, mount_point).has_value())
+        return;
+    if (!expected_mount(mounts)) {
+        throw btrfsbackup::ValidationError(
+            "Refusing to unmount " + mount_point.string() +
+            " because its mount identity changed while ejecting"
+        );
+    }
+
+    bool direct_unmount_failed = false;
+    try {
+        unmount_filesystem(mount_point);
+    } catch (const std::exception&) {
+        direct_unmount_failed = true;
+    }
+    mounts = read_mounts();
+    if (btrfsbackup::backup::mount_at(mounts, mount_point).has_value()) {
+        std::string message = "could not unmount target " + mount_point.string();
+        if (stopped.exit_code != 0)
+            message += " after the mount unit failed to stop";
+        if (direct_unmount_failed)
+            message += " and the direct unmount failed";
+        throw btrfsbackup::ValidationError(message);
+    }
+}
+
 void validate_luks_uuid(
     btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
     const btrfsbackup::config::Profile& profile
@@ -141,6 +181,7 @@ struct ResolvedDependencies {
     fs::path keyfile_trust_root;
     std::string systemd_cryptsetup_command;
     std::function<fs::path(const fs::path&)> canonical_device;
+    std::function<void(const fs::path&)> unmount_filesystem;
 };
 
 ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServiceDependencies& dependencies) {
@@ -171,6 +212,9 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServic
         .canonical_device = !dependencies.canonical_device
             ? std::function<fs::path(const fs::path&)>(btrfsbackup::platform::linux::storage::canonical_device)
             : dependencies.canonical_device,
+        .unmount_filesystem = !dependencies.unmount_filesystem
+            ? std::function<void(const fs::path&)>(btrfsbackup::platform::linux::storage::unmount_filesystem)
+            : dependencies.unmount_filesystem,
     };
 }
 
@@ -189,6 +233,7 @@ btrfsbackup::cli::target::TargetServiceDependencies production_dependencies(
         .keyfile_trust_root = {},
         .systemd_cryptsetup_command = {},
         .canonical_device = {},
+        .unmount_filesystem = {},
     };
 }
 
@@ -544,7 +589,14 @@ TargetOperationResult eject_target(
         const std::string mount_unit = btrfsbackup::platform::linux::systemd::systemd_mount_unit_name(
             profile.target.mount_point
         );
-        run_checked(resolved.commands, {"systemctl", "stop", mount_unit}, "could not stop target mount unit " + mount_unit);
+        unmount_expected_target(
+            resolved.commands,
+            resolved.read_mounts,
+            resolved.unmount_filesystem,
+            profile.target.mount_point,
+            resolved.mapper_root / profile.target.mapper_name.value(),
+            mount_unit
+        );
     }
 
     const std::string target_unit = btrfsbackup::platform::linux::systemd::target_activation_unit_name(
