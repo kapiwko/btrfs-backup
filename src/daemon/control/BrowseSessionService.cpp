@@ -404,6 +404,16 @@ btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_fil
     return backend_.open_file(session->second.id, relative_path);
 }
 
+btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_entry(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& relative_path
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    extend(session->second);
+    return backend_.open_entry(session->second.id, relative_path);
+}
+
 btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_root(
     const std::string& caller_bus_name,
     const std::string& session_id

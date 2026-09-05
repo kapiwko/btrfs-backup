@@ -102,6 +102,13 @@ QDBusUnixFileDescriptor BrowseSessionClient::openRoot(const QString& session_id)
     return reply.isError() ? QDBusUnixFileDescriptor{} : reply.value();
 }
 
+QDBusUnixFileDescriptor BrowseSessionClient::openEntry(const QString& session_id, const QString& path) const {
+    QDBusPendingReply<QDBusUnixFileDescriptor> reply(manager_.openBrowseEntry(session_id, path));
+    reply.waitForFinished();
+    last_error_name_ = reply.isError() ? reply.error().name() : QString{};
+    return reply.isError() ? QDBusUnixFileDescriptor{} : reply.value();
+}
+
 const QString& BrowseSessionClient::lastErrorName() const noexcept {
     return last_error_name_;
 }

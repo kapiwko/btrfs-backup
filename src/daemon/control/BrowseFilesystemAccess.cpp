@@ -351,6 +351,30 @@ OwnedFileDescriptor BrowseFilesystemAccess::open_file(
     return result;
 }
 
+OwnedFileDescriptor BrowseFilesystemAccess::open_entry(
+    const fs::path& root,
+    const fs::path& relative_path,
+    const BrowseAccessIdentity* identity
+) const {
+    OwnedFileDescriptor root_descriptor = session_root(root);
+    const fs::path parent = relative_path.parent_path();
+    (void)open_authorized_directory(
+        root_descriptor.get(),
+        parent.empty() ? fs::path{"."} : parent,
+        identity,
+        1
+    );
+    OwnedFileDescriptor probe = open_beneath(root_descriptor.get(), relative_path, O_PATH);
+    struct stat status{};
+    if (fstat(probe.get(), &status) != 0)
+        path_error("cannot inspect browse entry");
+    if (S_ISREG(status.st_mode))
+        return open_file(root, relative_path, identity);
+    if (S_ISDIR(status.st_mode))
+        return open_authorized_directory(root_descriptor.get(), relative_path, identity, 5);
+    throw std::invalid_argument("browse entry has an unsupported type");
+}
+
 OwnedFileDescriptor BrowseFilesystemAccess::open_root(const fs::path& root) const {
     OwnedFileDescriptor result(::open(root.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!result.valid())

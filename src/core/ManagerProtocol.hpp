@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 2;
-inline constexpr int api_minor = 11;
+inline constexpr int api_minor = 12;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 4;
 inline constexpr int profile_summary_schema_version = 2;
@@ -78,6 +78,7 @@ inline constexpr char list_browse_directory_page[] = "ListBrowseDirectoryPage";
 inline constexpr char list_previous_versions[] = "ListPreviousVersions";
 inline constexpr char inspect_browse_entry[] = "InspectBrowseEntry";
 inline constexpr char open_browse_file[] = "OpenBrowseFile";
+inline constexpr char open_browse_entry[] = "OpenBrowseEntry";
 inline constexpr char open_browse_root[] = "OpenBrowseRoot";
 inline constexpr char inspect_browse_repository[] = "InspectBrowseRepository";
 inline constexpr char resolve_backup_coverage[] = "ResolveBackupCoverage";

@@ -160,6 +160,10 @@ QDBusPendingCall ManagerClient::openBrowseFile(const QString& session_id, const 
     return call(QLatin1String(manager_protocol::method::open_browse_file), {session_id, path});
 }
 
+QDBusPendingCall ManagerClient::openBrowseEntry(const QString& session_id, const QString& path) const {
+    return call(QLatin1String(manager_protocol::method::open_browse_entry), {session_id, path});
+}
+
 QDBusPendingCall ManagerClient::openBrowseRoot(const QString& session_id) const {
     return call(QLatin1String(manager_protocol::method::open_browse_root), {session_id});
 }

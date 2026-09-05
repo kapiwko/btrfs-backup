@@ -118,6 +118,12 @@ class Backend final : public IBrowseSessionBackend {
     ) override {
         return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/dev/null", O_RDONLY | O_CLOEXEC));
     }
+    btrfsbackup::platform::linux::OwnedFileDescriptor open_entry(
+        const BrowseSessionId&,
+        const std::filesystem::path&
+    ) override {
+        return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/dev/null", O_RDONLY | O_CLOEXEC));
+    }
     btrfsbackup::platform::linux::OwnedFileDescriptor open_root(const BrowseSessionId&) override {
         return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/", O_PATH | O_DIRECTORY | O_CLOEXEC));
     }
@@ -234,6 +240,9 @@ void test_foreign_caller_cannot_close_session() {
     });
     expect_error("foreign open file", ManagerErrorCode::NotAuthorized, [&] {
         (void)service.open_file(":1.31", "browse-owned", "snapshot/file");
+    });
+    expect_error("foreign open entry", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.open_entry(":1.31", "browse-owned", "snapshot/file");
     });
     expect_error("foreign open root", ManagerErrorCode::NotAuthorized, [&] {
         (void)service.open_root(":1.31", "browse-owned");

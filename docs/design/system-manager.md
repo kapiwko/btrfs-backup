@@ -60,6 +60,7 @@ ListBrowseDirectoryPage
 ListPreviousVersions
 InspectBrowseEntry
 OpenBrowseFile
+OpenBrowseEntry
 OpenBrowseRoot
 InspectBrowseRepository
 ResolveBackupCoverage

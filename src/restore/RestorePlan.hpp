@@ -48,6 +48,11 @@ struct RestorePlan {
 class RestorePlanner {
   public:
     [[nodiscard]] RestorePlan plan(const RepositoryCatalog& catalog, const RestoreRequest& request) const;
+    [[nodiscard]] RestorePlan plan_from_pinned_source(
+        const RepositoryCatalog& catalog,
+        const RestoreRequest& request,
+        const std::filesystem::path& source
+    ) const;
 };
 
 } // namespace btrfsbackup::restore

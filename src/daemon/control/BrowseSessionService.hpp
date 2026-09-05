@@ -82,6 +82,10 @@ class IBrowseSessionBackend {
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
     ) = 0;
+    [[nodiscard]] virtual btrfsbackup::platform::linux::OwnedFileDescriptor open_entry(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path
+    ) = 0;
     [[nodiscard]] virtual btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
         const BrowseSessionId& session_id
     ) = 0;
@@ -176,6 +180,11 @@ class BrowseSessionService final {
         std::size_t requested_entries
     );
     [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& relative_path
+    );
+    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_entry(
         const std::string& caller_bus_name,
         const std::string& session_id,
         const std::string& relative_path
