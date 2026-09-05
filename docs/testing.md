@@ -142,6 +142,11 @@ Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
 images, and root-equivalent control inside the guest, so it should not run from
 `make` or the default local test script.
 
+The manually dispatched `release gates` GitHub Actions workflow runs this QEMU
+scenario, the real-Btrfs suite and a complete package build for the exact
+candidate commit. Keep it manual because both integration jobs receive
+root-equivalent Docker access and create disposable block devices.
+
 The current boundary smoke test is an opt-in CMake target. It builds the
 non-installed public D-Bus provisioning client before starting the harness:
 

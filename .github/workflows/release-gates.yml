@@ -1,0 +1,106 @@
+name: release gates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packaging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install release dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            btrfs-progs \
+            build-essential \
+            cmake \
+            libarchive-tools \
+            libblkid-dev \
+            libbtrfsutil-dev \
+            libcryptsetup-dev \
+            libfdisk-dev \
+            libmount-dev \
+            libsystemd-dev \
+            libudev-dev \
+            ninja-build \
+            nlohmann-json3-dev \
+            pkg-config \
+            rpm \
+            zstd
+      - name: Build complete release set
+        run: |
+          python3 tools/release.py \
+            --target all \
+            --skip-tests \
+            --clean-build \
+            --build-dir build/release-gate \
+            --dist-dir build/release-artifacts
+      - name: Verify release checksums
+        run: cd build/release-artifacts && sha256sum --check SHA256SUMS
+
+  real-btrfs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install integration build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            btrfs-progs \
+            build-essential \
+            cmake \
+            libblkid-dev \
+            libbtrfsutil-dev \
+            libcryptsetup-dev \
+            libfdisk-dev \
+            libmount-dev \
+            libsystemd-dev \
+            libudev-dev \
+            ninja-build \
+            nlohmann-json3-dev \
+            pkg-config
+      - name: Configure integration targets
+        run: cmake --preset gcc-debug -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF
+      - name: Run real Btrfs gate
+        run: |
+          PACKAGE_BUILDER=docker \
+            cmake --build --preset gcc-debug \
+              --target real-btrfs-integration \
+              --parallel "$(nproc)"
+
+  qemu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install integration build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            btrfs-progs \
+            build-essential \
+            cmake \
+            libblkid-dev \
+            libbtrfsutil-dev \
+            libcryptsetup-dev \
+            libfdisk-dev \
+            libmount-dev \
+            libsystemd-dev \
+            libudev-dev \
+            ninja-build \
+            nlohmann-json3-dev \
+            pkg-config
+      - name: Configure integration targets
+        run: cmake --preset gcc-debug -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF
+      - name: Run QEMU provisioning and hotplug gate
+        run: |
+          PACKAGE_BUILDER=docker \
+            cmake --build --preset gcc-debug \
+              --target qemu-hotplug-integration \
+              --parallel "$(nproc)"
