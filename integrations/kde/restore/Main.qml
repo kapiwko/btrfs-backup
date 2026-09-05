@@ -23,5 +23,6 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: RestorePage {
         controller: root.controller
+        onCloseRequested: root.close()
     }
 }
