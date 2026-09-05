@@ -170,7 +170,10 @@ preflight until it reports `READY`.
    header actions, removing the duplicate in-popup application header;
 8. hidden profiles can continue to affect the panel status icon, and the
    tooltip summarizes several profiles requiring attention in priority order;
-9. desktop actions resolve KDE services and URLs through KIO launcher jobs,
+9. the plasmoid keeps one shared profile directory and event source, while
+   persistent per-profile models fetch only their own status, device state and
+   history instead of creating duplicate profile probes for every delegate;
+10. desktop actions resolve KDE services and URLs through KIO launcher jobs,
    preserving desktop activation and reporting asynchronous launch failures.
 
 ### Manager And Desktop Reliability

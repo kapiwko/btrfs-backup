@@ -33,6 +33,12 @@ size or exact Btrfs chunk, compression, metadata or qgroup consumption.
 The presentation backend is split into grouped run, target and history models.
 The shared state-document codec validates target JSON before the Qt target model
 applies it, keeping schema handling out of the D-Bus coordinator and QML.
+The plasmoid owns one profile-directory model that negotiates capabilities,
+loads the profile list and receives manager invalidation signals. A persistent
+status store creates one data model per profile and shares that directory
+source between visible and hidden delegates. Per-profile models request only
+their own current status, device state and history; opening two presentations
+of the same profile does not create duplicate probes.
 
 ## Interface Responsibilities
 

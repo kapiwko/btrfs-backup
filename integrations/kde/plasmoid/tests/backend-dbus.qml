@@ -20,7 +20,15 @@ Window {
     BackupStatusModel {
         id: status
         profile: "default"
+        directoryOnly: true
         Component.onCompleted: start()
+    }
+
+    BackupUi.ProfileStatusStore {
+        id: statusStore
+        directoryModel: status
+        profiles: status.profiles
+        historyLimitFor: profileId => 3
     }
 
     ListView {
@@ -39,6 +47,8 @@ Window {
             profileId: modelData.profileId
             profileName: modelData.name
             targetNameHint: modelData.targetName
+            statusProvidedExternally: true
+            statusModelOverride: statusStore.statusFor(profileId)
             relativeTimeTick: 0
         }
     }
@@ -53,33 +63,34 @@ Window {
             if (!root.initialStateObserved
                     && status.managerConnected
                     && status.profileName === "Default backup"
-                    && status.run.state === "running"
-                    && status.run.runId === "20260829T160000Z-1-1"
-                    && status.run.phase === "sizing"
-                    && status.run.activity === "sizing"
-                    && status.run.canCancel
-                    && status.run.sourceName === "Home"
-                    && status.run.targetName === "Backup disk"
-                    && status.run.speedBps === 10
-                    && status.run.etaSeconds === 20
-                    && status.run.sourceProgress === 30
-                    && status.run.overallProgress === 40
-                    && status.run.progressAccuracy === "estimated"
-                    && status.run.sourceIndex === 1
-                    && status.run.sourceCount === 1
-                    && status.run.startedAt === "2026-08-29T15:59:00Z"
-                    && status.run.lastSuccessAt === "2026-08-24T18:42:00+0000"
-                    && status.run.lastAttemptAt === "2026-08-25T10:00:00Z"
-                    && status.run.lastAttemptState === "failed"
-                    && status.target.connected
-                    && status.target.safeToRemove
-                    && status.target.state === "connected"
-                    && status.history.entries.length === 1
+                    && profileItem !== null
+                    && profileItem.profileStatus === statusStore.statusFor("default")
+                    && profileItem.profileStatus.run.state === "running"
+                    && profileItem.profileStatus.run.runId === "20260829T160000Z-1-1"
+                    && profileItem.profileStatus.run.phase === "sizing"
+                    && profileItem.profileStatus.run.activity === "sizing"
+                    && profileItem.profileStatus.run.canCancel
+                    && profileItem.profileStatus.run.sourceName === "Home"
+                    && profileItem.profileStatus.run.targetName === "Backup disk"
+                    && profileItem.profileStatus.run.speedBps === 10
+                    && profileItem.profileStatus.run.etaSeconds === 20
+                    && profileItem.profileStatus.run.sourceProgress === 30
+                    && profileItem.profileStatus.run.overallProgress === 40
+                    && profileItem.profileStatus.run.progressAccuracy === "estimated"
+                    && profileItem.profileStatus.run.sourceIndex === 1
+                    && profileItem.profileStatus.run.sourceCount === 1
+                    && profileItem.profileStatus.run.startedAt === "2026-08-29T15:59:00Z"
+                    && profileItem.profileStatus.run.lastSuccessAt === "2026-08-24T18:42:00+0000"
+                    && profileItem.profileStatus.run.lastAttemptAt === "2026-08-25T10:00:00Z"
+                    && profileItem.profileStatus.run.lastAttemptState === "failed"
+                    && profileItem.profileStatus.target.connected
+                    && profileItem.profileStatus.target.safeToRemove
+                    && profileItem.profileStatus.target.state === "connected"
+                    && profileItem.profileStatus.history.entries.length === 1
                     && typeof status.startBackup === "function"
                     && typeof status.cancelBackup === "function"
                     && typeof status.validateTarget === "function"
                     && typeof status.ejectTarget === "function"
-                    && profileItem !== null
                     && profileItem.profileId === "default"
                     && profileItem.running
                     && profileItem.progress === 40
@@ -91,12 +102,12 @@ Window {
                 return
             }
             if (root.initialStateObserved
-                    && status.run.state === "succeeded"
-                    && status.run.phase === "completed"
-                    && !status.run.canCancel
-                    && status.run.speedBps === 0
-                    && status.run.sourceProgress === 100
-                    && status.run.overallProgress === 100
+                    && profileItem.profileStatus.run.state === "succeeded"
+                    && profileItem.profileStatus.run.phase === "completed"
+                    && !profileItem.profileStatus.run.canCancel
+                    && profileItem.profileStatus.run.speedBps === 0
+                    && profileItem.profileStatus.run.sourceProgress === 100
+                    && profileItem.profileStatus.run.overallProgress === 100
                     && profileItem !== null
                     && !profileItem.running
                     && profileItem.progress === 100

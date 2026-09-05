@@ -29,6 +29,7 @@ PlasmaExtras.ExpandableListItem {
     property bool hideSourceNamesInTooltip: false
     property bool previousRunning: false
     property bool previousFailed: false
+    property bool statusProvidedExternally: false
     property var statusModelOverride: null
     readonly property var profileStatus: statusModelOverride ?? liveProfileStatus
     readonly property var ejectProfileAction: ejectAction
@@ -52,7 +53,7 @@ PlasmaExtras.ExpandableListItem {
         profile: root.profileId
         historyLimit: root.historyLimit
         Component.onCompleted: {
-            if (root.statusModelOverride === null)
+            if (!root.statusProvidedExternally)
                 start()
         }
     }

@@ -96,7 +96,17 @@ PlasmoidItem {
     BackupStatusModel {
         id: profileDirectory
         profile: "default"
+        directoryOnly: true
         Component.onCompleted: start()
+    }
+
+    ProfileStatusStore {
+        id: profileStatusStore
+        directoryModel: profileDirectory
+        profiles: profileDirectory.profiles
+        historyLimitFor: profileId => root.displayedProfiles.some(profile => profile.profileId === profileId)
+            ? Plasmoid.configuration.historyCount
+            : 1
     }
 
     Timer {
@@ -166,8 +176,9 @@ PlasmoidItem {
                 profileId: modelData.profileId
                 profileName: modelData.name
                 targetNameHint: modelData.targetName
+                statusProvidedExternally: true
+                statusModelOverride: profileStatusStore.statusFor(profileId)
                 relativeTimeTick: root.relativeTimeTick
-                refreshRevision: root.refreshRevision
                 historyLimit: 1
                 autoExpandActive: false
                 autoExpandFailed: false
@@ -296,8 +307,9 @@ PlasmoidItem {
                     profileId: modelData.profileId
                     profileName: modelData.name
                     targetNameHint: modelData.targetName
+                    statusProvidedExternally: true
+                    statusModelOverride: profileStatusStore.statusFor(profileId)
                     relativeTimeTick: root.relativeTimeTick
-                    refreshRevision: root.refreshRevision
                     historyLimit: Plasmoid.configuration.historyCount
                     autoExpandActive: Plasmoid.configuration.autoExpandActive
                     autoExpandFailed: Plasmoid.configuration.autoExpandFailed
