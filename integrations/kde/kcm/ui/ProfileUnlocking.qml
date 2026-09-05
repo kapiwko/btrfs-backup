@@ -85,7 +85,7 @@ Item {
             Accessible.name: methodDetails.title
             Accessible.description: methodDetails.subtitle
             onClicked: {
-                root.credentialToInspect = methodRow.modelData;
+                root.credentialToInspect = root.credentialSnapshot(methodRow.modelData);
                 methodDetailsDialog.open();
             }
 
@@ -364,6 +364,17 @@ Item {
         const ownership = method.managed ? translations.i18n("managed by btrfs-backup") : translations.i18n("configured outside btrfs-backup")
         const automatic = method.automatic ? translations.i18n("automatic backups") : translations.i18n("manual unlocking")
         return translations.i18nc("unlocking method details", "%1 - slot %2 - %3 - %4", kind, method.keyslot, ownership, automatic)
+    }
+
+    function credentialSnapshot(method) {
+        return {
+            "id": method.id,
+            "label": method.label,
+            "type": method.type,
+            "keyslot": method.keyslot,
+            "managed": method.managed,
+            "automatic": method.automatic
+        }
     }
 
     function credentialTitle(method) {

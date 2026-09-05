@@ -80,9 +80,15 @@ Item {
             compare(findChild(dialog, "unlockingMethodManagementValue").text, "Managed by btrfs-backup")
             compare(findChild(dialog, "unlockingMethodUsageValue").text, "Automatic backups")
 
+            credentials.credentials = []
+            wait(0)
+
+            verify(dialog.visible)
+            compare(dialog.title, "Automatic backup key")
+            compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
+
             dialog.close()
             tryCompare(dialog, "visible", false)
-            credentials.credentials = []
         }
 
         function test_busyOperationIsVisible() {
