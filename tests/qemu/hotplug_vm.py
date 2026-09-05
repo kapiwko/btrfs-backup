@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -15,11 +16,11 @@ import subprocess
 import tempfile
 import time
 
-from hotplug_guest_payload import render_guest_setup
 from qmp_client import QmpClient
 
 
 ROOT = Path(__file__).resolve().parents[2]
+ROOTFS_CACHE_VERSION = "v3"
 SETUP_UNIT = """[Unit]
 Description=Install the QEMU test payload
 After=systemd-udevd.service dev-vdb.device
@@ -29,7 +30,7 @@ Requires=dev-vdb.device
 Type=oneshot
 ExecStart=/usr/bin/mkdir -p /run/qemu-test-setup
 ExecStart=/usr/bin/mount -o ro /dev/vdb /run/qemu-test-setup
-ExecStart=/usr/bin/sh /run/qemu-test-setup/setup.sh
+ExecStart=/usr/bin/python3 /run/qemu-test-setup/hotplug_guest.py --config /run/qemu-test-setup/guest-setup.json
 RemainAfterExit=yes
 
 [Install]
@@ -55,7 +56,7 @@ class HotplugVm:
         self.root = Path(tempfile.mkdtemp(prefix="btrfs-backup-qemu.", dir="/tmp"))
         self.cache = Path(os.environ.get("QEMU_ROOTFS_CACHE_DIR", "/tmp/btrfs-backup-qemu-cache"))
         cache_key = os.environ.get("QEMU_ROOTFS_CACHE_KEY", "local")
-        self.root_image = self.cache / f"rootfs-v2-{cache_key}.img"
+        self.root_image = self.cache / f"rootfs-{ROOTFS_CACHE_VERSION}-{cache_key}.img"
         self.root_image_temporary: Path | None = None
         self.root_mount = self.root / "root"
         self.console_log = self.root / "console.log"
@@ -193,11 +194,12 @@ class HotplugVm:
         with self.images["replacement"].open("rb") as replacement:
             while chunk := replacement.read(1024 * 1024):
                 digest.update(chunk)
-        replacement_hash = digest.hexdigest()
-        payload = render_guest_setup(target_uuid, target_unit, replacement_hash)
-        guest_setup = self.root_mount / "setup.sh"
-        guest_setup.write_text(payload)
-        guest_setup.chmod(0o755)
+        shutil.copy2(Path(__file__).with_name("hotplug_guest.py"), self.root_mount / "hotplug_guest.py")
+        (self.root_mount / "guest-setup.json").write_text(json.dumps({
+            "target_uuid": target_uuid,
+            "target_device_unit": target_unit,
+            "replacement_hash": digest.hexdigest(),
+        }, sort_keys=True) + "\n")
         self._unmount()
 
     def _format_image(self, name: str, size: str, formatter: list[str]) -> None:

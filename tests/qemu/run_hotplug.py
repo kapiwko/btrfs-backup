@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import tempfile
 
-from hotplug_vm import HotplugVm
+from hotplug_vm import HotplugVm, ROOTFS_CACHE_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,7 +101,7 @@ class QemuHotplugHost:
     def prepare_root_tar(self, qemu_key: str) -> Path:
         runtime_key = self.image_id(self.runtime_image)
         root_tar = self.cache / f"guest-root-{runtime_key}.tar"
-        if (self.cache / f"rootfs-v2-{qemu_key}.img").exists() or root_tar.exists():
+        if (self.cache / f"rootfs-{ROOTFS_CACHE_VERSION}-{qemu_key}.img").exists() or root_tar.exists():
             return root_tar
         self.export_temporary = root_tar.with_suffix(".tar.tmp")
         self.export_container = run(["docker", "create", self.runtime_image, "/usr/bin/true"], capture=True).stdout.strip()

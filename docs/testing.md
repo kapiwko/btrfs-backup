@@ -42,7 +42,7 @@ ctest --preset architecture --parallel "$(nproc)"
 
 Tests cover:
 
-1. syntax of the allowlisted QEMU guest bootstrap;
+1. unit-tested Python orchestration for the QEMU host and guest;
 2. multi-source rendering without unresolved placeholders;
 3. systemd unit and udev rule validation;
 4. canonical profile JSON validation, rendering, save, show, and export;
@@ -186,9 +186,12 @@ without native build dependencies. In both cases the privileged worker receives
 only the finished package through a read-only mount. The prepared Arch root
 filesystem is cached under `build/qemu-cache` using the QEMU image ID as its
 key. Each boot uses QEMU's temporary snapshot layer and receives the current
-package on a separate read-only setup disk, so repeated runs do not copy the
+package, Python guest scenario and its JSON configuration on a separate
+read-only setup disk, so repeated runs do not copy the
 container filesystem. Set `QEMU_CACHE_DIR` to relocate this cache; removing the
-directory forces a clean root filesystem build.
+directory forces a clean root filesystem build. The Arch test image installs
+Python explicitly because the cached systemd unit uses it as the guest scenario
+runtime.
 
 Local runner tests cover the run-bound file cancellation request and verify that
 an active transfer sees a matching request, reports `runner.cancelled`, and

@@ -110,10 +110,9 @@ declarative and audited as described in
 ## Deliberate Shell Boundaries
 
 Repository automation must not add shell launchers or hidden compiler entry
-points. One tracked shell file is retained deliberately:
-`tests/qemu/hotplug_guest_setup.sh`. It is copied as data into the disposable
-guest and runs in the guest's native boot environment; it is syntax-checked and
-does not build or orchestrate the host project.
+points. The QEMU host runner and guest scenario are Python modules. The host
+copies the guest module and a JSON configuration onto the disposable setup disk;
+the cached systemd unit starts it directly with the guest Python interpreter.
 
 Two C++ process tests also invoke `sh -c` as test input to exercise process
 groups and pipelines. These exact call sites are allowlisted by the

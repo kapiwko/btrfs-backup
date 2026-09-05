@@ -10,19 +10,10 @@ endif()
 
 file(GLOB_RECURSE shell_files RELATIVE "${PROJECT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/*.sh")
 list(FILTER shell_files EXCLUDE REGEX "^(build[^/]*/|\\.git/)")
-# Explicit exception requested for the native QEMU guest bootstrap. It is syntax-tested,
-# copied as data, and never builds project code or runs on the host.
-set(allowed_shell_files "tests/qemu/hotplug_guest_setup.sh")
-foreach(path IN LISTS shell_files)
-    if(NOT path IN_LIST allowed_shell_files)
-        message(FATAL_ERROR "Unapproved shell file: ${path}")
-    endif()
-endforeach()
-foreach(path IN LISTS allowed_shell_files)
-    if(NOT path IN_LIST shell_files)
-        message(FATAL_ERROR "Stale shell allowlist entry: ${path}")
-    endif()
-endforeach()
+if(shell_files)
+    list(JOIN shell_files "\n  " violations)
+    message(FATAL_ERROR "Unapproved shell files:\n  ${violations}")
+endif()
 
 file(GLOB_RECURSE inspected_files
     "${PROJECT_SOURCE_DIR}/apps/*" "${PROJECT_SOURCE_DIR}/integrations/*"
