@@ -32,6 +32,18 @@ Comment=A scheduled backup was already completed for this period
 Action=Popup
 Urgency=Normal
 
+[Event/backupOverdueWarning]
+Name=Backup overdue
+Comment=A successful backup has not been created within the warning period
+Action=Popup
+Urgency=Normal
+
+[Event/backupOverdueCritical]
+Name=Backup critically overdue
+Comment=A successful backup has not been created within the critical period
+Action=Popup
+Urgency=Critical
+
 [Event/targetValidationFailed]
 Name=Backup target check failed
 Comment=A backup target failed validation

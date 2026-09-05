@@ -7,6 +7,7 @@
 #include <KQuickConfigModule>
 #include <QUrl>
 #include <BackupHistoryModel.hpp>
+#include <BackupReminderSettings.hpp>
 #include "ProfileConfigurationModel.hpp"
 #include "TargetCredentialModel.hpp"
 #include "DeviceProvisioningModel.hpp"
@@ -19,6 +20,7 @@ class BackupKcm final : public KQuickConfigModule {
     Q_PROPERTY(BackupHistoryModel* profileHistory READ profileHistory CONSTANT)
     Q_PROPERTY(TargetCredentialModel* targetCredentials READ targetCredentials CONSTANT)
     Q_PROPERTY(DeviceProvisioningModel* deviceProvisioning READ deviceProvisioning CONSTANT)
+    Q_PROPERTY(BackupReminderSettings* backupReminderSettings READ backupReminderSettings CONSTANT)
     Q_PROPERTY(bool partitionManagerAvailable READ partitionManagerAvailable CONSTANT)
 
   public:
@@ -35,12 +37,14 @@ class BackupKcm final : public KQuickConfigModule {
     BackupHistoryModel* profileHistory();
     TargetCredentialModel* targetCredentials();
     DeviceProvisioningModel* deviceProvisioning();
+    BackupReminderSettings* backupReminderSettings();
 
   private:
     ProfileConfigurationModel profile_configuration_;
     BackupHistoryModel profile_history_;
     TargetCredentialModel target_credentials_;
     DeviceProvisioningModel device_provisioning_;
+    BackupReminderSettings backup_reminder_settings_;
 };
 
 } // namespace btrfsbackup::kde::kcm

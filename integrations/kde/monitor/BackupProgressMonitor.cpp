@@ -5,9 +5,11 @@
 #include "BackupProgressMonitor.hpp"
 
 #include "BackupProgressJob.hpp"
+#include "BackupReminderPolicy.hpp"
 #include "ManagerApi.hpp"
 
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <KUiServerV2JobTracker>
 
 #include <QDBusPendingCallWatcher>
@@ -65,6 +67,18 @@ BackupProgressMonitor::BackupProgressMonitor(
       cancellation_dispatcher_(bus_, this),
       terminal_notifications_(),
       tracker_(tracker) {
+    reminder_config_watcher_ = KConfigWatcher::create(
+        KSharedConfig::openConfig(BackupReminderSettings::configFileName())
+    );
+    connect(
+        reminder_config_watcher_.get(),
+        &KConfigWatcher::configChanged,
+        this,
+        [this]() { evaluate_reminders(); }
+    );
+    reminder_timer_.setInterval(15 * 60 * 1000);
+    reminder_timer_.setSingleShot(false);
+    connect(&reminder_timer_, &QTimer::timeout, this, &BackupProgressMonitor::evaluate_reminders);
     connect(&service_watcher_, &QDBusServiceWatcher::serviceRegistered, this, [this]() {
         if (active_) {
             connect_to_manager();
@@ -108,6 +122,7 @@ void BackupProgressMonitor::start() {
         return;
     }
     active_ = true;
+    reminder_timer_.start();
     connect_to_manager();
 }
 
@@ -263,6 +278,9 @@ void BackupProgressMonitor::apply_profiles(const QString& payload) {
         }
     }
     profiles_ = std::move(profiles);
+    for (auto iterator = statuses_.begin(); iterator != statuses_.end();) {
+        iterator = profiles_.contains(iterator.key()) ? std::next(iterator) : statuses_.erase(iterator);
+    }
     for (const Profile& profile : std::as_const(profiles_)) {
         request_status(profile);
     }
@@ -275,6 +293,8 @@ void BackupProgressMonitor::apply_status(const Profile& profile, const QString& 
         return;
     }
     const Status& status = *decoded_status;
+    statuses_.insert(profile.id, status);
+    evaluate_reminder(profile, status, BackupReminderSettings::load());
 
     if (!btrfsbackup::kde::active_run_state(status.state) || status.run_id.isEmpty()) {
         finish_job(profile.id, status);
@@ -293,14 +313,34 @@ void BackupProgressMonitor::apply_status(const Profile& profile, const QString& 
         job->update(
             status.overall_progress,
             status.speed_bps,
-            status.can_cancel && manager_features_.contains(
-                QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)
-            ),
+            status.can_cancel && manager_features_.contains(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)),
             activity_text(status.activity, status.phase),
             status.source_name,
             status.target_name.isEmpty() ? profile.target_name : status.target_name
         );
     }
+}
+
+void BackupProgressMonitor::evaluate_reminders() {
+    const BackupReminderConfiguration configuration = BackupReminderSettings::load();
+    for (auto iterator = statuses_.cbegin(); iterator != statuses_.cend(); ++iterator) {
+        const auto profile = profiles_.constFind(iterator.key());
+        if (profile != profiles_.cend())
+            evaluate_reminder(profile.value(), iterator.value(), configuration);
+    }
+}
+
+void BackupProgressMonitor::evaluate_reminder(
+    const Profile& profile,
+    const Status& status,
+    const BackupReminderConfiguration& configuration
+) {
+    terminal_notifications_.publish_backup_reminder(
+        profile.id,
+        profile.name,
+        status.target_name.isEmpty() ? profile.target_name : status.target_name,
+        evaluate_backup_reminder(profile, status, configuration)
+    );
 }
 
 void BackupProgressMonitor::create_job(const Profile& profile, const Status& status) {

@@ -1208,6 +1208,27 @@ msgstr "Dodaj co najmniej jedno prawidłowe źródło kopii zapasowej."
 msgid "The key is stored in a root-only system directory and allows backups to unlock the target without a prompt. The recovery passphrase remains available if the key is lost or removed."
 msgstr "Klucz jest przechowywany w katalogu systemowym dostępnym tylko dla roota i pozwala kopiom zapasowym odblokować nośnik bez pytania. Hasło odzyskiwania pozostaje dostępne w razie utraty lub usunięcia klucza."
 
+msgid "Backup reminders"
+msgstr "Przypomnienia o kopiach"
+
+msgid "Notify me when a backup is overdue"
+msgstr "Powiadom mnie, gdy kopia jest zaległa"
+
+msgid "Warning after:"
+msgstr "Ostrzeżenie po:"
+
+msgid "Critical after:"
+msgstr "Stan krytyczny po:"
+
+msgid "%1 day"
+msgid_plural "%1 days"
+msgstr[0] "%1 dniu"
+msgstr[1] "%1 dniach"
+msgstr[2] "%1 dniach"
+
+msgid "The background monitor sends a desktop notification asking you to connect the backup disk."
+msgstr "Monitor działający w tle wysyła powiadomienie z prośbą o podłączenie dysku kopii zapasowej."
+
 msgid "Operation identifier: %1"
 msgstr "Identyfikator operacji: %1"
 

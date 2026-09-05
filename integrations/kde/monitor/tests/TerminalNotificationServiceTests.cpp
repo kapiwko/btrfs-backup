@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "TerminalNotificationService.hpp"
+#include "BackupReminderPolicy.hpp"
 
 #include <KLocalizedString>
 
@@ -16,6 +17,8 @@ namespace {
 
 using btrfsbackup::kde::monitor::TerminalNotificationMessage;
 using btrfsbackup::kde::monitor::TerminalNotificationService;
+using btrfsbackup::kde::monitor::BackupReminderLevel;
+using btrfsbackup::kde::monitor::evaluate_backup_reminder;
 
 int failures = 0;
 
@@ -117,16 +120,28 @@ void test_operation_specific_terminal_states_are_distinct() {
     );
 
     notifications.publish(
-        QStringLiteral("default"), QStringLiteral("validation-1"), QStringLiteral("Home"),
-        QStringLiteral("target-validation"), QStringLiteral("validated"), {}
+        QStringLiteral("default"),
+        QStringLiteral("validation-1"),
+        QStringLiteral("Home"),
+        QStringLiteral("target-validation"),
+        QStringLiteral("validated"),
+        {}
     );
     notifications.publish(
-        QStringLiteral("default"), QStringLiteral("backup-1"), QStringLiteral("Home"),
-        QStringLiteral("backup"), QStringLiteral("skipped"), {}
+        QStringLiteral("default"),
+        QStringLiteral("backup-1"),
+        QStringLiteral("Home"),
+        QStringLiteral("backup"),
+        QStringLiteral("skipped"),
+        {}
     );
     notifications.publish(
-        QStringLiteral("default"), QStringLiteral("validation-2"), QStringLiteral("Home"),
-        QStringLiteral("target-validation"), QStringLiteral("cancelled"), QStringLiteral("backup.cancelled")
+        QStringLiteral("default"),
+        QStringLiteral("validation-2"),
+        QStringLiteral("Home"),
+        QStringLiteral("target-validation"),
+        QStringLiteral("cancelled"),
+        QStringLiteral("backup.cancelled")
     );
 
     expect(published.size() == 3, "validated, skipped, and cancelled statuses all publish notifications");
@@ -138,6 +153,112 @@ void test_operation_specific_terminal_states_are_distinct() {
     );
 }
 
+void test_backup_reminder_thresholds() {
+    const btrfsbackup::kde::ProfileSummary profile{
+        .id = QStringLiteral("default"),
+        .name = QStringLiteral("Home"),
+        .enabled = true,
+        .target_name = QStringLiteral("Backup disk"),
+        .sources = {},
+        .configuration_valid = true,
+        .configuration_error_code = {},
+    };
+    btrfsbackup::kde::RunStatus status;
+    status.state = QStringLiteral("idle");
+    status.last_success_at = QStringLiteral("2026-08-01T12:00:00Z");
+    const btrfsbackup::kde::BackupReminderConfiguration configuration{
+        .enabled = true,
+        .warning_days = 7,
+        .critical_days = 14,
+    };
+
+    expect(
+        evaluate_backup_reminder(
+            profile,
+            status,
+            configuration,
+            QDateTime::fromString(QStringLiteral("2026-08-08T11:59:59Z"), Qt::ISODate)
+        )
+                .level == BackupReminderLevel::none,
+        "warning starts only after the configured number of full days"
+    );
+    const auto warning = evaluate_backup_reminder(
+        profile,
+        status,
+        configuration,
+        QDateTime::fromString(QStringLiteral("2026-08-09T12:00:00Z"), Qt::ISODate)
+    );
+    expect(
+        warning.level == BackupReminderLevel::warning && warning.overdue_days == 8 && warning.has_success,
+        "warning reports elapsed days since the last successful backup"
+    );
+    expect(
+        evaluate_backup_reminder(
+            profile,
+            status,
+            configuration,
+            QDateTime::fromString(QStringLiteral("2026-08-15T12:00:00Z"), Qt::ISODate)
+        )
+                .level == BackupReminderLevel::critical,
+        "critical threshold supersedes the warning threshold"
+    );
+
+    status.state = QStringLiteral("running");
+    expect(
+        evaluate_backup_reminder(
+            profile,
+            status,
+            configuration,
+            QDateTime::fromString(QStringLiteral("2026-09-01T12:00:00Z"), Qt::ISODate)
+        )
+                .level == BackupReminderLevel::none,
+        "an active backup suppresses overdue reminders"
+    );
+}
+
+void test_backup_reminders_are_deduplicated_per_threshold() {
+    QTemporaryDir directory;
+    std::vector<TerminalNotificationMessage> published;
+    TerminalNotificationService notifications(
+        directory.filePath(QStringLiteral("notifications.json")),
+        [&](const TerminalNotificationMessage& message) { published.push_back(message); }
+    );
+    const btrfsbackup::kde::monitor::BackupReminder warning{
+        .level = BackupReminderLevel::warning,
+        .overdue_days = 7,
+        .baseline_key = QStringLiteral("2026-08-01T12:00:00Z"),
+        .has_success = true,
+    };
+    notifications.publish_backup_reminder(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        warning
+    );
+    notifications.publish_backup_reminder(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        warning
+    );
+    auto critical = warning;
+    critical.level = BackupReminderLevel::critical;
+    critical.overdue_days = 14;
+    notifications.publish_backup_reminder(
+        QStringLiteral("default"),
+        QStringLiteral("Home"),
+        QStringLiteral("Backup disk"),
+        critical
+    );
+
+    expect(published.size() == 2, "warning and critical reminders are each published once");
+    expect(
+        published[0].event_id == QStringLiteral("backupOverdueWarning") &&
+            published[1].event_id == QStringLiteral("backupOverdueCritical"),
+        "reminder thresholds use distinct desktop notification events"
+    );
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -146,6 +267,8 @@ int main(int argc, char* argv[]) {
     test_terminal_notifications_are_persistent_and_deduplicated();
     test_non_terminal_status_is_ignored();
     test_operation_specific_terminal_states_are_distinct();
+    test_backup_reminder_thresholds();
+    test_backup_reminders_are_deduplicated_per_threshold();
     if (failures == 0) {
         std::cout << "ok - KDE terminal notification tests\n";
     }

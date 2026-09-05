@@ -16,6 +16,8 @@ kcmutils_add_qml_kcm(
         TargetCredentialModel.hpp
         DeviceProvisioningModel.cpp
         DeviceProvisioningModel.hpp
+        ../settings/BackupReminderSettings.cpp
+        ../settings/BackupReminderSettings.hpp
 )
 set_target_properties(
     kcm_btrfsbackup
@@ -32,10 +34,12 @@ target_link_libraries(
         Qt6::DBus
         KF6::KCMUtilsQuick
         KF6::I18n
+        KF6::ConfigCore
         btrfsbackup_kde_desktop_launcher
         btrfsbackup_kde_manager_client
         btrfsbackup_kde_models
 )
+target_include_directories(kcm_btrfsbackup PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../settings)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(kcm_btrfsbackup PRIVATE -Wall -Wextra -Wpedantic)
 endif()
