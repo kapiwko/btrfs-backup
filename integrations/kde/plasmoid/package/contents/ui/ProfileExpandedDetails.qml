@@ -214,6 +214,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: details.profileStatus.lastOperation.length > 0
             && details.profileStatus.lastError.length === 0
+            && !(details.profileStatus.lastOperation === "cancel-backup"
+                && details.profileStatus.run.state === "cancelled")
         type: Kirigami.MessageType.Positive
         text: details.operationLabel
     }
