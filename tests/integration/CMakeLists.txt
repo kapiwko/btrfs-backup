@@ -67,6 +67,16 @@ add_test(
 )
 
 add_test(
+    NAME manual-kde-lab-runner-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/manual/run_kde_tests.py
+)
+
+add_test(
+    NAME manual-kde-lab-cli-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/manual/run_kde.py --help
+)
+
+add_test(
     NAME screenshot-automation-tests
     COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/screenshots/render_tests.py
 )
@@ -424,6 +434,27 @@ if(BUILD_SYSTEM_MANAGER)
             BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=$<TARGET_FILE:btrfsbackup-integration-device-provisioning-client>
             ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/run_hotplug.py
         DEPENDS btrfsbackup-integration-device-provisioning-client
+        USES_TERMINAL
+    )
+
+    set(MANUAL_KDE_PACKAGE_DIR "${PROJECT_BINARY_DIR}/manual-kde-packages")
+    add_custom_target(
+        manual-kde-packages
+        COMMAND
+            ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/release.py
+            --target arch
+            --skip-tests
+            --build-dir ${PROJECT_BINARY_DIR}/manual-kde-package-build
+            --dist-dir ${MANUAL_KDE_PACKAGE_DIR}
+        USES_TERMINAL
+    )
+    add_custom_target(
+        manual-kde-lab
+        COMMAND
+            ${CMAKE_COMMAND} -E env
+            PACKAGE_DIR=${MANUAL_KDE_PACKAGE_DIR}
+            ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/manual/run_kde.py
+        DEPENDS manual-kde-packages
         USES_TERMINAL
     )
 

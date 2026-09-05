@@ -103,6 +103,12 @@ flowchart LR
 
 The test should also cover process interruption, low disk space, and device loss.
 
+For manual testing of the complete Plasma and Dolphin workflow, use the
+[interactive KDE laboratory](manual-kde-lab.md). It opens a disposable libvirt
+guest in virt-manager with prepared LUKS2/Btrfs disks, versioned fixture files,
+low-space and conflict destinations, and host commands for physical disk
+disconnect and reconnect.
+
 ## QEMU Hotplug System Tests
 
 The Docker integration test is useful for real Btrfs, LUKS and package

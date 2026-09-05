@@ -258,7 +258,11 @@ preflight until it reports `READY`.
     writable artifact volume while the checked-out source remains read-only;
 12. the compiler, sanitizer, static-analysis, KDE/D-Bus, systemd-security,
     packaging, real-Btrfs and QEMU release gates pass remotely for the 1.0
-    candidate tree.
+    candidate tree;
+13. an interactive libvirt laboratory opens the current Arch packages in a
+    disposable Plasma guest, with prepared LUKS2/Btrfs disks, versioned files,
+    restore edge cases and controllable target hotplug for manual testing in
+    virt-manager.
 
 ## 0.3.3 - 2026-08-30
 

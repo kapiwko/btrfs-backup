@@ -5,7 +5,7 @@
 BUILD_JOBS ?= $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
 CMAKE_CONFIGURE_ARGS ?=
 
-.PHONY: all test check-format clang-tidy clang-tidy-changed quality quality-changed clean
+.PHONY: all test check-format clang-tidy clang-tidy-changed quality quality-changed manual-lab clean
 
 all:
 	cmake --preset default $(CMAKE_CONFIGURE_ARGS)
@@ -28,6 +28,10 @@ clang-tidy-changed:
 quality: check-format clang-tidy
 
 quality-changed: check-format clang-tidy-changed
+
+manual-lab:
+	cmake --preset kde-debug $(CMAKE_CONFIGURE_ARGS)
+	cmake --build --preset kde-debug --target manual-kde-lab --parallel $(BUILD_JOBS)
 
 clean:
 	rm -rf build
