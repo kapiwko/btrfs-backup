@@ -3,6 +3,8 @@
 
 #include "DesktopLauncher.hpp"
 
+#include <QFile>
+
 #include <iostream>
 
 using Qt::StringLiterals::operator""_s;
@@ -45,6 +47,14 @@ int main() {
         "wrong restore desktop service"
     );
     expect(restore.urls == QList<QUrl>{backup_url}, "restore URL changed");
+
+    QFile restore_desktop(QStringLiteral(BTRFSBACKUP_RESTORE_DESKTOP_FILE));
+    expect(restore_desktop.open(QIODevice::ReadOnly), "restore desktop file could not be read");
+    const QByteArray restore_desktop_contents = restore_desktop.readAll();
+    expect(
+        restore_desktop_contents.contains("X-KDE-Protocols=btrfsbackup"),
+        "restore application does not declare support for btrfsbackup URLs"
+    );
 
     const LaunchRequest log = open_system_log();
     expect(log.method == LaunchMethod::Command, "system log must use a command job");

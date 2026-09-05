@@ -73,6 +73,12 @@ std::optional<QUrl> version_target_url(
     return target;
 }
 
+QString previous_versions_stat_name(const QString& relative_path) {
+    if (relative_path.isEmpty())
+        return u".versions"_s;
+    return relative_path.section(u'/', -1);
+}
+
 std::optional<PreviousVersionsPage> parse_previous_versions_page(const QString& payload) {
     const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
     if (!document.isObject())

@@ -434,6 +434,11 @@ if(BUILD_TESTING)
         launcher/tests/DesktopLauncherTests.cpp
     )
     target_compile_features(kde-desktop-launcher-tests PRIVATE cxx_std_23)
+    target_compile_definitions(
+        kde-desktop-launcher-tests
+        PRIVATE
+            BTRFSBACKUP_RESTORE_DESKTOP_FILE="${CMAKE_CURRENT_SOURCE_DIR}/restore/io.github.btrfsbackup.Restore.desktop"
+    )
     target_link_libraries(kde-desktop-launcher-tests PRIVATE btrfsbackup_kde_desktop_launcher)
     add_test(NAME kde-desktop-launcher COMMAND kde-desktop-launcher-tests)
     set_tests_properties(kde-desktop-launcher PROPERTIES LABELS kde)
