@@ -143,7 +143,10 @@ preflight until it reports `READY`.
    streams every page instead of rejecting directories above 10,000 entries;
 8. restore catalog decoding has a dedicated validated boundary, while restore
    failures expose a friendly message, stable code and optional technical
-   details separately.
+   details separately;
+9. the restore application finishes with a dedicated outcome view showing the
+   restored file count, byte size and destination, with an action to open the
+   restored directory.
 
 ### KDE Desktop Integration
 

@@ -6,10 +6,12 @@
 #include <BrowseSessionClient.hpp>
 
 #include "ManagerApi.hpp"
+#include "ByteFormatting.hpp"
 #include "RepositoryCatalogDecoder.hpp"
 #include "RestoreErrorPresentation.hpp"
 #include "RestoreJob.hpp"
 
+#include <KIO/OpenUrlJob>
 #include <KLocalizedString>
 #include <KNotification>
 #include <KFileCustomDialog>
@@ -19,6 +21,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QUuid>
+
+#include <limits>
 
 #include <unistd.h>
 
@@ -109,6 +113,18 @@ bool RestoreController::busy() const {
 bool RestoreController::completed() const {
     return completed_;
 }
+qulonglong RestoreController::restoredFiles() const noexcept {
+    return restored_files_;
+}
+qulonglong RestoreController::restoredBytes() const noexcept {
+    return restored_bytes_;
+}
+QString RestoreController::restoredSize() const {
+    constexpr auto maximum = static_cast<qulonglong>(std::numeric_limits<qint64>::max());
+    return btrfsbackup::kde::format_byte_size(
+        static_cast<qint64>(restored_bytes_ > maximum ? maximum : restored_bytes_)
+    );
+}
 
 void RestoreController::setDestination(const QString& value) {
     const QString normalized = QDir::cleanPath(value);
@@ -133,6 +149,8 @@ void RestoreController::setReplaceExisting(bool value) {
 bool RestoreController::prepare_plan() {
     clear_error();
     completed_ = false;
+    restored_files_ = 0;
+    restored_bytes_ = 0;
     try {
         if (profile_id_.isEmpty() || snapshot_id_.isEmpty() || !QDir::isAbsolutePath(destination_))
             throw std::runtime_error("restore source or destination is invalid");
@@ -245,6 +263,8 @@ void RestoreController::execute() {
         busy_ = false;
         completed_ = finished->error() == KJob::NoError;
         if (completed_) {
+            restored_files_ = job_->restoredFiles();
+            restored_bytes_ = job_->restoredBytes();
             clear_error();
         } else if (job_->hasRestoreError()) {
             set_error(job_->restoreErrorCode(), job_->technicalDetails());
@@ -291,6 +311,15 @@ void RestoreController::set_unexpected_error(const QString& technical_details) {
 void RestoreController::cancel() {
     if (job_ != nullptr)
         job_->kill(KJob::EmitResult);
+}
+
+void RestoreController::openRestoredDirectory() {
+    if (!completed_ || !QDir::isAbsolutePath(destination_))
+        return;
+    const QFileInfo restored(destination_);
+    const QString directory = restored.isDir() ? restored.absoluteFilePath() : restored.absolutePath();
+    auto* job = new KIO::OpenUrlJob(QUrl::fromLocalFile(directory), u"inode/directory"_s, this);
+    job->start();
 }
 
 void RestoreController::close_session() noexcept {
