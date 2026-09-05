@@ -62,9 +62,6 @@ PlasmoidItem {
     readonly property var attentionSummaries: BtrfsBackup.ProfilePresentation.sortedAttentionSummaries(root.profileSummaries)
     readonly property string attentionIcon: BtrfsBackup.ProfilePresentation.mostImportantAttention(root.profileSummaries)
     readonly property bool running: root.primarySummary?.running ?? false
-    readonly property string compactEmblem: root.attentionIcon.length > 0
-        ? root.attentionIcon
-        : (root.running ? "emblem-synchronizing" : "")
     readonly property bool failed: root.primarySummary?.failed ?? false
     readonly property int progress: root.primarySummary?.progress ?? -1
 
@@ -213,7 +210,7 @@ PlasmoidItem {
             anchors.bottom: parent.bottom
             width: Math.max(6, Math.round(parent.width * 0.32))
             height: width
-            source: root.compactEmblem
+            source: root.attentionIcon
             visible: source.length > 0
         }
 
