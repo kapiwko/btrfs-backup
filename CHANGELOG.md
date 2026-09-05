@@ -104,7 +104,9 @@ preflight until it reports `READY`.
    visible with their blocker;
 14. source choices use user-facing names, automatic-key storage and recovery
    implications are explained, and failed operations show completed steps,
-   cleanup outcome, a copyable diagnostic report and recovery guidance.
+   cleanup outcome, a copyable diagnostic report and recovery guidance;
+15. devices and regions rejected by storage-safety checks remain visible with a
+   localized reason, and provisioning sizes use locale-aware C++ formatting.
 
 ### Target Credentials And Hotplug Recovery
 
@@ -136,7 +138,12 @@ preflight until it reports `READY`.
    real system D-Bus integration test, including cleanup after client exit;
 6. `btrfs-backupctl repository rebuild` inspects mounted snapshots, previews
    the resulting metadata by default and atomically rebuilds repository and
-   catalog documents only with explicit `--apply`.
+   catalog documents only with explicit `--apply`;
+7. the manager exposes bounded, stable name-sorted directory pages, and KIO
+   streams every page instead of rejecting directories above 10,000 entries;
+8. restore catalog decoding has a dedicated validated boundary, while restore
+   failures expose a friendly message, stable code and optional technical
+   details separately.
 
 ### KDE Desktop Integration
 
@@ -155,7 +162,9 @@ preflight until it reports `READY`.
    plasmoid and KCM without an administrator password, while configuration
    edits remain separately authorized;
 7. plasmoid-wide refresh and profile management moved to Plasma's contextual
-   header actions, removing the duplicate in-popup application header.
+   header actions, removing the duplicate in-popup application header;
+8. hidden profiles can continue to affect the panel status icon, and the
+   tooltip summarizes several profiles requiring attention in priority order.
 
 ### Manager And Desktop Reliability
 

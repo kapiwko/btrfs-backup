@@ -2,8 +2,10 @@
 
 ## 4.0 Release Gate
 
-Current decision: **GO**. Local verification and all remote release gates pass
-for the release-candidate commit.
+Current decision: **NO-GO** until the changes after the last release candidate
+pass the complete local suite and a new manual release-gate run for the final
+commit. The previous candidate passed, but that result must not be attributed
+to a newer commit.
 
 ### Verified Gates
 
@@ -26,9 +28,10 @@ The following are evidence, not active tasks:
   real-Btrfs passed locally;
 - release packages were built and inspected, and the base package plus staged
   KDE package load without libraries from the build tree;
-- remote compiler, sanitizer, clang-tidy, strict-warnings, D-Bus, KDE,
-  systemd-security, packaging, QEMU and real-Btrfs gates passed for the final
-  candidate commit.
+- remote compiler, sanitizer, clang-tidy, strict-warnings, D-Bus, KDE and
+  systemd-security gates passed for `3bd8d71e`; the complete packaging, QEMU and
+  real-Btrfs release workflow last passed for its parent `1cb7757a` and must be
+  rerun for the final candidate.
 
 ### Accepted Non-Blocking 4.0 Residual Risk
 

@@ -31,13 +31,15 @@ the Plasma panel.*
 
 ## Install On Arch Linux
 
-Install the base release package:
+The stable release line is 3.2.x. The `master` branch and the package names
+below describe the unreleased 4.0 development line; build them from this
+checkout only for testing. Install the base development package with:
 
 ```bash
 sudo pacman -U btrfs-backup-4.0.0-1-x86_64.pkg.tar.zst
 ```
 
-For the KDE desktop tools, install the matching optional package:
+For the KDE desktop tools, install the matching development package:
 
 ```bash
 sudo pacman -U btrfs-backup-kde-4.0.0-1-x86_64.pkg.tar.zst
@@ -49,7 +51,21 @@ dependency of unattended backups.
 
 ## Quick Start
 
-### 1. Prepare A Profile
+### KDE Plasma
+
+Open **System Settings → Btrfs Backups → Add Backup Profile**. The guided setup
+can adopt a compatible removable LUKS2/Btrfs repository or prepare a selected
+disk, partition, or unallocated region. It shows the exact destructive scope
+and requires a separate explicit choice before erasing data.
+
+After saving the profile, connect the configured drive. The Plasma widget and
+session monitor show progress, errors, target capacity and when the device is
+safe to disconnect. Test a restore from Dolphin or the guided restore
+application before relying on the setup.
+
+### Server Or A System Without KDE
+
+#### 1. Prepare A Profile
 
 Start by rendering the proposed configuration into a normal directory:
 
@@ -62,7 +78,7 @@ btrfs-backupctl profile wizard \
 The wizard detects connected LUKS devices and mounted Btrfs sources. Review the
 generated profile and systemd files before installing them.
 
-### 2. Install The Profile
+#### 2. Install The Profile
 
 Run the wizard in apply mode when the generated configuration is correct:
 
@@ -79,7 +95,7 @@ For unattended unlock, select a root-owned key file with mode `0600`.
 `askPassword` instead uses the systemd password agent and requires someone to
 provide the passphrase.
 
-### 3. Connect The Backup Drive
+#### 3. Connect The Backup Drive
 
 Do not enable `btrfs-backup@default.service`. The unit is intentionally started
 by udev only when the exact configured LUKS partition appears.
