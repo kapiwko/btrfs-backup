@@ -278,8 +278,34 @@ Runner development files.
 
 Version 1.0 accepts only canonical profile schema v4 and requires
 `configurationGeneration`. Legacy profile schemas, automatic profile migration
-and old activation markers have been removed. Prepare and validate schema v4
-profiles with the 0.3.x tools before installing 1.0.
+and old activation markers have been removed from normal runtime loading. Before
+replacing an existing installation, run the read-only release gate and create a
+new, non-overwriting migration backup:
+
+```bash
+sudo btrfs-backupctl upgrade preflight
+sudo btrfs-backupctl profile export-v4 --all \
+  --output-dir /root/btrfs-backup-before-1.0
+```
+
+`export-v4` validates every profile before publishing anything, explicitly
+converts profile schemas 1 through 3 to v4, and copies the optional global
+`btrfs-backup.conf`. It does not modify the installed configuration and does not
+copy referenced key files. Back those up separately. The output directory must
+not already exist.
+
+If preflight reports an old schema, save the exported v4 profiles while the
+0.3.x installation is still active, then repeat preflight:
+
+```bash
+sudo btrfs-backupctl profile save \
+  --file /root/btrfs-backup-before-1.0/profiles/default/profile.json
+sudo btrfs-backupctl upgrade preflight
+```
+
+Do not install 1.0 until the final summary is `READY`. After upgrading, retain
+the export until a backup and restore test have both succeeded. `RESTORE.txt`
+inside the export records the recovery command.
 
 Read the [1.0 changelog](CHANGELOG.md) and the
 [configuration guide](docs/configuration.md) before upgrading an existing

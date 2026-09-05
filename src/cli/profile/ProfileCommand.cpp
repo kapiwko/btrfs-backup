@@ -21,6 +21,7 @@
 #include <config/json/ProfileDocument.hpp>
 #include <cli/profile/ProfileListCommand.hpp>
 #include <platform/linux/config/ProfileService.hpp>
+#include <platform/linux/config/ProfileMigration.hpp>
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
@@ -50,7 +51,8 @@ void usage() {
               << "  save --file PATH\n"
               << "  regenerate --all\n"
               << "  show [--profile ID]\n"
-              << "  export [--profile ID] --output PATH\n";
+              << "  export [--profile ID] --output PATH\n"
+              << "  export-v4 --all --output-dir PATH\n";
 }
 
 } // namespace
@@ -106,7 +108,7 @@ int profile(
             return profile_wizard(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         if (command != "validate" && command != "render" && command != "save" && command != "regenerate" &&
-            command != "show" && command != "export") {
+            command != "show" && command != "export" && command != "export-v4") {
             fail("unknown command: " + command);
         }
         fs::path file;
@@ -196,6 +198,17 @@ int profile(
                 fail("export requires --output");
             btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::export_profile(etc_root, profile_id, output_dir);
             std::cout << "Exported profile " << profile.id.value() << " to " << output_dir << "\n";
+        } else if (command == "export-v4") {
+            if (!all_profiles)
+                fail("export-v4 requires --all");
+            if (output_dir.empty())
+                fail("export-v4 requires --output-dir");
+            const std::vector<std::string> profiles =
+                btrfsbackup::platform::linux::config::export_all_profiles_v4(etc_root, output_dir);
+            for (const std::string& id : profiles) {
+                std::cout << "Exported schema-v4 profile " << id << "\n";
+            }
+            std::cout << "Exported " << profiles.size() << " profile(s) to " << output_dir << "\n";
         } else {
             fail("unknown command: " + command);
         }
