@@ -257,40 +257,43 @@ the container.
 
 The test covers:
 
-1. base package build and installation through `pacman -U`, including a check
+1. real `pacman -U` transactions reject a legacy profile before replacement
+   through the installed ALPM hook, then accept an exported-and-saved v4 profile
+   and the no-profile case;
+2. base package build and installation through `pacman -U`, including a check
    that it has no KDE or Qt runtime dependency;
-2. configuration rendering and validation through the installed CLI;
-3. runtime validation of the mounted target;
-4. rejection of a mismatched target Btrfs UUID;
-5. rejection of a source located on the backup target filesystem;
-6. a real full `btrfs send/receive`;
-7. a real incremental `btrfs send -p` after source data changes;
-8. rejection of an incremental run when remote snapshots exist but no local
+3. configuration rendering and validation through the installed CLI;
+4. runtime validation of the mounted target;
+5. rejection of a mismatched target Btrfs UUID;
+6. rejection of a source located on the backup target filesystem;
+7. a real full `btrfs send/receive`;
+8. a real incremental `btrfs send -p` after source data changes;
+9. rejection of an incremental run when remote snapshots exist but no local
    UUID-matching parent is available;
-9. verification that the latest remote snapshot matches the latest local
+10. verification that the latest remote snapshot matches the latest local
    snapshot;
-10. verification that the remote snapshot `Received UUID` matches the local
+11. verification that the remote snapshot `Received UUID` matches the local
    snapshot UUID;
-11. local and remote retention after a third backup;
-12. cleanup of per-source `.incoming` content after successful receives;
-13. per-profile `current.json` and history JSON after a real backup.
-14. recovery of an orphaned local snapshot left before receive;
-15. preservation and marker cleanup for a snapshot committed before an
+12. local and remote retention after a third backup;
+13. cleanup of per-source `.incoming` content after successful receives;
+14. per-profile `current.json` and history JSON after a real backup;
+15. recovery of an orphaned local snapshot left before receive;
+16. preservation and marker cleanup for a snapshot committed before an
     interruption;
-16. a full restore send/receive from the latest repository snapshot followed by
+17. a full restore send/receive from the latest repository snapshot followed by
     content comparison.
-17. rejection of a per-source `.incoming` symlink escape with verification that
+18. rejection of a per-source `.incoming` symlink escape with verification that
     data outside the target repository remains unchanged;
-18. execution of a trusted root-owned hook and rejection after unsafe owner,
+19. execution of a trusted root-owned hook and rejection after unsafe owner,
     file mode, parent mode, or symlink changes;
-19. offline `systemd-analyze security` against the installed unit;
-20. a complete real Btrfs backup started through the sandboxed systemd profile
+20. offline `systemd-analyze security` against the installed unit;
+21. a complete real Btrfs backup started through the sandboxed systemd profile
     service, including the pre-sandbox target mount dependency;
-21. a plain mapper close/reopen lifecycle plus automatic host unmount and LUKS
+22. a plain mapper close/reopen lifecycle plus automatic host unmount and LUKS
     closure through the terminal-state eject unit; auxiliary sandboxed services
     started by the harness are stopped before this check so they cannot retain
     the test mount in a private namespace;
-22. a complete backup requested through the system D-Bus manager by an
+23. a complete backup requested through the system D-Bus manager by an
     unprivileged user and authorized by real polkit from the installed package.
 
 The current Plasma test target validates its full manager-backed control model,
