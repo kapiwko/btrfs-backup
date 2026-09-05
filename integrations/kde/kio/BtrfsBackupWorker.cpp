@@ -173,19 +173,15 @@ btrfsbackup::kde::kio::SecureBrowseFile remote_file(const QString& session_id, c
     return btrfsbackup::kde::kio::SecureBrowseFile(dup(reply.value().fileDescriptor()));
 }
 
-bool set_session_active(const QString& session_id, bool active) {
-    return btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id, active);
-}
-
 class BrowseSessionPin final {
   public:
     explicit BrowseSessionPin(const QString& session_id)
-        : session_id_(session_id), active_(set_session_active(session_id_, true)) {
+        : session_id_(session_id), lease_(btrfsbackup::kde::BrowseSessionClient{}.beginOperation(session_id_)) {
     }
     ~BrowseSessionPin() noexcept {
-        if (active_) {
+        if (lease_) {
             try {
-                (void)set_session_active(session_id_, false);
+                (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(session_id_, *lease_);
             } catch (...) {}
         }
     }
@@ -194,12 +190,12 @@ class BrowseSessionPin final {
     BrowseSessionPin(BrowseSessionPin&&) = delete;
     BrowseSessionPin& operator=(BrowseSessionPin&&) = delete;
     [[nodiscard]] explicit operator bool() const noexcept {
-        return active_;
+        return lease_.has_value();
     }
 
   private:
     QString session_id_;
-    bool active_;
+    std::optional<btrfsbackup::kde::BrowseOperationLease> lease_;
 };
 
 } // namespace
@@ -537,11 +533,12 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
     Session* active = parsed ? session(parsed->profile) : nullptr;
     if (active == nullptr)
         return session_failure();
-    if (!set_session_active(active->id, true))
+    auto operation_lease = btrfsbackup::kde::BrowseSessionClient{}.beginOperation(active->id);
+    if (!operation_lease)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     const auto relative = resolve_entry(*parsed, *active);
     if (!relative) {
-        (void)set_session_active(active->id, false);
+        (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(active->id, *operation_lease);
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
     }
     try {
@@ -549,6 +546,7 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
         if (!open_file_.valid())
             throw std::runtime_error("cannot open remote browse file");
         open_session_id_ = active->id;
+        open_operation_lease_ = std::move(operation_lease);
         struct stat status{};
         if (fstat(open_file_.descriptor(), &status) != 0) {
             close_open_file();
@@ -557,7 +555,7 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
         totalSize(status.st_size);
         return KIO::WorkerResult::pass();
     } catch (...) {
-        (void)set_session_active(active->id, false);
+        (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(active->id, *operation_lease);
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
     }
 }
@@ -695,8 +693,11 @@ void BtrfsBackupWorker::close_open_file() noexcept {
         return;
     const QString session_id = std::move(open_session_id_);
     open_session_id_.clear();
+    auto lease = std::move(open_operation_lease_);
+    open_operation_lease_.reset();
     try {
-        (void)btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id, false);
+        if (lease)
+            (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(session_id, *lease);
     } catch (...) {}
 }
 

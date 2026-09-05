@@ -53,6 +53,8 @@ SetProfileEnabled
 OpenBrowseSession
 RenewBrowseSession
 SetBrowseSessionActive
+BeginBrowseOperation
+EndBrowseOperation
 CloseBrowseSession
 ListBrowseDirectory
 ListBrowseDirectoryPage

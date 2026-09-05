@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -107,6 +108,7 @@ struct BrowseSessionEvent {
 using BrowseSessionSteadyClock = std::function<std::chrono::steady_clock::time_point()>;
 using BrowseSessionWallClock = std::function<std::chrono::system_clock::time_point()>;
 using BrowseSessionIdGenerator = std::function<BrowseSessionId()>;
+using BrowseOperationLeaseIdGenerator = std::function<std::string()>;
 using BrowseSessionEventSink = std::function<void(const BrowseSessionEvent&)>;
 
 class BrowseSessionService final {
@@ -120,7 +122,9 @@ class BrowseSessionService final {
         BrowseSessionWallClock wall_clock = {},
         BrowseSessionEventSink events = {},
         std::size_t global_limit = 64,
-        std::size_t per_uid_limit = 8
+        std::size_t per_uid_limit = 8,
+        std::size_t operation_lease_limit = 64,
+        BrowseOperationLeaseIdGenerator operation_lease_ids = {}
     );
     [[nodiscard]] BrowseSessionInfo renew(
         const std::string& caller_bus_name,
@@ -130,6 +134,15 @@ class BrowseSessionService final {
         const std::string& caller_bus_name,
         const std::string& session_id,
         bool active
+    );
+    [[nodiscard]] std::string begin_operation(
+        const std::string& caller_bus_name,
+        const std::string& session_id
+    );
+    void end_operation(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& lease_id
     );
     ~BrowseSessionService() noexcept;
 
@@ -195,7 +208,8 @@ class BrowseSessionService final {
         std::uint32_t caller_uid;
         std::chrono::steady_clock::time_point deadline;
         std::chrono::system_clock::time_point expires_at;
-        std::size_t active_operations = 0;
+        std::size_t legacy_active_operations = 0;
+        std::set<std::string> operation_leases;
     };
 
     [[nodiscard]] std::map<std::string, Session>::iterator owned_session(
@@ -216,6 +230,8 @@ class BrowseSessionService final {
     BrowseSessionEventSink events_;
     std::size_t global_limit_;
     std::size_t per_uid_limit_;
+    std::size_t operation_lease_limit_;
+    BrowseOperationLeaseIdGenerator operation_lease_ids_;
     std::map<std::string, Session> sessions_;
 };
 

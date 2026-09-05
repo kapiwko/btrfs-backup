@@ -60,6 +60,25 @@ class BrowseSessionClient final {
             const std::string payload = manager_->call(manager_protocol::method::open_browse_session, profile_id);
             validate_session(payload, profile_id);
             const std::string session_id = nlohmann::json::parse(payload).at("sessionId").get<std::string>();
+            const auto lease_document = nlohmann::json::parse(
+                manager_->call(manager_protocol::method::begin_browse_operation, session_id)
+            );
+            const std::string operation_lease = lease_document.at("leaseId").get<std::string>();
+            if (lease_document.at("schemaVersion").get<int>() != manager_protocol::operation_result_schema_version ||
+                operation_lease.empty())
+                throw std::runtime_error("manager returned an invalid browse operation lease");
+            bool unknown_rejected = false;
+            try {
+                static_cast<void>(manager_->call(
+                    manager_protocol::method::end_browse_operation,
+                    session_id,
+                    "unknown-lease"
+                ));
+            } catch (const std::exception&) {
+                unknown_rejected = true;
+            }
+            if (!unknown_rejected)
+                throw std::runtime_error("manager accepted an unknown browse operation lease");
             browse_root = std::filesystem::path{"/run/btrfs-backup-browse"} /
                 std::to_string(getuid()) / session_id / "repository";
             if (!browse_root.string().starts_with("/run/btrfs-backup-browse/") ||
@@ -87,6 +106,23 @@ class BrowseSessionClient final {
                 close(writable);
                 throw std::runtime_error("browse session unexpectedly permits writes");
             }
+            static_cast<void>(manager_->call(
+                manager_protocol::method::end_browse_operation,
+                session_id,
+                operation_lease
+            ));
+            bool duplicate_rejected = false;
+            try {
+                static_cast<void>(manager_->call(
+                    manager_protocol::method::end_browse_operation,
+                    session_id,
+                    operation_lease
+                ));
+            } catch (const std::exception&) {
+                duplicate_rejected = true;
+            }
+            if (!duplicate_rejected)
+                throw std::runtime_error("manager accepted a duplicate browse operation lease release");
         }
         manager_.reset();
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

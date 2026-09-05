@@ -17,6 +17,8 @@
 #include <restore/RestorePlan.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
+#include "BrowseSessionClient.hpp"
+
 namespace btrfsbackup::kde::restore {
 
 class RestoreJob;
@@ -82,6 +84,7 @@ class RestoreController final : public QObject {
     QString relative_path_;
     QString destination_;
     QString session_id_;
+    std::optional<btrfsbackup::kde::BrowseOperationLease> execution_lease_;
     btrfsbackup::platform::linux::OwnedFileDescriptor session_root_;
     bool replace_existing_ = false;
     bool busy_ = false;
