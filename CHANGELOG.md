@@ -193,7 +193,9 @@ preflight until it reports `READY`.
 10. desktop actions resolve KDE services and URLs through KIO launcher jobs,
    preserving desktop activation and reporting asynchronous launch failures;
 11. previous-version breadcrumbs show the selected source path, and restore
-   launches preserve `btrfsbackup:` row URLs instead of copying them locally.
+   launches preserve `btrfsbackup:` row URLs instead of copying them locally;
+12. the restore dialog keeps long destinations inside the window and presents
+   the entry type, size, modification time and backup date before restoring.
 
 ### Manager And Desktop Reliability
 

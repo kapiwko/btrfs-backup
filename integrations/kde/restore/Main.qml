@@ -9,10 +9,10 @@ Kirigami.ApplicationWindow {
     id: root
 
     required property var controller
-    width: 620
-    height: 430
-    minimumWidth: 420
-    minimumHeight: 360
+    width: 680
+    height: 520
+    minimumWidth: 520
+    minimumHeight: 430
     title: translations.i18n("Restore %1", root.controller.sourceName)
     visible: true
 
