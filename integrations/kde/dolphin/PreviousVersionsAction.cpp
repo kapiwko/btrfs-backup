@@ -158,14 +158,12 @@ void PreviousVersionsAction::resolve_and_open(const QString& local_path, QWidget
             if (selected_index < 0)
                 return;
         }
-        const auto& selected = coverage->at(selected_index);
-        QUrl url;
-        url.setScheme(u"btrfsbackup"_s);
-        QString path = u"/"_s + selected.profile_id + u"/.versions/"_s + selected.source_id;
-        if (selected.relative_path != u"."_s)
-            path += u"/"_s + selected.relative_path;
-        url.setPath(path);
-        auto* job = new KIO::OpenUrlJob(url, u"inode/directory"_s, this);
+        const auto url = btrfsbackup::kde::dolphin::select_previous_versions_url(*coverage, selected_index);
+        if (!url) {
+            show_service_error(parent.data());
+            return;
+        }
+        auto* job = new KIO::OpenUrlJob(*url, u"inode/directory"_s, this);
         connect(job, &KJob::result, this, [parent](KJob* completed) {
             if (completed->error() != 0)
                 show_service_error(parent.data());

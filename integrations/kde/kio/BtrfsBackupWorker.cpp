@@ -362,13 +362,10 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
         entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, snapshot.created_at.toSecsSinceEpoch());
         entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(remote->mode & 0777));
         entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(*remote));
-        QUrl target;
-        target.setScheme(u"btrfsbackup"_s);
-        QString target_path = u"/"_s + url.profile + u"/"_s + snapshot.id;
-        if (requested != u"."_s)
-            target_path += u"/"_s + requested;
-        target.setPath(target_path);
-        entry.fastInsert(KIO::UDSEntry::UDS_URL, target.toString(QUrl::FullyEncoded));
+        const auto target = btrfsbackup::kde::kio::version_target_url(url.profile, snapshot.id, requested);
+        if (!target)
+            continue;
+        entry.fastInsert(KIO::UDSEntry::UDS_URL, target->toString(QUrl::FullyEncoded));
         entries.push_back(std::move(entry));
     }
     listEntries(entries);

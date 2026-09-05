@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QHash>
 #include <QString>
+#include <QUrl>
 
 #include <optional>
 #include <vector>
@@ -28,6 +29,11 @@ struct RepositorySnapshot {
     const QHash<QString, RepositorySnapshot>& snapshots,
     const QString& profile_id,
     const QString& source_id
+);
+[[nodiscard]] std::optional<QUrl> version_target_url(
+    const QString& profile_id,
+    const QString& snapshot_id,
+    const QString& requested_path
 );
 
 } // namespace btrfsbackup::kde::kio

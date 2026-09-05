@@ -10,6 +10,7 @@
 #include "RepositoryCatalogDecoder.hpp"
 #include "RestoreErrorPresentation.hpp"
 #include "RestoreJob.hpp"
+#include "RestoreSource.hpp"
 
 #include <KIO/OpenUrlJob>
 #include <KLocalizedString>
@@ -62,17 +63,17 @@ class BrowseOperationPin final {
 
 RestoreController::RestoreController(QUrl source_url, QObject* parent)
     : QObject(parent), source_url_(std::move(source_url)) {
-    const QStringList parts = source_url_.path(QUrl::FullyDecoded).split(u'/', Qt::SkipEmptyParts);
-    if (source_url_.scheme() != u"btrfsbackup"_s || parts.size() < 2 || parts.at(1) == u".versions"_s) {
+    const auto source = parse_restore_source(source_url_);
+    if (!source) {
         set_error(
             btrfsbackup::restore::RestoreErrorCode::PathInvalid,
             QStringLiteral("the selected backup URL is invalid")
         );
         return;
     }
-    profile_id_ = parts.at(0);
-    snapshot_id_ = parts.at(1);
-    relative_path_ = parts.size() > 2 ? parts.mid(2).join(u'/') : u"."_s;
+    profile_id_ = source->profile_id;
+    snapshot_id_ = source->snapshot_id;
+    relative_path_ = source->relative_path;
     const QString name = relative_path_ == u"."_s ? snapshot_id_ : QFileInfo(relative_path_).fileName();
     destination_ = QDir::cleanPath(QDir::homePath() + u"/Downloads/"_s + name);
 }

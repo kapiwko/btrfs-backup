@@ -145,6 +145,8 @@ qt_add_executable(btrfs-backup-kde-restore
     restore/RestoreErrorPresentation.hpp
     restore/RestoreJob.cpp
     restore/RestoreJob.hpp
+    restore/RestoreSource.cpp
+    restore/RestoreSource.hpp
     models/ByteFormatting.cpp
     models/ByteFormatting.hpp
 )
@@ -482,10 +484,54 @@ if(BUILD_TESTING)
         dolphin/tests/PreviousVersionsSelectionTests.cpp
     )
     target_compile_features(dolphin-previous-versions-selection-tests PRIVATE cxx_std_23)
-    target_include_directories(dolphin-previous-versions-selection-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/dolphin)
-    target_link_libraries(dolphin-previous-versions-selection-tests PRIVATE Qt6::Core)
+    target_include_directories(
+        dolphin-previous-versions-selection-tests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/client
+            ${CMAKE_CURRENT_SOURCE_DIR}/dolphin
+    )
+    target_link_libraries(
+        dolphin-previous-versions-selection-tests
+        PRIVATE
+            btrfsbackup_kde_manager_client
+            Qt6::Core
+    )
     add_test(NAME dolphin-previous-versions-selection COMMAND dolphin-previous-versions-selection-tests)
     set_tests_properties(dolphin-previous-versions-selection PROPERTIES LABELS "kde;dolphin")
+
+    add_executable(dolphin-previous-versions-journey-tests
+        dolphin/PreviousVersionsSelection.cpp
+        dolphin/tests/PreviousVersionsJourneyTests.cpp
+        kio/RepositorySnapshotModel.cpp
+        kio/RepositorySnapshotModel.hpp
+        restore/RestoreSource.cpp
+        restore/RestoreSource.hpp
+    )
+    target_compile_features(dolphin-previous-versions-journey-tests PRIVATE cxx_std_23)
+    target_include_directories(
+        dolphin-previous-versions-journey-tests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/client
+            ${CMAKE_CURRENT_SOURCE_DIR}/dolphin
+            ${CMAKE_CURRENT_SOURCE_DIR}/kio
+            ${CMAKE_CURRENT_SOURCE_DIR}/launcher
+            ${CMAKE_CURRENT_SOURCE_DIR}/restore
+    )
+    target_link_libraries(
+        dolphin-previous-versions-journey-tests
+        PRIVATE
+            btrfsbackup_kde_desktop_launcher
+            btrfsbackup_kde_manager_client
+            Qt6::Core
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(
+            dolphin-previous-versions-journey-tests
+            PRIVATE -fexceptions -Wall -Wextra -Wpedantic
+        )
+    endif()
+    add_test(NAME dolphin-previous-versions-journey COMMAND dolphin-previous-versions-journey-tests)
+    set_tests_properties(dolphin-previous-versions-journey PROPERTIES LABELS "kde;dolphin;kio;restore")
 
     add_executable(kio-btrfsbackup-metadata-tests kio/tests/PluginMetadataTests.cpp)
     target_compile_features(kio-btrfsbackup-metadata-tests PRIVATE cxx_std_23)
@@ -650,6 +696,7 @@ if(BUILD_TESTING)
     add_dependencies(
         btrfs-backup-kde-tests
         dolphin-previous-versions-selection-tests
+        dolphin-previous-versions-journey-tests
         kde-desktop-launcher-tests
         kde-manager-api-tests
         kde-restore-job-tests
