@@ -14,6 +14,7 @@ Kirigami.Page {
     property bool technicalDetailsVisible: false
     signal closeRequested()
     title: translations.i18n("Restore from backup")
+    Component.onCompleted: root.controller.loadDetails()
 
     KI18n.KI18nContext {
         id: translations
@@ -26,35 +27,74 @@ Kirigami.Page {
         spacing: Kirigami.Units.largeSpacing
         visible: !root.controller.completed
 
-        Kirigami.FormLayout {
+        Kirigami.AbstractCard {
             Layout.fillWidth: true
 
-            QQC2.Label {
-                Kirigami.FormData.label: translations.i18n("Source:")
-                text: root.controller.sourceName
-                elide: Text.ElideMiddle
-                Layout.fillWidth: true
-            }
+            contentItem: ColumnLayout {
+                spacing: Kirigami.Units.smallSpacing
 
-            RowLayout {
-                Kirigami.FormData.label: translations.i18n("Destination:")
-                Layout.fillWidth: true
-                QQC2.Button {
+                QQC2.Label {
+                    objectName: "restoreSourceName"
                     Layout.fillWidth: true
-                    text: root.controller.destination
-                    icon.name: "folder-open-symbolic"
-                    display: QQC2.AbstractButton.TextBesideIcon
-                    Accessible.name: translations.i18n("Choose destination")
-                    onClicked: root.controller.chooseDestination()
-                    QQC2.ToolTip.visible: hovered
-                    QQC2.ToolTip.text: root.controller.destination
+                    text: root.controller.sourceName
+                    elide: Text.ElideMiddle
+                    font.weight: Font.DemiBold
+                    font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.1
+                }
+
+                GridLayout {
+                    objectName: "restoreSourceDetails"
+                    visible: root.controller.sourceDetailsAvailable
+                    columns: 2
+                    columnSpacing: Kirigami.Units.largeSpacing
+                    rowSpacing: Kirigami.Units.smallSpacing
+
+                    QQC2.Label { text: translations.i18n("Type:"); opacity: 0.7 }
+                    QQC2.Label { text: root.controller.sourceType }
+                    QQC2.Label { text: translations.i18n("Size:"); opacity: 0.7 }
+                    QQC2.Label { text: root.controller.sourceSize }
+                    QQC2.Label { text: translations.i18n("Modified:"); opacity: 0.7 }
+                    QQC2.Label { text: root.controller.sourceModified }
+                    QQC2.Label { text: translations.i18n("Backup date:"); opacity: 0.7 }
+                    QQC2.Label { text: root.controller.snapshotCreated }
                 }
             }
+        }
 
-            QQC2.Label {
-                Kirigami.FormData.label: translations.i18n("Metadata:")
-                text: translations.i18n("Preserve and verify")
+        QQC2.Label {
+            text: translations.i18n("Restore to")
+            font.weight: Font.DemiBold
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+
+            QQC2.TextField {
+                objectName: "restoreDestinationField"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                text: root.controller.destination
+                readOnly: true
+                selectByMouse: true
+                Accessible.name: translations.i18n("Restore destination")
+                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.text: root.controller.destination
             }
+            QQC2.Button {
+                objectName: "chooseRestoreDestinationButton"
+                Layout.fillWidth: false
+                icon.name: "folder-open-symbolic"
+                text: translations.i18n("Choose…")
+                Accessible.name: translations.i18n("Choose destination")
+                onClicked: root.controller.chooseDestination()
+            }
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            text: translations.i18n("File ownership, permissions and timestamps will be preserved and verified.")
+            wrapMode: Text.Wrap
+            opacity: 0.75
         }
 
         Kirigami.InlineMessage {
