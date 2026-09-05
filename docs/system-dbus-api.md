@@ -109,10 +109,13 @@ initial call returns after the secret has been copied into protected memory.
 Clients poll the operation document and may cancel only while `canCancel` is
 true. The daemon revalidates the selected disk path, size, serial, mount state
 and initial Btrfs source after polkit authorization and before erasing data.
-Source selection uses a short-lived opaque `sourceCandidateId`; the manager
-derives `localSnapshotDir` below that source's Btrfs mount and the helper
-revalidates both paths against the recorded filesystem UUID before its first
-storage write.
+Source selection uses short-lived opaque candidate identifiers. A preparation
+request may contain a `sources` array with `candidateId`, display `name`,
+`localRetention`, and `remoteRetention` for each source. The legacy
+`sourceCandidateId` field remains accepted as a single source. The manager
+derives every `localSnapshotDir` below the corresponding Btrfs mount and the
+helper revalidates all paths against their recorded filesystem UUIDs before its
+first storage write.
 Recovery isolates an unreadable or invalid transaction and reports only the
 stable `device-preparation.transaction-corrupted` error with phase
 `manual-intervention-required`; the original record remains root-private for

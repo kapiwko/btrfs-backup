@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -15,9 +16,12 @@ namespace btrfsbackup::config::wizard {
 
 struct ProfileWizardSourceAnswers {
     std::string id;
+    std::string name;
     std::string subvolume;
     std::string local_snapshot_dir;
     std::string remote_subdir;
+    std::optional<std::size_t> local_retention;
+    std::optional<std::size_t> remote_retention;
 };
 
 struct ProfileWizardAnswers {

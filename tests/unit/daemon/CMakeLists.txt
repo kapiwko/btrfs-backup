@@ -133,6 +133,7 @@ add_btrfsbackup_test(
     DevicePreparationTransactionTests.cpp
     device-preparation-transaction-tests
     btrfsbackup-daemon-system-control
+    btrfsbackup-config-json
 )
 
 add_btrfsbackup_test(

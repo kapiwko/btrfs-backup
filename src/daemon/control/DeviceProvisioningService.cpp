@@ -519,21 +519,44 @@ DevicePreparationStatus DeviceProvisioningService::start(
     int passphrase_fd
 ) {
     if (request.profile_id.empty() || request.profile_name.empty() || request.plan_id.empty() ||
-        request.source_candidate_id.empty() || request.passphrase_label.empty())
+        (request.sources.empty() && request.source_candidate_id.empty()) || request.passphrase_label.empty())
         throw ValidationError("device preparation request is incomplete");
     static_cast<void>(ProfileId{request.profile_id});
     if (passphrase_fd < 0)
         throw ValidationError("device preparation passphrase descriptor is invalid");
     if (request.profile_name.size() > 120 || request.passphrase_label.size() > 80)
         throw ValidationError("device preparation text is too long");
+    if (request.sources.size() > 64)
+        throw ValidationError("too many device preparation sources");
     if (topology_reader_ == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
-    const auto source = find_source_candidate(caller, request.source_candidate_id);
     DevicePreparationRequest resolved_request = request;
-    resolved_request.source_subvolume = source.path;
-    resolved_request.source_filesystem_uuid = source.filesystem_uuid;
-    resolved_request.source_mount_root = source.mount_root;
-    resolved_request.local_snapshot_dir = (std::filesystem::path(source.local_snapshot_root) / request.profile_id).string();
+    if (resolved_request.sources.empty()) {
+        resolved_request.sources.push_back({
+            .candidate_id = request.source_candidate_id,
+            .name = "Source",
+            .subvolume = {},
+            .filesystem_uuid = {},
+            .mount_root = {},
+            .local_snapshot_dir = {},
+            .local_retention = 30,
+            .remote_retention = 30,
+        });
+    }
+    std::set<std::string> selected_candidates;
+    for (auto& requested_source : resolved_request.sources) {
+        if (requested_source.candidate_id.empty() || requested_source.name.empty() ||
+            requested_source.name.size() > 160 || requested_source.local_retention == 0 ||
+            requested_source.local_retention > 100000 || requested_source.remote_retention > 100000 ||
+            !selected_candidates.insert(requested_source.candidate_id).second)
+            throw ValidationError("invalid device preparation source");
+        const auto source = find_source_candidate(caller, requested_source.candidate_id);
+        requested_source.subvolume = source.path;
+        requested_source.filesystem_uuid = source.filesystem_uuid;
+        requested_source.mount_root = source.mount_root;
+        requested_source.local_snapshot_dir =
+            (std::filesystem::path(source.local_snapshot_root) / request.profile_id).string();
+    }
     const auto plan = find_plan(caller, request.plan_id);
     if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice &&
         plan.mode != provisioning::ProvisioningMode::ReformatExistingPartition &&

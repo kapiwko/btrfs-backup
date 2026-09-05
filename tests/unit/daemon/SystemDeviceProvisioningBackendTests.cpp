@@ -45,6 +45,24 @@ using btrfsbackup::daemon::control::IExistingTargetInspector;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
 
+btrfsbackup::provisioning::DevicePreparationSource source(
+    std::string subvolume = "/home",
+    std::string name = "Source",
+    std::size_t local_retention = 30,
+    std::size_t remote_retention = 30
+) {
+    return {
+        .candidate_id = {},
+        .name = std::move(name),
+        .subvolume = std::move(subvolume),
+        .filesystem_uuid = {},
+        .mount_root = {},
+        .local_snapshot_dir = {},
+        .local_retention = local_retention,
+        .remote_retention = remote_retention,
+    };
+}
+
 DevicePreparationTarget target(btrfsbackup::provisioning::StorageDevice device) {
     return {
         .device = std::move(device),
@@ -464,6 +482,7 @@ void write_source_mountinfo(const std::filesystem::path& root) {
         root / "mountinfo",
         "21 31 0:20 / / rw,relatime - btrfs /dev/source-root rw,subvolid=5\n"
         "22 21 0:21 / /home rw,relatime - btrfs /dev/source-home rw,subvolid=5\n"
+        "23 21 0:22 / /srv/work rw,relatime - btrfs /dev/source-work rw,subvolid=5\n"
     );
 }
 
@@ -472,6 +491,8 @@ std::string source_filesystem_uuid(const std::string& source) {
         return "root-btrfs-uuid";
     if (source == "/dev/source-home")
         return "home-btrfs-uuid";
+    if (source == "/dev/source-work")
+        return "work-btrfs-uuid";
     if (source == "/dev/nested")
         return "nested-btrfs-uuid";
     return {};
@@ -530,12 +551,15 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto source_candidates = backend.list_source_candidates();
     test_helpers::expect_true(
         "source candidates retain filesystem identities",
-        source_candidates.size() == 2 && source_candidates.at(0).path == "/" &&
+        source_candidates.size() == 3 && source_candidates.at(0).path == "/" &&
             source_candidates.at(0).filesystem_uuid == "root-btrfs-uuid" &&
             source_candidates.at(0).local_snapshot_root == "/.snapshots/btrfs-backup" &&
             source_candidates.at(1).path == "/home" &&
             source_candidates.at(1).filesystem_uuid == "home-btrfs-uuid" &&
-            source_candidates.at(1).local_snapshot_root == "/home/.snapshots/btrfs-backup",
+            source_candidates.at(1).local_snapshot_root == "/home/.snapshots/btrfs-backup" &&
+            source_candidates.at(2).path == "/srv/work" &&
+            source_candidates.at(2).filesystem_uuid == "work-btrfs-uuid" &&
+            source_candidates.at(2).local_snapshot_root == "/srv/work/.snapshots/btrfs-backup",
         "source candidates did not distinguish root and separate Btrfs filesystems"
     );
     const auto reject_nested_source_mount = [&](const std::string& filesystem_type) {
@@ -555,7 +579,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
                     .profile_id = "invalid-source-root",
                     .profile_name = "Invalid source root",
                     .plan_id = "plan-invalid-source",
-                    .source_subvolume = "/home",
+                    .sources = {source()},
                     .passphrase_label = "Recovery",
                 },
                 target(topology.scan().devices.front()),
@@ -586,7 +610,10 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             .profile_id = "test",
             .profile_name = "Test backup",
             .plan_id = "plan-test",
-            .source_subvolume = "/home",
+            .sources = {
+                source("/home", "Home files", 7, 14),
+                source("/srv/work", "Work files", 10, 20),
+            },
             .passphrase_label = "Recovery",
             .create_automatic_key = true,
         },
@@ -610,7 +637,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
                 .profile_id = "test",
                 .profile_name = "Duplicate",
                 .plan_id = "plan-duplicate",
-                .source_subvolume = "/home",
+                .sources = {source()},
                 .passphrase_label = "Recovery",
             },
             preparation_target,
@@ -669,11 +696,18 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
                                        .profile;
     test_helpers::expect_true(
         "local snapshots bound to source filesystem",
-        completed_transaction.source_filesystem_uuid == "home-btrfs-uuid" &&
-            completed_transaction.source_mount_root == "/home" &&
-            completed_transaction.local_snapshot_dir == "/home/.snapshots/btrfs-backup/test" &&
+        completed_transaction.sources.size() == 2 &&
+            completed_transaction.sources.front().filesystem_uuid == "home-btrfs-uuid" &&
+            completed_transaction.sources.front().mount_root == "/home" &&
+            completed_transaction.sources.front().local_snapshot_dir ==
+                "/home/.snapshots/btrfs-backup/test" &&
             installed_profile.sources.front().local_snapshot_dir.value() ==
-                std::filesystem::path("/home/.snapshots/btrfs-backup/test"),
+                std::filesystem::path("/home/.snapshots/btrfs-backup/test") &&
+            installed_profile.sources.at(0).name == "Home files" &&
+            installed_profile.sources.at(0).local_retention.value() == 7 &&
+            installed_profile.sources.at(1).name == "Work files" &&
+            installed_profile.sources.at(1).subvolume.value() == "/srv/work" &&
+            installed_profile.sources.at(1).remote_retention.value() == 20,
         "profile local snapshot directory was not derived from the source Btrfs mount"
     );
     const int existing_secret = secret_descriptor(password);
@@ -684,7 +718,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
                 .profile_id = "test",
                 .profile_name = "Existing",
                 .plan_id = "plan-existing",
-                .source_subvolume = "/home",
+                .sources = {source()},
                 .passphrase_label = "Recovery",
             },
             preparation_target,
@@ -706,7 +740,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             .profile_id = "cancelled",
             .profile_name = "Cancelled",
             .plan_id = "plan-cancelled",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
         },
         preparation_target,
@@ -837,7 +871,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             .profile_id = "unsupported",
             .profile_name = "Unsupported table",
             .plan_id = "plan-unsupported",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
             .create_automatic_key = false,
         },
@@ -911,7 +945,7 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
             .profile_id = "test",
             .profile_name = "Partition backup",
             .plan_id = "plan-partition",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
             .create_automatic_key = false,
         },
@@ -1007,7 +1041,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
             .profile_id = "test",
             .profile_name = "Free-space backup",
             .plan_id = "plan-free-space",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
             .create_automatic_key = false,
         },
@@ -1155,7 +1189,7 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
             .profile_id = "adopted",
             .profile_name = "Adopted backup",
             .plan_id = "plan-adoption",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Existing passphrase",
             .create_automatic_key = true,
         },
@@ -1202,7 +1236,7 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
             .profile_id = "changed",
             .profile_name = "Changed backup",
             .plan_id = "plan-changed",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Existing passphrase",
         },
         selected,
@@ -1295,7 +1329,7 @@ void test_exited_helper_marks_transaction_interrupted() {
             .profile_id = "helper-exited",
             .profile_name = "Helper exited",
             .plan_id = "plan-helper-exited",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
         },
         preparation_target,
@@ -1384,7 +1418,7 @@ void test_replacement_before_wipe_is_rejected() {
             .profile_id = "replacement",
             .profile_name = "Replacement",
             .plan_id = "plan-replacement",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
         },
         preparation_target,
@@ -1421,7 +1455,7 @@ void test_replacement_before_wipe_is_rejected() {
             .profile_id = "source-replacement",
             .profile_name = "Source replacement",
             .plan_id = "plan-source-replacement",
-            .source_subvolume = "/home",
+            .sources = {source()},
             .passphrase_label = "Recovery",
         },
         source_replacement_target,
@@ -1477,10 +1511,10 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
             .partition_number = 1,
         };
     transaction.profile_name = "Test";
-    transaction.source_subvolume = "/home";
-    transaction.source_filesystem_uuid = "home-btrfs-uuid";
-    transaction.source_mount_root = "/home";
-    transaction.local_snapshot_dir = "/home/.snapshots/btrfs-backup/test";
+    transaction.sources = {source()};
+    transaction.sources.front().filesystem_uuid = "home-btrfs-uuid";
+    transaction.sources.front().mount_root = "/home";
+    transaction.sources.front().local_snapshot_dir = "/home/.snapshots/btrfs-backup/test";
     transaction.passphrase_label = "Recovery";
     transaction.created_at = 100;
     transaction.updated_at = 100;

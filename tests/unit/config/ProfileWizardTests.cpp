@@ -89,9 +89,12 @@ btrfsbackup::config::wizard::ProfileWizardAnswers sample_answers() {
         },
         {
             .id = "home",
+            .name = "Home files",
             .subvolume = "/home",
             .local_snapshot_dir = "/.snapshots/btrfs-backup/home",
             .remote_subdir = "home",
+            .local_retention = 7,
+            .remote_retention = 14,
         },
     };
     answers.remote_retention = 45;
@@ -127,8 +130,10 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");
     test_helpers::expect_eq("wizard first source id", std::string(profile.sources.at(0).id.value()), "root");
     test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume.value().string(), "/home");
+    test_helpers::expect_eq("wizard second source name", profile.sources.at(1).name, "Home files");
     test_helpers::expect_eq("wizard source remote retention", std::to_string(profile.sources.at(0).remote_retention.value()), "45");
-    test_helpers::expect_eq("wizard source local retention", std::to_string(profile.sources.at(1).local_retention.value()), "12");
+    test_helpers::expect_eq("wizard source local retention", std::to_string(profile.sources.at(1).local_retention.value()), "7");
+    test_helpers::expect_eq("wizard source override retention", std::to_string(profile.sources.at(1).remote_retention.value()), "14");
     test_helpers::expect_true("wizard daily limit", !profile.settings.daily_limit, "daily limit should follow answers");
     test_helpers::expect_true("wizard keep failed snapshot", profile.settings.keep_failed_local_snapshot, "keep failed snapshot should follow answers");
     test_helpers::expect_true("wizard auto eject", !profile.settings.auto_eject, "auto eject should follow answers");

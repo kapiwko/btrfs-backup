@@ -5,6 +5,7 @@
 #include <daemon/control/DevicePreparationTransactionStore.hpp>
 
 #include <core/Errors.hpp>
+#include <config/json/Json.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -92,10 +93,16 @@ DevicePreparationTransaction transaction(
         .suitable_for_adoption = true,
     };
     value.profile_name = "Test";
-    value.source_subvolume = "/home";
-    value.source_filesystem_uuid = "source-btrfs-uuid";
-    value.source_mount_root = "/home";
-    value.local_snapshot_dir = "/home/.snapshots/btrfs-backup/test";
+    value.sources = {{
+        .candidate_id = {},
+        .name = "Home",
+        .subvolume = "/home",
+        .filesystem_uuid = "source-btrfs-uuid",
+        .mount_root = "/home",
+        .local_snapshot_dir = "/home/.snapshots/btrfs-backup/test",
+        .local_retention = 7,
+        .remote_retention = 14,
+    }};
     value.passphrase_label = "Recovery";
     value.created_at = updated_at - 10;
     value.updated_at = updated_at;
@@ -115,6 +122,16 @@ DevicePreparationTransaction transaction(
 
 void test_codec_owns_schema_and_validation() {
     DevicePreparationTransaction value = transaction("prepare-codec", "running", now_seconds());
+    value.sources.push_back({
+        .candidate_id = {},
+        .name = "Work",
+        .subvolume = "/srv/work",
+        .filesystem_uuid = "work-btrfs-uuid",
+        .mount_root = "/srv/work",
+        .local_snapshot_dir = "/srv/work/.snapshots/btrfs-backup/test",
+        .local_retention = 10,
+        .remote_retention = 20,
+    });
     value.revision = TransactionRevision{7};
     const DevicePreparationTransactionCodec codec;
     const std::string document = codec.serialize(value);
@@ -122,7 +139,7 @@ void test_codec_owns_schema_and_validation() {
     test_helpers::expect_true(
         "codec round trip",
         decoded.revision == value.revision && decoded.status.operation_id == value.status.operation_id &&
-            decoded.target.partition == value.target.partition && decoded.source_filesystem_uuid == value.source_filesystem_uuid &&
+            decoded.target.partition == value.target.partition && decoded.sources == value.sources &&
             decoded.device.mounted == value.device.mounted && decoded.device.contains_data == value.device.contains_data,
         "transaction codec changed persisted state"
     );
@@ -138,6 +155,27 @@ void test_codec_owns_schema_and_validation() {
         test_helpers::fail("codec previous schema", "the previous unreleased transaction schema was accepted");
     } catch (const btrfsbackup::ValidationError&) {
     }
+}
+
+void test_codec_migrates_single_source_transaction() {
+    auto value = transaction("prepare-single-source", "running", now_seconds());
+    value.revision = TransactionRevision{3};
+    const DevicePreparationTransactionCodec codec;
+    auto document = btrfsbackup::config::json::Json::parse(codec.serialize(value));
+    document.erase("sources");
+    document["sourceSubvolume"] = "/home";
+    document["sourceFilesystemUuid"] = "source-btrfs-uuid";
+    document["sourceMountRoot"] = "/home";
+    document["localSnapshotDir"] = "/home/.snapshots/btrfs-backup/test";
+    const auto decoded = codec.deserialize(document.dump());
+    test_helpers::expect_true(
+        "single source transaction migration",
+        decoded.sources.size() == 1 && decoded.sources.front().name == "Source" &&
+            decoded.sources.front().subvolume == "/home" &&
+            decoded.sources.front().filesystem_uuid == "source-btrfs-uuid" &&
+            decoded.sources.front().local_retention == 30,
+        "legacy scalar source fields were not migrated"
+    );
 }
 
 void test_round_trip_preserves_recovery_state() {
@@ -170,11 +208,11 @@ void test_round_trip_preserves_recovery_state() {
     test_helpers::expect_eq("LUKS UUID", value.luks_uuid, "luks-uuid");
     test_helpers::expect_eq("mapper", value.mapper, "btrfs-backup-test");
     test_helpers::expect_eq("profile reservation", value.profile_reservation_state, "held");
-    test_helpers::expect_eq("source filesystem UUID", value.source_filesystem_uuid, "source-btrfs-uuid");
-    test_helpers::expect_eq("source mount root", value.source_mount_root, "/home");
+    test_helpers::expect_eq("source filesystem UUID", value.sources.front().filesystem_uuid, "source-btrfs-uuid");
+    test_helpers::expect_eq("source mount root", value.sources.front().mount_root, "/home");
     test_helpers::expect_eq(
         "local snapshot directory",
-        value.local_snapshot_dir,
+        value.sources.front().local_snapshot_dir,
         "/home/.snapshots/btrfs-backup/test"
     );
     test_helpers::expect_eq("recovery action", value.status.recovery_action, "inspect manually");
@@ -554,6 +592,7 @@ void test_unsafe_transaction_root_and_duplicate_record_are_rejected() {
 
 int main() {
     test_codec_owns_schema_and_validation();
+    test_codec_migrates_single_source_transaction();
     test_round_trip_preserves_recovery_state();
     test_revision_conflicts_and_state_transitions_are_rejected();
     test_process_updates_are_serialized_without_losing_fields();
