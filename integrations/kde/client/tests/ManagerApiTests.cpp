@@ -132,11 +132,15 @@ void test_browse_session_requires_read_only_absolute_root() {
     expect(!btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
         "schemaVersion": 1, "sessionId": "browse-1", "profileId": "default",
         "expiresAt": "2026-08-31T12:00:00Z", "readOnly": true
-    })")).has_value(), "legacy browse session was accepted");
+    })"))
+                .has_value(),
+           "legacy browse session was accepted");
     expect(!btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
         "schemaVersion": 2, "sessionId": "browse-1", "profileId": "default",
         "expiresAt": "2026-08-31T12:00:00Z", "readOnly": false
-    })")).has_value(), "writable browse session was accepted");
+    })"))
+                .has_value(),
+           "writable browse session was accepted");
 }
 
 void test_backup_coverage_is_sanitized() {

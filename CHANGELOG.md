@@ -203,7 +203,9 @@ preflight until it reports `READY`.
    hardware-matrix risk;
 8. release definitions and component packages carry and verify the read-only
    4.0 pre-upgrade profile gate while leaving normal installation, reloads and
-   profile regeneration declarative.
+   profile regeneration declarative;
+9. C++ changes across the release series follow the enforced formatting
+   contract when checked together against their remote base commit.
 
 ## 3.2.0 - 2026-08-30
 

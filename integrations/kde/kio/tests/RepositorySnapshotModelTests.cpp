@@ -29,14 +29,13 @@ int main() {
         })"));
         expect(snapshots.has_value(), "valid repository catalog was rejected");
         const auto versions = btrfsbackup::kde::kio::matching_versions(
-            *snapshots, QStringLiteral("default"), QStringLiteral("home")
+            *snapshots,
+            QStringLiteral("default"),
+            QStringLiteral("home")
         );
         expect(versions.size() == 2, "profile, source or verification filtering failed");
-        expect(versions[0].id == QStringLiteral("new") && versions[1].id == QStringLiteral("old"),
-               "versions are not newest-first");
-        expect(!btrfsbackup::kde::kio::parse_repository_snapshots(QStringLiteral(
-            R"({"schemaVersion":1,"snapshots":[{"snapshotId":"same","profileId":"default","sourceId":"home","relativePath":"a","createdAt":"2026-09-04T12:00:00Z"},{"snapshotId":"same","profileId":"default","sourceId":"home","relativePath":"b","createdAt":"2026-09-03T12:00:00Z"}]})"
-        )).has_value(), "duplicate snapshot identifier was accepted");
+        expect(versions[0].id == QStringLiteral("new") && versions[1].id == QStringLiteral("old"), "versions are not newest-first");
+        expect(!btrfsbackup::kde::kio::parse_repository_snapshots(QStringLiteral(R"({"schemaVersion":1,"snapshots":[{"snapshotId":"same","profileId":"default","sourceId":"home","relativePath":"a","createdAt":"2026-09-04T12:00:00Z"},{"snapshotId":"same","profileId":"default","sourceId":"home","relativePath":"b","createdAt":"2026-09-03T12:00:00Z"}]})")).has_value(), "duplicate snapshot identifier was accepted");
         std::cout << "ok - repository snapshot model tests\n";
         return 0;
     } catch (const std::exception& error) {
