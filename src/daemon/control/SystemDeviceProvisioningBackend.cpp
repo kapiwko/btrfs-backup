@@ -591,19 +591,30 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
 ) {
     impl_->prune_completed();
     validate_execution_target(target);
-    const SourceCandidate source = resolve_provisioning_source(
-        impl_->source_mounts.inspect(),
-        request.source_subvolume,
-        ProfileId{request.profile_id}
-    );
-    if ((!request.source_filesystem_uuid.empty() &&
-         request.source_filesystem_uuid != source.filesystem_uuid) ||
-        (!request.source_mount_root.empty() && request.source_mount_root != source.mount_root) ||
-        (!request.local_snapshot_dir.empty() && request.local_snapshot_dir != source.local_snapshot_root))
-        throw dbus::ManagerOperationError(
-            dbus::ManagerErrorCode::Conflict,
-            "device preparation source changed since selection"
+    const auto mounts = impl_->source_mounts.inspect();
+    std::vector<provisioning::DevicePreparationSource> sources = request.sources;
+    if (sources.empty())
+        throw ValidationError("device preparation requires at least one resolved source");
+    for (auto& requested_source : sources) {
+        const SourceCandidate source = resolve_provisioning_source(
+            mounts,
+            requested_source.subvolume,
+            ProfileId{request.profile_id}
         );
+        if ((!requested_source.filesystem_uuid.empty() &&
+             requested_source.filesystem_uuid != source.filesystem_uuid) ||
+            (!requested_source.mount_root.empty() && requested_source.mount_root != source.mount_root) ||
+            (!requested_source.local_snapshot_dir.empty() &&
+             requested_source.local_snapshot_dir != source.local_snapshot_root))
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "device preparation source changed since selection"
+            );
+        requested_source.subvolume = source.path;
+        requested_source.filesystem_uuid = source.filesystem_uuid;
+        requested_source.mount_root = source.mount_root;
+        requested_source.local_snapshot_dir = source.local_snapshot_root;
+    }
     const ProvisioningDevice expected_device = provisioning_device_snapshot(target.device);
     OwnedFileDescriptor secret = platform::linux::filesystem::copy_secret_to_sealed_file(passphrase_fd);
     auto state = std::make_shared<State>();
@@ -625,10 +636,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .device = expected_device,
         .target = target,
         .profile_name = request.profile_name,
-        .source_subvolume = request.source_subvolume,
-        .source_filesystem_uuid = source.filesystem_uuid,
-        .source_mount_root = source.mount_root,
-        .local_snapshot_dir = source.local_snapshot_root,
+        .sources = std::move(sources),
         .passphrase_label = request.passphrase_label,
         .create_automatic_key = target.mode == provisioning::ProvisioningMode::AdoptExistingTarget ? false : request.create_automatic_key,
         .created_at = now,

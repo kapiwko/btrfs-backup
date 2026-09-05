@@ -226,17 +226,20 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         } else if ((initial.target.mode != provisioning::ProvisioningMode::ReformatExistingPartition && initial.target.mode != provisioning::ProvisioningMode::AdoptExistingTarget) || !initial.target.partition.has_value()) {
             throw ValidationError("device preparation transaction mode is not executable");
         }
-        if (!btrfs_.is_subvolume(initial.source_subvolume))
-            throw ValidationError("selected source is not a Btrfs subvolume");
-        const SourceCandidate source = resolve_provisioning_source(
-            source_mounts_.inspect(),
-            initial.source_subvolume,
-            ProfileId{initial.status.profile_id}
-        );
-        if (source.filesystem_uuid != initial.source_filesystem_uuid ||
-            source.mount_root != initial.source_mount_root ||
-            source.local_snapshot_root != initial.local_snapshot_dir)
-            throw ValidationError("selected source filesystem changed before device preparation");
+        const auto source_mounts = source_mounts_.inspect();
+        for (const auto& selected_source : initial.sources) {
+            if (!btrfs_.is_subvolume(selected_source.subvolume))
+                throw ValidationError("selected source is not a Btrfs subvolume");
+            const SourceCandidate source = resolve_provisioning_source(
+                source_mounts,
+                selected_source.subvolume,
+                ProfileId{initial.status.profile_id}
+            );
+            if (source.filesystem_uuid != selected_source.filesystem_uuid ||
+                source.mount_root != selected_source.mount_root ||
+                source.local_snapshot_root != selected_source.local_snapshot_dir)
+                throw ValidationError("selected source filesystem changed before device preparation");
+        }
         completed(operation_id, "inspect");
         platform::linux::filesystem::FileLock device_lock(roots_.lock_root / "device-provisioning.lock");
         if (!device_lock.try_acquire())

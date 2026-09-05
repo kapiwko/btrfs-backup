@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fcntl.h>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -88,17 +89,25 @@ int run_device_preparation(int argc, char** argv) {
             "/proc/1/mountinfo",
             [](const std::string&) { return std::string{}; }
         );
-        const auto source_mount = btrfsbackup::backup::mount_at(
-            host_mounts,
-            transaction.source_mount_root
-        );
-        if (!source_mount.has_value() || source_mount->fstype != "btrfs")
-            throw std::runtime_error("device preparation source mount is unavailable");
-        const std::string source_device = block_source(source_mount->source);
-        const auto source_uuid_resolver = [source_device, uuid = transaction.source_filesystem_uuid](
-                                              const std::string& device
-                                          ) {
-            return device == source_device ? uuid : std::string{};
+        std::map<std::string, std::string> source_filesystems;
+        for (const auto& source : transaction.sources) {
+            const auto source_mount = btrfsbackup::backup::mount_at(
+                host_mounts,
+                source.mount_root
+            );
+            if (!source_mount.has_value() || source_mount->fstype != "btrfs")
+                throw std::runtime_error("device preparation source mount is unavailable");
+            const std::string source_device = block_source(source_mount->source);
+            const auto [entry, inserted] = source_filesystems.emplace(
+                source_device,
+                source.filesystem_uuid
+            );
+            if (!inserted && entry->second != source.filesystem_uuid)
+                throw std::runtime_error("device preparation source identity is inconsistent");
+        }
+        const auto source_uuid_resolver = [source_filesystems](const std::string& device) {
+            const auto source = source_filesystems.find(device);
+            return source == source_filesystems.end() ? std::string{} : source->second;
         };
 
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;

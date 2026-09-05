@@ -3,6 +3,7 @@
 
 #include <daemon/control/DevicePreparationTransactionCodec.hpp>
 
+#include <ranges>
 #include <string_view>
 
 #include <config/json/Json.hpp>
@@ -14,6 +15,31 @@ namespace {
 using config::json::Json;
 using provisioning::DevicePreparationTarget;
 using provisioning::ProvisioningDevice;
+
+Json source_json(const provisioning::DevicePreparationSource& source) {
+    return {
+        {"name", source.name},
+        {"subvolume", source.subvolume},
+        {"filesystemUuid", source.filesystem_uuid},
+        {"mountRoot", source.mount_root},
+        {"localSnapshotDir", source.local_snapshot_dir},
+        {"localRetention", source.local_retention},
+        {"remoteRetention", source.remote_retention},
+    };
+}
+
+provisioning::DevicePreparationSource parse_source(const Json& source) {
+    return {
+        .candidate_id = {},
+        .name = source.value("name", ""),
+        .subvolume = source.value("subvolume", ""),
+        .filesystem_uuid = source.value("filesystemUuid", ""),
+        .mount_root = source.value("mountRoot", ""),
+        .local_snapshot_dir = source.value("localSnapshotDir", ""),
+        .local_retention = source.value("localRetention", std::size_t{30}),
+        .remote_retention = source.value("remoteRetention", std::size_t{30}),
+    };
+}
 
 Json device_json(const ProvisioningDevice& device) {
     return {
@@ -262,10 +288,12 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"device", device_json(transaction.device)},
         {"target", target_json(transaction.target)},
         {"profileName", transaction.profile_name},
-        {"sourceSubvolume", transaction.source_subvolume},
-        {"sourceFilesystemUuid", transaction.source_filesystem_uuid},
-        {"sourceMountRoot", transaction.source_mount_root},
-        {"localSnapshotDir", transaction.local_snapshot_dir},
+        {"sources", [&] {
+             Json sources = Json::array();
+             for (const auto& source : transaction.sources)
+                 sources.push_back(source_json(source));
+             return sources;
+         }()},
         {"passphraseLabel", transaction.passphrase_label},
         {"createAutomaticKey", transaction.create_automatic_key},
         {"createdAt", transaction.created_at},
@@ -318,10 +346,22 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
         throw ValidationError("missing device preparation target snapshot");
     result.target = parse_target(value.at("target"));
     result.profile_name = value.value("profileName", "");
-    result.source_subvolume = value.value("sourceSubvolume", "");
-    result.source_filesystem_uuid = value.value("sourceFilesystemUuid", "");
-    result.source_mount_root = value.value("sourceMountRoot", "");
-    result.local_snapshot_dir = value.value("localSnapshotDir", "");
+    if (value.contains("sources") && value.at("sources").is_array()) {
+        for (const auto& source : value.at("sources"))
+            result.sources.push_back(parse_source(source));
+    }
+    if (result.sources.empty()) {
+        result.sources.push_back({
+            .candidate_id = {},
+            .name = "Source",
+            .subvolume = value.value("sourceSubvolume", ""),
+            .filesystem_uuid = value.value("sourceFilesystemUuid", ""),
+            .mount_root = value.value("sourceMountRoot", ""),
+            .local_snapshot_dir = value.value("localSnapshotDir", ""),
+            .local_retention = 30,
+            .remote_retention = 30,
+        });
+    }
     result.passphrase_label = value.value("passphraseLabel", "");
     result.create_automatic_key = value.value("createAutomaticKey", true);
     result.created_at = value.value("createdAt", std::int64_t{0});
@@ -347,9 +387,13 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.authorized_access_generation = value.value("authorizedAccessGeneration", std::uint64_t{0});
     if (result.revision.value == 0 || result.status.operation_id.empty() || result.status.profile_id.empty() ||
         result.owner.bus_name.empty() || result.created_at <= 0 ||
-        result.profile_name.empty() || result.source_subvolume.empty() || result.passphrase_label.empty() ||
-        result.source_filesystem_uuid.empty() || result.source_mount_root.empty() ||
-        result.local_snapshot_dir.empty() || result.requested_device_access.empty() ||
+        result.profile_name.empty() || result.passphrase_label.empty() || result.sources.empty() ||
+        std::ranges::any_of(result.sources, [](const auto& source) {
+            return source.name.empty() || source.subvolume.empty() || source.filesystem_uuid.empty() ||
+                source.mount_root.empty() || source.local_snapshot_dir.empty() ||
+                source.local_retention == 0 || source.local_retention > 100000 ||
+                source.remote_retention > 100000;
+        }) || result.requested_device_access.empty() ||
         result.access_generation == 0 ||
         result.authorized_access_generation > result.access_generation)
         throw ValidationError("incomplete device preparation transaction");

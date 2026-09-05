@@ -32,12 +32,21 @@ config::Profile ProvisionedProfileBuilder::build(
     answers.target_mapper_name = "backupdisk-" + transaction.status.profile_id;
     answers.target_mount_root = target_mount_root_.string();
     answers.keyfile = "none";
-    answers.sources.push_back({
-        .id = "source",
-        .subvolume = transaction.source_subvolume,
-        .local_snapshot_dir = transaction.local_snapshot_dir,
-        .remote_subdir = "source",
-    });
+    for (std::size_t index = 0; index < transaction.sources.size(); ++index) {
+        const auto& source = transaction.sources[index];
+        const std::string source_id = index == 0
+            ? "source"
+            : "source-" + std::to_string(index + 1);
+        answers.sources.push_back({
+            .id = source_id,
+            .name = source.name,
+            .subvolume = source.subvolume,
+            .local_snapshot_dir = source.local_snapshot_dir,
+            .remote_subdir = source_id,
+            .local_retention = source.local_retention,
+            .remote_retention = source.remote_retention,
+        });
+    }
     config::Profile profile = config::wizard::profile_from_wizard_answers(answers);
     profile.enabled = transaction.create_automatic_key;
     return profile;

@@ -3,14 +3,30 @@
 
 #pragma once
 
+#include <cstddef>
+#include <compare>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <provisioning/DevicePreparationPlan.hpp>
 #include <provisioning/ExistingTargetInspection.hpp>
 
 namespace btrfsbackup::provisioning {
+
+struct DevicePreparationSource {
+    std::string candidate_id;
+    std::string name;
+    std::string subvolume;
+    std::string filesystem_uuid;
+    std::string mount_root;
+    std::string local_snapshot_dir;
+    std::size_t local_retention = 30;
+    std::size_t remote_retention = 30;
+
+    auto operator<=>(const DevicePreparationSource&) const = default;
+};
 
 struct ProvisioningDevice {
     std::string path;
@@ -34,10 +50,7 @@ struct DevicePreparationRequest {
     std::string profile_name;
     std::string plan_id;
     std::string source_candidate_id;
-    std::string source_subvolume;
-    std::string source_filesystem_uuid;
-    std::string source_mount_root;
-    std::string local_snapshot_dir;
+    std::vector<DevicePreparationSource> sources;
     std::string passphrase_label;
     bool create_automatic_key = true;
 };
