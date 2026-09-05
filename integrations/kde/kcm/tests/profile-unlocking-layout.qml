@@ -54,7 +54,7 @@ Item {
             credentials.errorMessage = ""
         }
 
-        function test_methodDetailsOpenFromClick() {
+        function test_methodDetailsOpenFromActivation() {
             credentials.credentials = [{
                 id: "slot-1",
                 label: "Automatic backup key",
@@ -70,7 +70,7 @@ Item {
             verify(row !== null)
             verify(dialog !== null)
 
-            mouseClick(row)
+            row.clicked()
             wait(0)
 
             verify(dialog.visible)
