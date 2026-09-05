@@ -20,6 +20,7 @@ std::string blkid_filesystem_uuid(const std::string& source);
 std::vector<btrfsbackup::backup::MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path = "/proc/self/mountinfo");
 std::vector<btrfsbackup::backup::MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver);
 std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mountinfo_path = "/proc/self/mountinfo");
+void unmount_filesystem(const std::filesystem::path& target);
 class LinuxMountInspector final : public btrfsbackup::backup::IMountInspector {
   public:
     explicit LinuxMountInspector(

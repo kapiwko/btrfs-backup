@@ -31,6 +31,8 @@ class RecordingCommandRunner final
       public btrfsbackup::platform::linux::storage::ICryptsetupOperations {
   public:
     bool mounted = false;
+    bool mount_unit_stop_unmounts = true;
+    int mount_unit_stop_exit_code = 0;
     bool active_device_available = true;
     fs::path mapper_path;
     std::string status_device = "/dev/disk/by-uuid/target-luks";
@@ -53,8 +55,9 @@ class RecordingCommandRunner final
             return {};
         }
         if (argv.size() == 3 && argv.at(0) == "systemctl" && argv.at(1) == "stop" && argv.at(2).ends_with(".mount")) {
-            mounted = false;
-            return {};
+            if (mount_unit_stop_unmounts)
+                mounted = false;
+            return {.exit_code = mount_unit_stop_exit_code};
         }
         return {};
     }
@@ -283,6 +286,60 @@ void test_eject_closes_unmounted_mapper_after_underlying_device_disappears() {
         "stale unmounted mapper closed",
         !fs::exists(commands.mapper_path),
         "stale unmounted mapper remains open"
+    );
+    fs::remove_all(root);
+}
+
+void test_eject_directly_unmounts_stale_mount_after_mapper_disappears() {
+    fs::path root = test_helpers::test_root("target-command", "eject-stale-mount");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    commands.mounted = true;
+    commands.mount_unit_stop_unmounts = false;
+    commands.mount_unit_stop_exit_code = 1;
+    int direct_unmounts = 0;
+    btrfsbackup::cli::target::TargetExecutionServices services{
+        commands,
+        commands,
+        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
+        root / "locks",
+        root,
+        {},
+        {},
+        {},
+        {},
+        {},
+        [&](const fs::path& target) {
+            test_helpers::expect_true(
+                "stale mount direct target",
+                target == fs::path(mount_point),
+                "libmount fallback received another mount point"
+            );
+            ++direct_unmounts;
+            commands.mounted = false;
+        }
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    const int result = btrfsbackup::cli::target::target(
+        root,
+        {"eject", "--profile", "default"},
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("stale mount eject result", std::to_string(result), "0");
+    test_helpers::expect_true(
+        "stale mount direct unmount",
+        direct_unmounts == 1 && !commands.mounted,
+        "stale target mount was not directly unmounted"
+    );
+    test_helpers::expect_true(
+        "stale mount activation stop",
+        contains_call(commands, std::string("systemctl stop ") + target_unit_name),
+        "target activation was not stopped after stale mount cleanup"
     );
     fs::remove_all(root);
 }
@@ -685,6 +742,7 @@ int main() {
     test_mount_starts_unit_and_validates_target();
     test_eject_unmounts_and_stops_target_unit();
     test_eject_closes_unmounted_mapper_after_underlying_device_disappears();
+    test_eject_directly_unmounts_stale_mount_after_mapper_disappears();
     test_activation_owns_and_restores_mapper();
     test_activation_preserves_preexisting_mapper();
     test_deactivation_closes_owned_mapper_after_device_disappears();

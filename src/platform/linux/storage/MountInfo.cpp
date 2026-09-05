@@ -8,6 +8,7 @@
 #include <libmount/libmount.h>
 
 #include <cstdlib>
+#include <array>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -89,6 +90,26 @@ std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mounti
         }
     }
     return {unique.begin(), unique.end()};
+}
+
+void unmount_filesystem(const std::filesystem::path& target) {
+    std::unique_ptr<libmnt_context, decltype(&mnt_free_context)> context(
+        mnt_new_context(),
+        mnt_free_context
+    );
+    if (!context || mnt_context_set_target(context.get(), target.c_str()) != 0)
+        throw ValidationError("could not prepare unmount for " + target.string());
+
+    const int result = mnt_context_umount(context.get());
+    if (result == 0 && mnt_context_get_status(context.get()) == 1)
+        return;
+
+    std::array<char, 256> message{};
+    (void)mnt_context_get_excode(context.get(), result, message.data(), message.size());
+    throw ValidationError(
+        "could not unmount " + target.string() +
+        (message.front() == '\0' ? std::string{} : ": " + std::string(message.data()))
+    );
 }
 
 LinuxMountInspector::LinuxMountInspector(
