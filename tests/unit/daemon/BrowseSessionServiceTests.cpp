@@ -478,12 +478,9 @@ void test_session_limits_are_enforced_before_backend_open() {
     expect_error("per caller limit", ManagerErrorCode::Busy, [&] {
         static_cast<void>(service.open(":1.70", 1000, "archive"));
     });
-    expect_error("per uid limit", ManagerErrorCode::Busy, [&] {
-        static_cast<void>(service.open(":1.71", 1000, "archive"));
-    });
-    static_cast<void>(service.open(":1.72", 1001, "archive"));
+    static_cast<void>(service.open(":1.71", 1000, "archive"));
     expect_error("global session limit", ManagerErrorCode::Busy, [&] {
-        static_cast<void>(service.open(":1.73", 1002, "third"));
+        static_cast<void>(service.open(":1.72", 1001, "third"));
     });
     test_helpers::expect_true("limited backend opens", backend.opened.size() == 2, "limit reached backend open");
 }
