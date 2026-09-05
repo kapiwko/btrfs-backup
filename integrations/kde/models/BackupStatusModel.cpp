@@ -94,33 +94,41 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
         }
     });
     connect(&service_watcher_, &QDBusServiceWatcher::serviceRegistered, this, [this]() {
-        if (active_) {
+        if (active_ && shared_source_ == nullptr) {
             connectToManager();
         }
     });
     connect(&service_watcher_, &QDBusServiceWatcher::serviceUnregistered, this, [this]() {
-        if (active_) {
+        if (active_ && shared_source_ == nullptr) {
             managerUnavailable();
         }
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::profilesChanged, this, [this]() {
-        if (active_ && capabilities_verified_) {
+        if (active_ && capabilities_verified_ && shared_source_ == nullptr) {
             requestProfiles();
-            requestStatus();
-            requestDeviceState();
-            requestHistory();
+            if (!directory_only_) {
+                requestStatus();
+                requestDeviceState();
+                requestHistory();
+            }
         }
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::statusChanged, this, [this](const QString& profile_id) {
-        if (active_ && capabilities_verified_ && profile_id == profile_)
+        if (shared_source_ == nullptr)
+            emit profileStatusInvalidated(profile_id);
+        if (active_ && capabilities_verified_ && shared_source_ == nullptr && !directory_only_ && profile_id == profile_)
             requestStatus();
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::historyChanged, this, [this](const QString& profile_id) {
-        if (active_ && capabilities_verified_ && profile_id == profile_)
+        if (shared_source_ == nullptr)
+            emit profileHistoryInvalidated(profile_id);
+        if (active_ && capabilities_verified_ && shared_source_ == nullptr && !directory_only_ && profile_id == profile_)
             requestStatus();
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
-        if (active_ && capabilities_verified_ && profile_id == profile_) {
+        if (shared_source_ == nullptr)
+            emit profileDeviceStateInvalidated(profile_id);
+        if (active_ && capabilities_verified_ && shared_source_ == nullptr && !directory_only_ && profile_id == profile_) {
             requestDeviceState();
             requestProfiles();
         }
@@ -160,11 +168,18 @@ void BackupStatusModel::setProfile(const QString& profile) {
     emit historyChanged();
     emit operationChanged();
     if (active_ && capabilities_verified_) {
-        requestProfiles();
-        requestStatus();
-        requestDeviceState();
+        if (shared_source_ != nullptr) {
+            syncFromSharedSource();
+        } else {
+            requestProfiles();
+            requestStatus();
+            requestDeviceState();
+        }
     } else if (active_) {
-        connectToManager();
+        if (shared_source_ != nullptr)
+            syncFromSharedSource();
+        else
+            connectToManager();
     }
 }
 
@@ -236,11 +251,71 @@ void BackupStatusModel::setHistoryLimit(int limit) {
     emit historyLimitChanged();
 }
 
+BackupStatusModel* BackupStatusModel::sharedSource() const {
+    return shared_source_;
+}
+
+void BackupStatusModel::setSharedSource(BackupStatusModel* source) {
+    if (shared_source_ == source || source == this)
+        return;
+    if (shared_source_ != nullptr)
+        disconnect(shared_source_, nullptr, this, nullptr);
+    shared_source_ = source;
+    if (shared_source_ != nullptr) {
+        connect(shared_source_, &BackupStatusModel::managerConnectedChanged, this, &BackupStatusModel::syncFromSharedSource);
+        connect(shared_source_, &BackupStatusModel::profilesChanged, this, &BackupStatusModel::syncFromSharedSource);
+        connect(shared_source_, &BackupStatusModel::profileStatusInvalidated, this, [this](const QString& profile_id) {
+            if (active_ && capabilities_verified_ && profile_id == profile_)
+                requestStatus();
+        });
+        connect(shared_source_, &BackupStatusModel::profileHistoryInvalidated, this, [this](const QString& profile_id) {
+            if (active_ && capabilities_verified_ && profile_id == profile_) {
+                requestStatus();
+                requestHistory();
+            }
+        });
+        connect(shared_source_, &BackupStatusModel::profileDeviceStateInvalidated, this, [this](const QString& profile_id) {
+            if (active_ && capabilities_verified_ && profile_id == profile_)
+                requestDeviceState();
+        });
+        connect(shared_source_, &BackupStatusModel::sharedRefreshRequested, this, [this]() {
+            if (active_ && capabilities_verified_) {
+                requestStatus();
+                requestDeviceState();
+                requestHistory();
+            }
+        });
+    }
+    ++generation_;
+    capabilities_verified_ = false;
+    emit sharedSourceChanged();
+    if (active_) {
+        if (shared_source_ != nullptr)
+            syncFromSharedSource();
+        else
+            connectToManager();
+    }
+}
+
+bool BackupStatusModel::directoryOnly() const {
+    return directory_only_;
+}
+
+void BackupStatusModel::setDirectoryOnly(bool directory_only) {
+    if (directory_only_ == directory_only)
+        return;
+    directory_only_ = directory_only;
+    emit directoryOnlyChanged();
+}
+
 void BackupStatusModel::start() {
     active_ = true;
     history_.setProfileId(profile_);
     setLastError(QString());
-    connectToManager();
+    if (shared_source_ != nullptr)
+        syncFromSharedSource();
+    else
+        connectToManager();
 }
 
 void BackupStatusModel::stop() {
@@ -267,13 +342,21 @@ void BackupStatusModel::refreshNow() {
         return;
     }
     if (!capabilities_verified_) {
-        connectToManager();
+        if (shared_source_ != nullptr)
+            syncFromSharedSource();
+        else
+            connectToManager();
         return;
     }
-    requestProfiles();
-    requestStatus();
-    requestDeviceState();
-    requestHistory();
+    if (shared_source_ == nullptr)
+        requestProfiles();
+    if (directory_only_) {
+        emit sharedRefreshRequested();
+    } else {
+        requestStatus();
+        requestDeviceState();
+        requestHistory();
+    }
 }
 
 void BackupStatusModel::startBackup() {
@@ -375,10 +458,52 @@ void BackupStatusModel::connectToManager() {
         setManagerConnected(true);
         setLastError(QString());
         requestProfiles();
-        requestStatus();
-        requestDeviceState();
-        requestHistory();
+        if (!directory_only_) {
+            requestStatus();
+            requestDeviceState();
+            requestHistory();
+        }
     });
+}
+
+void BackupStatusModel::syncFromSharedSource() {
+    if (!active_ || shared_source_ == nullptr)
+        return;
+    if (!shared_source_->manager_connected_ || !shared_source_->capabilities_verified_) {
+        managerUnavailable();
+        return;
+    }
+    features_ = shared_source_->features_;
+    capabilities_verified_ = true;
+    setManagerConnected(true);
+    setLastError(QString());
+
+    profiles_ = shared_source_->profiles_;
+    emit profilesChanged();
+    QString profile_name;
+    bool profile_enabled = true;
+    bool configuration_valid = true;
+    QString configuration_error_code;
+    for (const QVariant& value : profiles_) {
+        const QVariantMap decoded = value.toMap();
+        if (decoded.value(QStringLiteral("profileId")).toString() == profile_) {
+            profile_name = decoded.value(QStringLiteral("name")).toString();
+            profile_enabled = decoded.value(QStringLiteral("enabled")).toBool();
+            configuration_valid = decoded.value(QStringLiteral("configurationValid"), true).toBool();
+            configuration_error_code = decoded.value(QStringLiteral("configurationErrorCode")).toString();
+            break;
+        }
+    }
+    profile_name_ = profile_name;
+    profile_enabled_ = profile_enabled;
+    configuration_valid_ = configuration_valid;
+    configuration_error_code_ = configuration_error_code;
+    run_.setCancelSupported(supports(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)));
+    target_.setStorageSupported(supports(QLatin1String(btrfsbackup::manager_protocol::feature::target_storage_usage)));
+    emit statusChanged();
+    requestStatus();
+    requestDeviceState();
+    requestHistory();
 }
 
 void BackupStatusModel::requestDeviceState() {
@@ -585,10 +710,14 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         last_operation_ = document.object().value(QStringLiteral("operation")).toString();
         operation_message_timer_.start();
         emit operationChanged();
-        requestProfiles();
-        requestStatus();
-        requestDeviceState();
-        requestHistory();
+        if (shared_source_ != nullptr) {
+            shared_source_->refreshNow();
+        } else {
+            requestProfiles();
+            requestStatus();
+            requestDeviceState();
+            requestHistory();
+        }
     });
 }
 
