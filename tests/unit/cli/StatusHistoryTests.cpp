@@ -149,8 +149,9 @@ void test_public_status_human_format() {
     test_helpers::write_file(
         root / "status" / "default" / "current.json",
         "{"
-        "\"schemaVersion\":3,"
+        "\"schemaVersion\":4,"
         "\"runId\":\"run-1\","
+        "\"operationKind\":\"backup\","
         "\"state\":\"running\","
         "\"phase\":\"transferring\","
         "\"activity\":\"transferring\","
@@ -194,6 +195,7 @@ void test_private_history_human_format() {
 std::vector<std::string> required_status_api_fields() {
     return {
         "schemaVersion",
+        "operationKind",
         "state",
         "errorCode",
         "sourceName",
@@ -252,7 +254,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     for (const std::string& field : required_status_api_fields()) {
         test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
     }
-    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 3, "wrong schema");
+    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 4, "wrong schema");
     test_helpers::expect_true("watch profile hidden", !data.contains("profileId"), "public status exposes profile id");
     test_helpers::expect_true("watch details hidden", !data.contains("details"), "public status exposes details");
     test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");

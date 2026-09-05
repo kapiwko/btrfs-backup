@@ -62,7 +62,7 @@ void test_profile_and_installation_use_cases() {
 void test_status_use_cases() {
     fs::path root = test_root("status");
     const std::string status =
-        "{\"schemaVersion\":3,\"runId\":\"run-1\",\"state\":\"running\","
+        "{\"schemaVersion\":4,\"runId\":\"run-1\",\"operationKind\":\"backup\",\"state\":\"running\","
         "\"phase\":\"transferring\",\"activity\":\"transferring\",\"canCancel\":true,\"errorCode\":\"\","
         "\"sourceName\":\"Home\",\"targetName\":\"Backup\",\"speedBps\":1,"
         "\"etaSeconds\":2,\"sourceProgress\":3,\"overallProgress\":4,"
