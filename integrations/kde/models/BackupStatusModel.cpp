@@ -4,6 +4,7 @@
 
 #include "BackupStatusModel.hpp"
 
+#include "DesktopLauncher.hpp"
 #include "ManagerApi.hpp"
 
 #include <KLocalizedString>
@@ -14,7 +15,6 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QMap>
-#include <QProcess>
 #include <QUrl>
 
 #include <algorithm>
@@ -387,9 +387,13 @@ void BackupStatusModel::setProfileEnabled(bool enabled) {
 }
 
 void BackupStatusModel::openSettings() {
-    if (!QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_btrfsbackup")})) {
-        setLastError(tr("Could not open backup settings."), QStringLiteral("desktop.settings-launch-failed"));
-    }
+    btrfsbackup::kde::launcher::launch(
+        btrfsbackup::kde::launcher::open_backup_settings(),
+        this,
+        [this](const QString&) {
+            setLastError(tr("Could not open backup settings."), QStringLiteral("desktop.settings-launch-failed"));
+        }
+    );
 }
 
 void BackupStatusModel::browseBackups() {
@@ -399,15 +403,26 @@ void BackupStatusModel::browseBackups() {
     QUrl location;
     location.setScheme(QStringLiteral("btrfsbackup"));
     location.setPath(QStringLiteral("/") + profile_);
-    if (!QProcess::startDetached(QStringLiteral("dolphin"), {location.toString()})) {
-        setLastError(tr("Could not open backup snapshots."), QStringLiteral("desktop.browser-launch-failed"));
-    }
+    btrfsbackup::kde::launcher::launch(
+        btrfsbackup::kde::launcher::open_backup_directory(std::move(location)),
+        this,
+        [this](const QString&) {
+            setLastError(tr("Could not open backup snapshots."), QStringLiteral("desktop.browser-launch-failed"));
+        }
+    );
 }
 
 void BackupStatusModel::openNotificationSettings() {
-    if (!QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_notifications")})) {
-        setLastError(tr("Could not open notification settings."), QStringLiteral("desktop.notification-settings-launch-failed"));
-    }
+    btrfsbackup::kde::launcher::launch(
+        btrfsbackup::kde::launcher::open_notification_settings(),
+        this,
+        [this](const QString&) {
+            setLastError(
+                tr("Could not open notification settings."),
+                QStringLiteral("desktop.notification-settings-launch-failed")
+            );
+        }
+    );
 }
 
 void BackupStatusModel::connectToManager() {
