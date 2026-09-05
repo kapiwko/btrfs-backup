@@ -23,6 +23,7 @@ class RestoreJob final : public KJob {
     explicit RestoreJob(
         btrfsbackup::restore::RestorePlan plan,
         std::uint64_t total_bytes = 0,
+        QString source_display_name = {},
         QObject* parent = nullptr
     );
     ~RestoreJob() noexcept override;
@@ -50,6 +51,7 @@ class RestoreJob final : public KJob {
     void finish_with_unexpected_error(QString details);
 
     btrfsbackup::restore::RestorePlan plan_;
+    QString source_display_name_;
     CancellationToken cancellation_;
     std::jthread worker_;
     std::optional<btrfsbackup::restore::RestoreErrorCode> restore_error_code_;
