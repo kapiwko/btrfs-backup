@@ -6,9 +6,9 @@ License:        GPL-3.0-or-later
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake, gcc-c++, nlohmann-json-devel, pkgconfig
-BuildRequires:  pkgconfig(blkid), pkgconfig(libcryptsetup), pkgconfig(fdisk)
+BuildRequires:  pkgconfig(libacl), pkgconfig(blkid), pkgconfig(libcryptsetup), pkgconfig(fdisk)
 BuildRequires:  pkgconfig(libmount), pkgconfig(libsystemd), pkgconfig(libudev), pkgconfig(libbtrfsutil)
-Requires:       btrfs-progs >= 6.0, coreutils, cryptsetup, polkit, systemd, util-linux
+Requires:       acl-libs, btrfs-progs >= 6.0, coreutils, cryptsetup, polkit, systemd, util-linux
 
 %description
 systemd and udev driven Btrfs send/receive backups with LUKS target validation,

@@ -4,10 +4,13 @@
 #include <daemon/control/BrowseFilesystemAccess.hpp>
 
 #include <fcntl.h>
+#include <acl/libacl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <functional>
 #include <string>
 
@@ -20,6 +23,7 @@ namespace fs = std::filesystem;
 namespace {
 
 using btrfsbackup::daemon::control::BrowseFilesystemAccess;
+using btrfsbackup::daemon::control::BrowseAccessIdentity;
 
 void expect_rejected(const std::string& name, const std::function<void()>& operation) {
     try {
@@ -103,10 +107,70 @@ void test_listing_filters_and_pages() {
     fs::remove_all(root);
 }
 
+bool set_acl(const fs::path& path, const std::string& text) {
+    acl_t acl = acl_from_text(text.c_str());
+    if (acl == nullptr) {
+        test_helpers::fail("parse ACL fixture", "cannot parse ACL fixture");
+        return false;
+    }
+    const int result = acl_set_file(path.c_str(), ACL_TYPE_ACCESS, acl);
+    const int error = errno;
+    acl_free(acl);
+    if (result == 0)
+        return true;
+    if (error == EPERM || error == ENOTSUP || error == EOPNOTSUPP)
+        return false;
+    test_helpers::fail(
+        "set ACL fixture",
+        "cannot set ACL fixture on " + path.string() + ": " + std::strerror(error)
+    );
+    return false;
+}
+
+void test_stored_permissions_and_acl_are_enforced() {
+    const fs::path root = test_helpers::test_root("browse-filesystem", "permissions");
+    test_helpers::write_file(root / "allowed.txt", "allowed");
+    test_helpers::write_file(root / "denied.txt", "denied");
+    fs::permissions(root / "allowed.txt", fs::perms::owner_read);
+    fs::permissions(root / "denied.txt", fs::perms::none);
+    const BrowseAccessIdentity owner{
+        .uid = static_cast<std::uint32_t>(getuid()),
+        .groups = {static_cast<std::uint32_t>(getgid())},
+    };
+    BrowseFilesystemAccess access;
+    test_helpers::expect_true(
+        "owner read permission",
+        access.open_file(root, "allowed.txt", &owner).valid(),
+        "stored owner read permission was rejected"
+    );
+    expect_rejected("owner read denied", [&] { (void)access.open_file(root, "denied.txt", &owner); });
+
+    const std::string acl_group = std::to_string(getgid());
+    const bool acl_fixtures_ready = set_acl(root, "u::rwx,g::---,g:" + acl_group + ":r-x,m::r-x,o::---") &&
+        set_acl(root / "allowed.txt", "u::r--,g::---,g:" + acl_group + ":r--,m::r--,o::---") &&
+        set_acl(root / "denied.txt", "u::r--,g::---,g:" + acl_group + ":r--,m::---,o::---");
+    if (!acl_fixtures_ready) {
+        fs::remove_all(root);
+        return;
+    }
+    const BrowseAccessIdentity named_group{
+        .uid = 12345,
+        .groups = {static_cast<std::uint32_t>(getgid())},
+    };
+    test_helpers::expect_true(
+        "named ACL read permission",
+        access.open_file(root, "allowed.txt", &named_group).valid(),
+        "named POSIX ACL group permission was rejected"
+    );
+    expect_rejected("ACL mask denied", [&] { (void)access.open_file(root, "denied.txt", &named_group); });
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_validated_access_and_types();
     test_listing_filters_and_pages();
+    test_stored_permissions_and_acl_are_enforced();
     return test_helpers::finish("browse filesystem access tests");
 }

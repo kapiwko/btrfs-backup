@@ -93,6 +93,7 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     };
     struct SessionMount {
         BrowseSessionMountRecord mount;
+        BrowseAccessIdentity identity;
         bool repository_cached = false;
         std::string repository_document;
         std::vector<CachedSnapshot> snapshots;
@@ -109,6 +110,10 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     void unmount(const BrowseSessionId& session_id, const std::filesystem::path& target);
     void cleanup_record(const BrowseSessionId& session_id, SessionMount& mount, bool release_live_target);
     void ensure_repository_cache(SessionMount& mount);
+    [[nodiscard]] std::pair<std::filesystem::path, std::filesystem::path> authorized_snapshot_path(
+        SessionMount& mount,
+        const std::filesystem::path& relative_path
+    );
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::backup::IMountInspector& mounts_;

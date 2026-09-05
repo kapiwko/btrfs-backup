@@ -14,10 +14,11 @@ builds, quality gates, privileged integration tests and release commands.
 
 The primary development platform is Arch Linux. A source build needs CMake, a
 C++23 compiler, `pkg-config`, `nlohmann-json`, and development files for
-`libmount`, `libblkid`, `libudev` and `libbtrfsutil`. On Arch Linux:
+`libmount`, `libblkid`, `libudev`, `libacl` and `libbtrfsutil`. On Arch Linux:
 
 ```bash
 sudo pacman -S --needed \
+  acl \
   base-devel \
   btrfs-progs \
   clang \

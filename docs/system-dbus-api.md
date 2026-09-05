@@ -314,10 +314,10 @@ Operational backup controls are allowed without a password from the active
 local session. The profile and hooks remain root-owned, so this grants control
 over an already approved backup definition, not configuration or arbitrary
 code execution. Opening a read-only browse session and resolving coverage for
-an arbitrary local path require cached administrator authentication from active
-sessions and administrator authentication from inactive and remote sessions. A successful authorization covers repository
-contents opened by the root manager, including files whose stored ownership or
-mode would deny access to the caller. An owned session may list confined entries
+an arbitrary local path are available without a password to the active local
+session; inactive and remote sessions require administrator authentication.
+The manager applies the caller's UID and supplementary groups to stored mode and
+POSIX ACL checks before opening repository contents. An owned session may list confined entries
 and receive only already-open, read-only regular-file descriptors. The daemon rejects absolute
 paths, traversal, symlinks, devices and other special files, so repository
 directory permissions never need to be weakened for Dolphin. Eject still

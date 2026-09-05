@@ -10,8 +10,8 @@ SLOT="0"
 KEYWORDS="~amd64"
 
 BDEPEND="dev-build/cmake dev-build/pkgconf"
-DEPEND="dev-cpp/nlohmann_json >=sys-fs/btrfs-progs-6.0 sys-fs/cryptsetup sys-apps/systemd sys-apps/util-linux"
-RDEPEND=">=sys-fs/btrfs-progs-6.0 sys-fs/cryptsetup sys-apps/coreutils sys-auth/polkit sys-apps/systemd sys-apps/util-linux"
+DEPEND="dev-cpp/nlohmann_json >=sys-fs/btrfs-progs-6.0 sys-fs/cryptsetup sys-apps/acl sys-apps/systemd sys-apps/util-linux"
+RDEPEND=">=sys-fs/btrfs-progs-6.0 sys-fs/cryptsetup sys-apps/acl sys-apps/coreutils sys-auth/polkit sys-apps/systemd sys-apps/util-linux"
 
 pkg_preinst() {
   local profile profiles_present=false

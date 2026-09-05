@@ -1,11 +1,11 @@
-{ lib, stdenv, cmake, pkg-config, nlohmann_json, btrfs-progs, cryptsetup, systemd, util-linux, polkit }:
+{ lib, stdenv, cmake, pkg-config, nlohmann_json, acl, btrfs-progs, cryptsetup, systemd, util-linux, polkit }:
 
 stdenv.mkDerivation {
   pname = "btrfs-backup";
   version = "@VERSION@";
   src = ./.;
   nativeBuildInputs = [ cmake pkg-config ];
-  buildInputs = [ nlohmann_json btrfs-progs cryptsetup systemd util-linux polkit ];
+  buildInputs = [ nlohmann_json acl btrfs-progs cryptsetup systemd util-linux polkit ];
   cmakeFlags = [ "-DBUILD_KDE_INTEGRATION=OFF" "-DBUILD_TESTING=OFF" ];
   meta = {
     description = "Verified Btrfs backups to an encrypted removable target";
