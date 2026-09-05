@@ -12,6 +12,7 @@
 #include <QDBusConnection>
 #include <QDBusServiceWatcher>
 #include <QObject>
+#include <QPointer>
 #include <QSet>
 #include <QString>
 #include <QTimer>
@@ -38,6 +39,8 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(QString lastErrorCode READ lastErrorCode NOTIFY errorChanged)
     Q_PROPERTY(bool browseSupported READ browseSupported NOTIFY managerConnectedChanged)
     Q_PROPERTY(int historyLimit READ historyLimit WRITE setHistoryLimit NOTIFY historyLimitChanged)
+    Q_PROPERTY(BackupStatusModel* sharedSource READ sharedSource WRITE setSharedSource NOTIFY sharedSourceChanged)
+    Q_PROPERTY(bool directoryOnly READ directoryOnly WRITE setDirectoryOnly NOTIFY directoryOnlyChanged)
 
   public:
     explicit BackupStatusModel(QObject* parent = nullptr);
@@ -61,6 +64,10 @@ class BackupStatusModel : public QObject {
     bool browseSupported() const;
     int historyLimit() const;
     void setHistoryLimit(int limit);
+    BackupStatusModel* sharedSource() const;
+    void setSharedSource(BackupStatusModel* source);
+    bool directoryOnly() const;
+    void setDirectoryOnly(bool directory_only);
 
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
@@ -84,6 +91,12 @@ class BackupStatusModel : public QObject {
     void operationChanged();
     void errorChanged();
     void historyLimitChanged();
+    void sharedSourceChanged();
+    void directoryOnlyChanged();
+    void profileStatusInvalidated(const QString& profile_id);
+    void profileHistoryInvalidated(const QString& profile_id);
+    void profileDeviceStateInvalidated(const QString& profile_id);
+    void sharedRefreshRequested();
 
   private:
     void connectToManager();
@@ -99,6 +112,7 @@ class BackupStatusModel : public QObject {
     void setManagerConnected(bool connected);
     void setLastError(const QString& message, const QString& code = {});
     void managerUnavailable();
+    void syncFromSharedSource();
 
     QString profile_ = QStringLiteral("default");
     QDBusConnection bus_;
@@ -129,4 +143,6 @@ class BackupStatusModel : public QObject {
     QString last_error_;
     QString last_error_code_;
     int history_limit_ = 3;
+    QPointer<BackupStatusModel> shared_source_;
+    bool directory_only_ = false;
 };
