@@ -8,6 +8,9 @@ The core runtime works without a desktop. An optional KDE package adds setup in
 System Settings, live progress, notifications, backup browsing in Dolphin and a
 guided restore application.
 
+See the [platform support matrix](docs/platform-support.md) for the reference
+environment and the validation level of each package format.
+
 [![Monitoring an active backup from the Plasma panel](docs/images/plasma-widget-transferring.png)](docs/images/plasma-widget-transferring.png)
 
 *Monitor transferred data, speed, remaining time and target state directly from
