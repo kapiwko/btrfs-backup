@@ -108,6 +108,14 @@ class ScreenshotManager final : public QObject {
         return QStringLiteral(R"({"accepted":true})");
     }
 
+    QString BeginBrowseOperation(const QString&) const {
+        return QStringLiteral(R"({"schemaVersion":1,"leaseId":"readme-browse-operation"})");
+    }
+
+    QString EndBrowseOperation(const QString&, const QString&) const {
+        return QStringLiteral(R"({"accepted":true})");
+    }
+
     QString ListBrowseDirectory(const QString&, const QString& path) const {
         if (path == QStringLiteral(".")) {
             return QStringLiteral(

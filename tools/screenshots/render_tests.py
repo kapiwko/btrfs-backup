@@ -15,6 +15,8 @@ from render import SCREENSHOT_TIME, deterministic_process_environment, scenario_
 from scenarios import NOTIFICATION_PANEL_SCRIPT, WIDGET_PANEL_SCRIPT
 from session import DesktopSession
 
+SCREENSHOT_MANAGER_SOURCE = (Path(__file__).parent / "kde-manager-demo.cpp").read_text()
+
 
 class ScenarioSpecsTests(unittest.TestCase):
     def test_plasma_scripts_are_external_assets(self) -> None:
@@ -46,6 +48,10 @@ class ScenarioSpecsTests(unittest.TestCase):
     def test_filters_top_level_group(self) -> None:
         specs = scenario_specs("notifications", "all")
         self.assertEqual([spec["mode"] for spec in specs], ["transfer", "completion"])
+
+    def test_dolphin_manager_supports_browse_operation_leases(self) -> None:
+        self.assertIn("BeginBrowseOperation", SCREENSHOT_MANAGER_SOURCE)
+        self.assertIn("EndBrowseOperation", SCREENSHOT_MANAGER_SOURCE)
 
     def test_session_identity_is_short_and_stable(self) -> None:
         name = "system-settings-new-profile-prepare-partition"
