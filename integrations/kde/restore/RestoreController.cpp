@@ -112,7 +112,9 @@ class BrowseOperationPin final {
     }
     BrowseOperationPin(const BrowseOperationPin&) = delete;
     BrowseOperationPin& operator=(const BrowseOperationPin&) = delete;
-    [[nodiscard]] explicit operator bool() const noexcept { return active_; }
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return active_;
+    }
 
   private:
     QString session_id_;
