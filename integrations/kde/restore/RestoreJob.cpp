@@ -16,8 +16,16 @@
 
 namespace btrfsbackup::kde::restore {
 
-RestoreJob::RestoreJob(btrfsbackup::restore::RestorePlan plan, std::uint64_t total_bytes, QObject* parent)
-    : KJob(parent), plan_(std::move(plan)), total_bytes_(total_bytes) {
+RestoreJob::RestoreJob(
+    btrfsbackup::restore::RestorePlan plan,
+    std::uint64_t total_bytes,
+    QString source_display_name,
+    QObject* parent
+)
+    : KJob(parent), plan_(std::move(plan)), source_display_name_(std::move(source_display_name)),
+      total_bytes_(total_bytes) {
+    if (source_display_name_.isEmpty())
+        source_display_name_ = QString::fromStdString(plan_.source.filename().string());
     setCapabilities(KJob::Killable);
     if (total_bytes_ > 0)
         setTotalAmount(KJob::Bytes, total_bytes_);
@@ -50,7 +58,9 @@ void RestoreJob::start() {
                 const std::uint64_t speed = elapsed > 0
                     ? progress.statistics.bytes * 1000 / static_cast<std::uint64_t>(elapsed)
                     : 0;
-                const QString current_name = QString::fromStdString(progress.current_path.filename().string());
+                const QString current_name = progress.current_path == plan_.source
+                    ? source_display_name_
+                    : QString::fromStdString(progress.current_path.filename().string());
                 QMetaObject::invokeMethod(this, [this, progress, speed, current_name] {
                     setProcessedAmount(KJob::Files, progress.statistics.files);
                     setProcessedAmount(KJob::Bytes, progress.statistics.bytes);

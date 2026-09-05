@@ -42,14 +42,19 @@ void test_success_exposes_restore_statistics() {
                                                   .existing_destination = btrfsbackup::restore::ExistingDestinationPolicy::Fail,
                                                   .destination_exists = false,
                                               },
-                                              16);
+                                              16,
+                                              QStringLiteral("source.txt"));
 
     QEventLoop loop;
     int progress_updates = 0;
+    QString current_name;
     QObject::connect(
         &job,
         &btrfsbackup::kde::restore::RestoreJob::progressChanged,
-        [&] { ++progress_updates; }
+        [&](qulonglong, qulonglong, qulonglong, const QString& name) {
+            ++progress_updates;
+            current_name = name;
+        }
     );
     QObject::connect(&job, &KJob::result, &loop, &QEventLoop::quit);
     job.start();
@@ -61,6 +66,7 @@ void test_success_exposes_restore_statistics() {
     expect(job.totalAmount(KJob::Bytes) == 16, "restore job did not expose the total byte count");
     expect(job.processedAmount(KJob::Bytes) == 16, "restore job did not expose copied bytes");
     expect(progress_updates > 0, "restore job did not report progress");
+    expect(current_name == QStringLiteral("source.txt"), "restore job exposed its file descriptor as a name");
     expect(QFile::exists(temporary.filePath(QStringLiteral("restored.txt"))), "restore destination is missing");
 }
 

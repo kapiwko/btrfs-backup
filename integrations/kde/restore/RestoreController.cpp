@@ -360,7 +360,7 @@ void RestoreController::execute() {
         return;
     }
     Q_EMIT stateChanged();
-    job_ = new RestoreJob(*plan_, source_size_bytes_, this);
+    job_ = new RestoreJob(*plan_, source_size_bytes_, sourceName(), this);
     tracker_.registerJob(job_);
     connect(job_, &RestoreJob::progressChanged, this, [this](qulonglong, qulonglong bytes, qulonglong speed, const QString& current_name) {
         progress_bytes_ = bytes;
