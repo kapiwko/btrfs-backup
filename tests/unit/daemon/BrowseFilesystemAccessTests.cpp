@@ -57,6 +57,16 @@ void test_validated_access_and_types() {
         descriptor.valid() && ::read(descriptor.get(), buffer, sizeof(buffer)) == 4 && std::string(buffer, 4) == "data",
         "regular file was not opened read-only"
     );
+    test_helpers::expect_true(
+        "regular entry descriptor",
+        access.open_entry(root, "directory/file.txt").valid(),
+        "regular restore entry did not open"
+    );
+    test_helpers::expect_true(
+        "directory entry descriptor",
+        access.open_entry(root, "directory").valid(),
+        "directory restore entry did not open"
+    );
     test_helpers::expect_true("root descriptor", access.open_root(root).valid(), "browse root did not open");
 
     expect_rejected("parent traversal", [&] { (void)access.inspect_entry(root, "../outside/secret.txt"); });

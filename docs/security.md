@@ -82,11 +82,13 @@ Browse-session directories, per-UID grouping directories and read-only bind
 mount points remain owned by root with private permissions. The public session
 document contains only the opaque session identifier, profile identifier,
 expiry and read-only state; it never exposes a local mount path. KIO accesses
-entries through confined manager operations, while restore receives an `O_PATH`
-directory descriptor pinned to the verified repository root.
+entries through confined manager operations, while restore receives a descriptor
+pinned directly to the authorized file or directory inside a verified snapshot.
+The private repository layout therefore remains inaccessible to the desktop
+process and is not part of the path used by the restore engine.
 
-Each active KIO or restore operation acquires a counted session pin. Expiry and
-cleanup are permitted only after every concurrent pin has been released.
+Each active KIO or restore operation acquires an identified session lease. Expiry
+and cleanup are permitted only after every concurrent lease has been released.
 Repository traversal rejects absolute paths, `..`, symlinks and special files,
 and regular-file reads use already-open descriptors passed over D-Bus.
 

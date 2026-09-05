@@ -46,6 +46,11 @@ class BrowseFilesystemAccess final {
         const std::filesystem::path& relative_path,
         const BrowseAccessIdentity* identity = nullptr
     ) const;
+    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_entry(
+        const std::filesystem::path& root,
+        const std::filesystem::path& relative_path,
+        const BrowseAccessIdentity* identity = nullptr
+    ) const;
     [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
         const std::filesystem::path& root
     ) const;

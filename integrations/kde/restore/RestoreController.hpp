@@ -27,6 +27,11 @@ class RestoreController final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QUrl sourceUrl READ sourceUrl CONSTANT)
     Q_PROPERTY(QString sourceName READ sourceName CONSTANT)
+    Q_PROPERTY(QString sourceType READ sourceType NOTIFY sourceDetailsChanged)
+    Q_PROPERTY(QString sourceSize READ sourceSize NOTIFY sourceDetailsChanged)
+    Q_PROPERTY(QString sourceModified READ sourceModified NOTIFY sourceDetailsChanged)
+    Q_PROPERTY(QString snapshotCreated READ snapshotCreated NOTIFY sourceDetailsChanged)
+    Q_PROPERTY(bool sourceDetailsAvailable READ sourceDetailsAvailable NOTIFY sourceDetailsChanged)
     Q_PROPERTY(QString destination READ destination WRITE setDestination NOTIFY planChanged)
     Q_PROPERTY(bool replaceExisting READ replaceExisting WRITE setReplaceExisting NOTIFY planChanged)
     Q_PROPERTY(QString planSummary READ planSummary NOTIFY planChanged)
@@ -45,6 +50,11 @@ class RestoreController final : public QObject {
 
     QUrl sourceUrl() const;
     QString sourceName() const;
+    QString sourceType() const;
+    QString sourceSize() const;
+    QString sourceModified() const;
+    QString snapshotCreated() const;
+    bool sourceDetailsAvailable() const noexcept;
     QString destination() const;
     void setDestination(const QString& value);
     bool replaceExisting() const;
@@ -60,6 +70,7 @@ class RestoreController final : public QObject {
     QString restoredSize() const;
 
     Q_INVOKABLE bool preview();
+    Q_INVOKABLE void loadDetails();
     Q_INVOKABLE void chooseDestination();
     Q_INVOKABLE bool confirmOverwrite();
     Q_INVOKABLE void execute();
@@ -69,10 +80,12 @@ class RestoreController final : public QObject {
   signals:
     void planChanged();
     void stateChanged();
+    void sourceDetailsChanged();
     void overwriteConfirmationRequested(const QString& destination);
 
   private:
     bool prepare_plan();
+    void ensure_source_open();
     void clear_error();
     void set_error(btrfsbackup::restore::RestoreErrorCode code, const QString& technical_details);
     void set_unexpected_error(const QString& technical_details);
@@ -82,10 +95,14 @@ class RestoreController final : public QObject {
     QString profile_id_;
     QString snapshot_id_;
     QString relative_path_;
+    QString source_type_;
+    QString source_size_;
+    QString source_modified_;
+    QString snapshot_created_;
     QString destination_;
     QString session_id_;
     std::optional<btrfsbackup::kde::BrowseOperationLease> execution_lease_;
-    btrfsbackup::platform::linux::OwnedFileDescriptor session_root_;
+    btrfsbackup::platform::linux::OwnedFileDescriptor source_entry_;
     bool replace_existing_ = false;
     bool busy_ = false;
     bool completed_ = false;

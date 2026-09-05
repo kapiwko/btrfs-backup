@@ -21,6 +21,9 @@
 #include <QDBusPendingReply>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLocale>
 #include <QUuid>
 
 #include <limits>
@@ -90,6 +93,21 @@ QUrl RestoreController::sourceUrl() const {
 QString RestoreController::sourceName() const {
     return relative_path_ == u"."_s ? snapshot_id_ : QFileInfo(relative_path_).fileName();
 }
+QString RestoreController::sourceType() const {
+    return source_type_;
+}
+QString RestoreController::sourceSize() const {
+    return source_size_;
+}
+QString RestoreController::sourceModified() const {
+    return source_modified_;
+}
+QString RestoreController::snapshotCreated() const {
+    return snapshot_created_;
+}
+bool RestoreController::sourceDetailsAvailable() const noexcept {
+    return !source_type_.isEmpty();
+}
 QString RestoreController::destination() const {
     return destination_;
 }
@@ -147,6 +165,65 @@ void RestoreController::setReplaceExisting(bool value) {
     Q_EMIT planChanged();
 }
 
+void RestoreController::ensure_source_open() {
+    if (!catalog_) {
+        const auto session = btrfsbackup::kde::BrowseSessionClient{}.open(profile_id_);
+        if (!session || session->profile_id != profile_id_)
+            throw std::runtime_error("could not open an authorized backup browsing session");
+        session_id_ = session->session_id;
+        const BrowseOperationPin root_pin(session_id_);
+        if (!root_pin)
+            throw std::runtime_error("could not pin the backup browsing session");
+        const auto repository = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id_);
+        if (!repository)
+            throw std::runtime_error("could not inspect the backup repository");
+        catalog_.emplace(RepositoryCatalogDecoder{}.decode(*repository, "/"));
+        const auto& snapshot = catalog_->snapshot(snapshot_id_.toStdString());
+        snapshot_created_ = QLocale{}.toString(
+            QDateTime::fromSecsSinceEpoch(std::chrono::duration_cast<std::chrono::seconds>(snapshot.created_at.time_since_epoch()).count()).toLocalTime(),
+            QLocale::ShortFormat
+        );
+        std::filesystem::path entry_path = snapshot.repository_path.value();
+        if (relative_path_ != u"."_s)
+            entry_path /= relative_path_.toStdString();
+        btrfsbackup::kde::BrowseSessionClient client;
+        const auto metadata_payload = client.inspectEntry(
+            session_id_,
+            QString::fromStdString(entry_path.string())
+        );
+        const QJsonObject metadata = metadata_payload
+            ? QJsonDocument::fromJson(metadata_payload->toUtf8()).object()
+            : QJsonObject{};
+        const QString kind = metadata.value(u"kind"_s).toString();
+        if (metadata.value(u"schemaVersion"_s).toInt() != 1 ||
+            (kind != u"file"_s && kind != u"directory"_s) ||
+            !metadata.value(u"size"_s).isDouble() || !metadata.value(u"modifiedAt"_s).isDouble())
+            throw std::runtime_error("could not inspect the selected backup entry");
+        source_type_ = kind == u"directory"_s ? i18n("Folder") : i18n("File");
+        source_size_ = kind == u"directory"_s
+            ? i18n("Calculated during restore")
+            : btrfsbackup::kde::format_byte_size(metadata.value(u"size"_s).toInteger());
+        source_modified_ = QLocale{}.toString(
+            QDateTime::fromSecsSinceEpoch(metadata.value(u"modifiedAt"_s).toInteger()).toLocalTime(),
+            QLocale::ShortFormat
+        );
+        const QDBusUnixFileDescriptor entry = client.openEntry(
+            session_id_,
+            QString::fromStdString(entry_path.string())
+        );
+        if (!entry.isValid())
+            throw std::runtime_error("could not open the selected backup entry");
+        source_entry_.reset(::dup(entry.fileDescriptor()));
+        if (!source_entry_.valid())
+            throw std::runtime_error("could not retain the selected backup entry");
+        Q_EMIT sourceDetailsChanged();
+    } else {
+        const auto lease = btrfsbackup::kde::BrowseSessionClient{}.renew(session_id_);
+        if (!lease || lease->session_id != session_id_ || lease->profile_id != profile_id_)
+            throw std::runtime_error("could not renew the backup browsing session");
+    }
+}
+
 bool RestoreController::prepare_plan() {
     clear_error();
     completed_ = false;
@@ -155,41 +232,23 @@ bool RestoreController::prepare_plan() {
     try {
         if (profile_id_.isEmpty() || snapshot_id_.isEmpty() || !QDir::isAbsolutePath(destination_))
             throw std::runtime_error("restore source or destination is invalid");
-        if (!catalog_) {
-            const auto session = btrfsbackup::kde::BrowseSessionClient{}.open(profile_id_);
-            if (!session || session->profile_id != profile_id_)
-                throw std::runtime_error("could not open an authorized backup browsing session");
-            session_id_ = session->session_id;
-            const BrowseOperationPin root_pin(session_id_);
-            if (!root_pin)
-                throw std::runtime_error("could not pin the backup browsing session");
-            const QDBusUnixFileDescriptor root = btrfsbackup::kde::BrowseSessionClient{}.openRoot(session_id_);
-            if (!root.isValid())
-                throw std::runtime_error("could not open the backup browsing root");
-            session_root_.reset(::dup(root.fileDescriptor()));
-            if (!session_root_.valid())
-                throw std::runtime_error("could not retain the backup browsing root");
-            const auto repository = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id_);
-            if (!repository)
-                throw std::runtime_error("could not inspect the backup repository");
-            catalog_.emplace(RepositoryCatalogDecoder{}.decode(*repository, std::filesystem::path{"/proc/self/fd"} / std::to_string(session_root_.get())));
-        } else {
-            const auto lease = btrfsbackup::kde::BrowseSessionClient{}.renew(session_id_);
-            if (!lease || lease->session_id != session_id_ || lease->profile_id != profile_id_)
-                throw std::runtime_error("could not renew the backup browsing session");
-        }
+        ensure_source_open();
         const BrowseOperationPin planning_pin(session_id_);
         if (!planning_pin)
             throw std::runtime_error("could not pin the backup browsing session");
         btrfsbackup::restore::RestorePlanner planner;
-        plan_ = planner.plan(*catalog_, {
-                                            .transaction_id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString(),
-                                            .snapshot_id = snapshot_id_.toStdString(),
-                                            .source_path = btrfsbackup::restore::RelativeRestorePath{relative_path_.toStdString()},
-                                            .destination = destination_.toStdString(),
-                                            .kind = btrfsbackup::restore::RestoreKind::Files,
-                                            .existing_destination = replace_existing_ ? btrfsbackup::restore::ExistingDestinationPolicy::Replace : btrfsbackup::restore::ExistingDestinationPolicy::Fail,
-                                        });
+        plan_ = planner.plan_from_pinned_source(
+            *catalog_,
+            {
+                .transaction_id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString(),
+                .snapshot_id = snapshot_id_.toStdString(),
+                .source_path = btrfsbackup::restore::RelativeRestorePath{relative_path_.toStdString()},
+                .destination = destination_.toStdString(),
+                .kind = btrfsbackup::restore::RestoreKind::Files,
+                .existing_destination = replace_existing_ ? btrfsbackup::restore::ExistingDestinationPolicy::Replace : btrfsbackup::restore::ExistingDestinationPolicy::Fail,
+            },
+            std::filesystem::path{"/proc/self/fd"} / std::to_string(source_entry_.get())
+        );
         plan_summary_ = plan_->destination_exists
             ? i18n("Replace %1, preserve metadata, then verify the restored data.", destination_)
             : i18n("Restore to %1, preserve metadata, then verify the restored data.", destination_);
@@ -207,6 +266,8 @@ bool RestoreController::prepare_plan() {
             return false;
         }
         set_error(error.code(), QString::fromUtf8(error.what()));
+        if (!source_entry_.valid())
+            close_session();
         plan_.reset();
         plan_summary_.clear();
         Q_EMIT planChanged();
@@ -214,6 +275,8 @@ bool RestoreController::prepare_plan() {
         return false;
     } catch (const std::exception& error) {
         set_unexpected_error(QString::fromUtf8(error.what()));
+        if (!source_entry_.valid())
+            close_session();
         plan_.reset();
         plan_summary_.clear();
         Q_EMIT planChanged();
@@ -224,6 +287,24 @@ bool RestoreController::prepare_plan() {
 
 bool RestoreController::preview() {
     return prepare_plan();
+}
+
+void RestoreController::loadDetails() {
+    if (profile_id_.isEmpty() || snapshot_id_.isEmpty())
+        return;
+    clear_error();
+    try {
+        ensure_source_open();
+        Q_EMIT stateChanged();
+    } catch (const btrfsbackup::restore::RestoreError& error) {
+        close_session();
+        set_error(error.code(), QString::fromUtf8(error.what()));
+        Q_EMIT stateChanged();
+    } catch (const std::exception& error) {
+        close_session();
+        set_unexpected_error(QString::fromUtf8(error.what()));
+        Q_EMIT stateChanged();
+    }
 }
 
 void RestoreController::chooseDestination() {
@@ -327,7 +408,7 @@ void RestoreController::openRestoredDirectory() {
 void RestoreController::close_session() noexcept {
     if (session_id_.isEmpty())
         return;
-    session_root_.reset();
+    source_entry_.reset();
     catalog_.reset();
     try {
         btrfsbackup::kde::BrowseSessionClient sessions;

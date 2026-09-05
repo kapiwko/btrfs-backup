@@ -3,9 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <set>
 #include <string>
+
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <core/Cancellation.hpp>
 #include <platform/linux/restore/PosixRestoreOperations.hpp>
@@ -145,11 +149,11 @@ void test_rejects_traversal_and_symlink_parents() {
     btrfsbackup::restore::RestorePlanner planner;
     expect_restore_error("source symlink parent", btrfsbackup::restore::RestoreErrorCode::SymlinkRejected, [&] {
         (void)planner.plan(repository, btrfsbackup::restore::RestoreRequest{
-            .transaction_id = "tx-source-link",
-            .snapshot_id = "snapshot",
-            .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents/report.txt"},
-            .destination = root / "output/report.txt",
-        });
+                                           .transaction_id = "tx-source-link",
+                                           .snapshot_id = "snapshot",
+                                           .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents/report.txt"},
+                                           .destination = root / "output/report.txt",
+                                       });
     });
 
     const auto real_repository = catalog(root / "real");
@@ -157,11 +161,11 @@ void test_rejects_traversal_and_symlink_parents() {
     fs::create_directory_symlink(root / "outside", root / "destination-link");
     expect_restore_error("destination symlink parent", btrfsbackup::restore::RestoreErrorCode::SymlinkRejected, [&] {
         (void)planner.plan(real_repository, btrfsbackup::restore::RestoreRequest{
-            .transaction_id = "tx-destination-link",
-            .snapshot_id = "snapshot",
-            .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents/report.txt"},
-            .destination = root / "destination-link/report.txt",
-        });
+                                                .transaction_id = "tx-destination-link",
+                                                .snapshot_id = "snapshot",
+                                                .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents/report.txt"},
+                                                .destination = root / "destination-link/report.txt",
+                                            });
     });
 }
 
@@ -172,11 +176,11 @@ void test_rejects_symlink_entries_and_cleans_staging() {
     const auto repository = catalog(root / "repository");
     btrfsbackup::restore::RestorePlanner planner;
     const auto plan = planner.plan(repository, btrfsbackup::restore::RestoreRequest{
-        .transaction_id = "tx-entry-link",
-        .snapshot_id = "snapshot",
-        .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents"},
-        .destination = root / "output/Documents",
-    });
+                                                   .transaction_id = "tx-entry-link",
+                                                   .snapshot_id = "snapshot",
+                                                   .source_path = btrfsbackup::restore::RelativeRestorePath{"Documents"},
+                                                   .destination = root / "output/Documents",
+                                               });
     btrfsbackup::platform::linux::restore::PosixRestoreOperations operations;
     btrfsbackup::restore::RestoreExecutor executor(operations);
     btrfsbackup::CancellationToken cancellation;
@@ -185,6 +189,39 @@ void test_rejects_symlink_entries_and_cleans_staging() {
     });
     test_helpers::expect_true("symlink staging cleanup", !fs::exists(plan.staging), "rejected restore left staging data");
     test_helpers::expect_true("symlink destination absent", !fs::exists(plan.destination), "rejected restore published data");
+}
+
+void test_plans_from_a_pinned_source_descriptor() {
+    const fs::path root = test_helpers::test_root("restore-safety", "pinned-source");
+    const fs::path source = root / "layout/private/snapshot/report.txt";
+    test_helpers::write_file(source, "content");
+    const int descriptor = ::open(source.c_str(), O_RDONLY | O_CLOEXEC);
+    test_helpers::expect_true("pinned source open", descriptor >= 0, "could not open pinned source fixture");
+    const auto repository = catalog(root);
+    const auto plan = btrfsbackup::restore::RestorePlanner{}.plan_from_pinned_source(
+        repository,
+        {
+            .transaction_id = "tx-pinned",
+            .snapshot_id = "snapshot",
+            .source_path = btrfsbackup::restore::RelativeRestorePath{"report.txt"},
+            .destination = root / "output/report.txt",
+        },
+        fs::path{"/proc/self/fd"} / std::to_string(descriptor)
+    );
+    test_helpers::expect_true(
+        "pinned source plan",
+        plan.source == fs::path{"/proc/self/fd"} / std::to_string(descriptor),
+        "restore plan did not retain the pinned source"
+    );
+    btrfsbackup::platform::linux::restore::PosixRestoreOperations operations;
+    btrfsbackup::restore::RestoreExecutor executor(operations);
+    btrfsbackup::CancellationToken cancellation;
+    (void)executor.execute(plan, cancellation);
+    std::ifstream restored(plan.destination);
+    std::string content;
+    restored >> content;
+    test_helpers::expect_eq("pinned source content", content, "content");
+    ::close(descriptor);
 }
 
 void test_cancellation_cleans_without_commit() {
@@ -245,6 +282,7 @@ void test_reports_incomplete_rollback() {
 int main() {
     test_rejects_traversal_and_symlink_parents();
     test_rejects_symlink_entries_and_cleans_staging();
+    test_plans_from_a_pinned_source_descriptor();
     test_cancellation_cleans_without_commit();
     test_commit_failure_restores_previous_destination();
     test_reports_incomplete_rollback();
