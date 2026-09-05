@@ -191,6 +191,29 @@ Item {
                 Qt.exit(2)
                 return
             }
+            provisioning.operation = ({state: "running", phase: "inspect"})
+            page.step = 2
+            verifyProgress.start()
+        }
+    }
+
+    Timer {
+        id: verifyProgress
+        interval: 100
+        repeat: false
+        onTriggered: {
+            const progressContent = root.findObject(page, "provisioningProgressContent")
+            const progressPosition = progressContent?.mapToItem(page, 0, 0) ?? null
+            if (progressPosition === null || progressContent.width <= 0 || progressContent.height <= 0
+                    || Math.abs(progressPosition.x + progressContent.width / 2 - page.width / 2) > 0.5
+                    || Math.abs(progressPosition.y + progressContent.height / 2 - page.height / 2) > 0.5) {
+                console.error("Device inspection content is not centered",
+                              progressPosition?.x, progressPosition?.y,
+                              progressContent?.width, progressContent?.height,
+                              page.width, page.height)
+                Qt.exit(3)
+                return
+            }
             Qt.exit(0)
         }
     }
