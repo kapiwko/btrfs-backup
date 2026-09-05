@@ -30,15 +30,23 @@ Kirigami.ApplicationWindow {
         property bool replaceExisting: false
         property string planSummary: "Plan ready: restore report.odt (2.8 MiB) from the Sep 2, 2026 snapshot, preserve its metadata and verify the result."
         property string errorText: ""
+        property string errorCode: ""
+        property string errorTechnicalDetails: ""
         property bool busy: false
+        property bool completed: false
+        property int restoredFiles: 0
+        property int restoredBytes: 0
+        property string restoredSize: "0 B"
 
         signal overwriteConfirmationRequested(string destination)
+        signal stateChanged()
 
         function preview() {}
         function chooseDestination() {}
         function execute() {}
         function cancel() {}
         function confirmOverwrite() {}
+        function openRestoredDirectory() {}
     }
 
     pageStack.initialPage: Restore.RestorePage {
