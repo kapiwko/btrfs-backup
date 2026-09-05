@@ -36,8 +36,7 @@ TestCase {
         compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: true, spaceBelowMinimum: true}})),
                 "emblem-warning")
         compare(BtrfsBackup.ProfilePresentation.statusIcon(status({target: {connected: false}})), "")
-        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({run: {state: "running"}})),
-                "emblem-synchronizing")
+        compare(BtrfsBackup.ProfilePresentation.statusIcon(status({run: {state: "running"}})), "")
         compare(BtrfsBackup.ProfilePresentation.statusIcon(status({lastError: "failed", target: {connected: false}})),
                 "emblem-error")
     }

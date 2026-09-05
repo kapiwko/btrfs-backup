@@ -19,8 +19,6 @@ QtObject {
     function statusIcon(profileStatus) {
         if (hasFailure(profileStatus))
             return "emblem-error"
-        if (isRunning(profileStatus?.run?.state ?? ""))
-            return "emblem-synchronizing"
         if (profileStatus?.target?.spaceBelowMinimum ?? false)
             return "emblem-warning"
         return ""
