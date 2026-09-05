@@ -7,6 +7,7 @@
 #include "CancellationRequestDispatcher.hpp"
 #include "ManagerApi.hpp"
 #include "TerminalNotificationService.hpp"
+#include "BackupReminderSettings.hpp"
 
 #include <QDBusConnection>
 #include <QDBusServiceWatcher>
@@ -15,6 +16,9 @@
 #include <QPointer>
 #include <QSet>
 #include <QString>
+#include <QTimer>
+
+#include <KConfigWatcher>
 
 #include <cstdint>
 
@@ -49,6 +53,12 @@ class BackupProgressMonitor final : public QObject {
     void apply_status(const Profile& profile, const QString& payload);
     void create_job(const Profile& profile, const Status& status);
     void finish_job(const QString& profile_id, const Status& status);
+    void evaluate_reminders();
+    void evaluate_reminder(
+        const Profile& profile,
+        const Status& status,
+        const BackupReminderConfiguration& configuration
+    );
     QDBusConnection bus_;
     btrfsbackup::kde::ManagerEventSubscriber manager_events_;
     QDBusServiceWatcher service_watcher_;
@@ -57,6 +67,7 @@ class BackupProgressMonitor final : public QObject {
     KUiServerV2JobTracker& tracker_;
     QHash<QString, Profile> profiles_;
     QHash<QString, QPointer<BackupProgressJob>> jobs_;
+    QHash<QString, Status> statuses_;
     QSet<QString> pending_status_requests_;
     QSet<QString> queued_status_requests_;
     QSet<QString> manager_features_;
@@ -66,6 +77,8 @@ class BackupProgressMonitor final : public QObject {
     bool profiles_request_pending_ = false;
     bool profiles_refresh_queued_ = false;
     std::uint64_t manager_generation_ = 0;
+    QTimer reminder_timer_;
+    KConfigWatcher::Ptr reminder_config_watcher_;
 };
 
 } // namespace btrfsbackup::kde::monitor

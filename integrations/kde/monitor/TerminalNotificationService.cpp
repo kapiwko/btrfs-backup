@@ -4,6 +4,7 @@
 
 #include "TerminalNotificationService.hpp"
 
+#include "BackupReminderPolicy.hpp"
 #include "DesktopLauncher.hpp"
 
 #include <KLocalizedString>
@@ -90,6 +91,49 @@ void TerminalNotificationService::publish(
     if (!deduplicator_.claim(profile_id, run_id, message.event_id)) {
         return;
     }
+    publisher_(message);
+}
+
+void TerminalNotificationService::publish_backup_reminder(
+    const QString& profile_id,
+    const QString& profile_name,
+    const QString& target_name,
+    const BackupReminder& reminder
+) {
+    if (profile_id.isEmpty() || reminder.level == BackupReminderLevel::none ||
+        reminder.baseline_key.isEmpty()) {
+        return;
+    }
+
+    TerminalNotificationMessage message;
+    message.profile_id = profile_id;
+    const QString name = display_name(profile_id, profile_name);
+    if (reminder.level == BackupReminderLevel::critical) {
+        message.event_id = QStringLiteral("backupOverdueCritical");
+        message.title = i18n("Backup critically overdue");
+    } else {
+        message.event_id = QStringLiteral("backupOverdueWarning");
+        message.title = i18n("Backup overdue");
+    }
+    message.text = reminder.has_success
+        ? i18np(
+              "The last successful backup of “%2” was %1 day ago.",
+              "The last successful backup of “%2” was %1 days ago.",
+              reminder.overdue_days,
+              name
+          )
+        : i18np(
+              "No successful backup of “%2” has been recorded for at least %1 day.",
+              "No successful backup of “%2” has been recorded for at least %1 days.",
+              reminder.overdue_days,
+              name
+          );
+    message.text += target_name.isEmpty()
+        ? QStringLiteral(" ") + i18n("Connect the backup disk to create one.")
+        : QStringLiteral(" ") + i18n("Connect “%1” to create one.", target_name);
+
+    if (!deduplicator_.claim(profile_id, reminder.baseline_key, message.event_id))
+        return;
     publisher_(message);
 }
 

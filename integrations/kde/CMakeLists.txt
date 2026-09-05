@@ -14,7 +14,7 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick Widgets)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner Service WidgetsAddons)
+find_package(KF6 REQUIRED COMPONENTS Config CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner Service WidgetsAddons)
 find_package(Plasma REQUIRED)
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
@@ -225,8 +225,12 @@ add_executable(
     monitor/BackupProgressJob.hpp
     monitor/BackupProgressMonitor.cpp
     monitor/BackupProgressMonitor.hpp
+    monitor/BackupReminderPolicy.cpp
+    monitor/BackupReminderPolicy.hpp
     monitor/TerminalNotificationService.cpp
     monitor/TerminalNotificationService.hpp
+    settings/BackupReminderSettings.cpp
+    settings/BackupReminderSettings.hpp
     monitor/main.cpp
 )
 
@@ -272,9 +276,14 @@ target_link_libraries(
         btrfsbackup_kde_manager_client
         btrfsbackup_kde_desktop_launcher
         KF6::CoreAddons
+        KF6::ConfigCore
         KF6::I18n
         KF6::JobWidgets
         KF6::Notifications
+)
+target_include_directories(
+    btrfs-backup-kde-monitor
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/settings
 )
 install(TARGETS btrfs-backup-kde-monitor RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
 install(
@@ -667,6 +676,8 @@ if(BUILD_TESTING)
 
     add_executable(
         kde-terminal-notification-tests
+        monitor/BackupReminderPolicy.cpp
+        monitor/BackupReminderPolicy.hpp
         monitor/NotificationDeduplicator.cpp
         monitor/NotificationDeduplicator.hpp
         monitor/TerminalNotificationService.cpp
@@ -676,7 +687,10 @@ if(BUILD_TESTING)
     target_compile_features(kde-terminal-notification-tests PRIVATE cxx_std_23)
     target_include_directories(
         kde-terminal-notification-tests
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/monitor
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/monitor
+            ${CMAKE_CURRENT_SOURCE_DIR}/settings
+            ${CMAKE_CURRENT_SOURCE_DIR}/client
     )
     target_link_libraries(
         kde-terminal-notification-tests
@@ -685,6 +699,7 @@ if(BUILD_TESTING)
             KF6::I18n
             KF6::Notifications
             btrfsbackup_kde_desktop_launcher
+            btrfsbackup_kde_manager_client
     )
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(kde-terminal-notification-tests PRIVATE -Wall -Wextra -Wpedantic)

@@ -479,3 +479,27 @@ msgstr "Manager kopii zapasowych nie mógł wykonać żądania."
 
 msgid "The requested backup operation failed: %1"
 msgstr "Żądana operacja kopii zapasowej nie powiodła się: %1"
+
+msgid "Backup overdue"
+msgstr "Kopia zapasowa jest zaległa"
+
+msgid "Backup critically overdue"
+msgstr "Kopia zapasowa jest krytycznie zaległa"
+
+msgid "The last successful backup of “%2” was %1 day ago."
+msgid_plural "The last successful backup of “%2” was %1 days ago."
+msgstr[0] "Ostatnia udana kopia „%2” została wykonana %1 dzień temu."
+msgstr[1] "Ostatnia udana kopia „%2” została wykonana %1 dni temu."
+msgstr[2] "Ostatnia udana kopia „%2” została wykonana %1 dni temu."
+
+msgid "No successful backup of “%2” has been recorded for at least %1 day."
+msgid_plural "No successful backup of “%2” has been recorded for at least %1 days."
+msgstr[0] "Od co najmniej %1 dnia nie zarejestrowano udanej kopii „%2”."
+msgstr[1] "Od co najmniej %1 dni nie zarejestrowano udanej kopii „%2”."
+msgstr[2] "Od co najmniej %1 dni nie zarejestrowano udanej kopii „%2”."
+
+msgid "Connect the backup disk to create one."
+msgstr "Podłącz dysk kopii zapasowej, aby ją utworzyć."
+
+msgid "Connect “%1” to create one."
+msgstr "Podłącz „%1”, aby ją utworzyć."
