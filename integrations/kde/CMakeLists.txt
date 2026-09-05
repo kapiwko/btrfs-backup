@@ -14,7 +14,7 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick Widgets)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner WidgetsAddons)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner Service WidgetsAddons)
 find_package(Plasma REQUIRED)
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
@@ -58,6 +58,27 @@ target_link_libraries(
         Qt6::DBus
 )
 
+add_library(
+    btrfsbackup_kde_desktop_launcher STATIC
+    launcher/DesktopLauncher.cpp
+    launcher/DesktopLauncher.hpp
+)
+target_compile_features(btrfsbackup_kde_desktop_launcher PUBLIC cxx_std_23)
+target_include_directories(
+    btrfsbackup_kde_desktop_launcher
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/launcher
+)
+target_link_libraries(
+    btrfsbackup_kde_desktop_launcher
+    PUBLIC
+        Qt6::Core
+        KF6::KIOGui
+        KF6::Service
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup_kde_desktop_launcher PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 add_library(kio_btrfsbackup MODULE
     kio/BtrfsBackupWorker.cpp
     kio/BtrfsBackupWorker.hpp
@@ -100,6 +121,7 @@ target_compile_features(previousversionsaction PRIVATE cxx_std_23)
 target_include_directories(previousversionsaction PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/dolphin)
 target_link_libraries(previousversionsaction PRIVATE
     btrfsbackup_kde_manager_client
+    btrfsbackup_kde_desktop_launcher
     KF6::CoreAddons
     KF6::I18n
     KF6::KIOCore
@@ -180,6 +202,7 @@ target_compile_features(btrfsbackup-runner PRIVATE cxx_std_23)
 target_include_directories(btrfsbackup-runner PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/krunner)
 target_link_libraries(btrfsbackup-runner PRIVATE
     btrfsbackup_kde_manager_client
+    btrfsbackup_kde_desktop_launcher
     KF6::I18n
     KF6::Runner
     Qt6::Core
@@ -245,6 +268,7 @@ target_link_libraries(
         Qt6::DBus
         Qt6::Gui
         btrfsbackup_kde_manager_client
+        btrfsbackup_kde_desktop_launcher
         KF6::CoreAddons
         KF6::I18n
         KF6::JobWidgets
@@ -392,6 +416,14 @@ add_dependencies(
 )
 
 if(BUILD_TESTING)
+    add_executable(kde-desktop-launcher-tests
+        launcher/tests/DesktopLauncherTests.cpp
+    )
+    target_compile_features(kde-desktop-launcher-tests PRIVATE cxx_std_23)
+    target_link_libraries(kde-desktop-launcher-tests PRIVATE btrfsbackup_kde_desktop_launcher)
+    add_test(NAME kde-desktop-launcher COMMAND kde-desktop-launcher-tests)
+    set_tests_properties(kde-desktop-launcher PROPERTIES LABELS kde)
+
     add_executable(kde-restore-job-tests
         restore/RestoreErrorPresentation.cpp
         restore/RestoreErrorPresentation.hpp
@@ -605,6 +637,7 @@ if(BUILD_TESTING)
             Qt6::Core
             KF6::I18n
             KF6::Notifications
+            btrfsbackup_kde_desktop_launcher
     )
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(kde-terminal-notification-tests PRIVATE -Wall -Wextra -Wpedantic)
@@ -616,6 +649,7 @@ if(BUILD_TESTING)
     add_dependencies(
         btrfs-backup-kde-tests
         dolphin-previous-versions-selection-tests
+        kde-desktop-launcher-tests
         kde-manager-api-tests
         kde-restore-job-tests
         kde-restore-presentation-tests

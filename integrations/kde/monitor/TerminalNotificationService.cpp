@@ -4,10 +4,10 @@
 
 #include "TerminalNotificationService.hpp"
 
+#include "DesktopLauncher.hpp"
+
 #include <KLocalizedString>
 #include <KNotification>
-
-#include <QProcess>
 
 #include <utility>
 
@@ -99,24 +99,18 @@ void TerminalNotificationService::publish_to_desktop(const TerminalNotificationM
     notification->setTitle(message.title);
     QString text = message.text.toHtmlEscaped();
     if (!message.error_code.isEmpty()) {
-        text += QStringLiteral("<br/><small>%1</small>").arg(
-            i18n("Code: %1", message.error_code).toHtmlEscaped()
-        );
+        text += QStringLiteral("<br/><small>%1</small>").arg(i18n("Code: %1", message.error_code).toHtmlEscaped());
     }
     notification->setText(text);
     notification->setIconName(QStringLiteral("drive-harddisk"));
 
     auto* details = notification->addAction(i18n("Show details"));
     QObject::connect(details, &KNotificationAction::activated, [profile_id = message.profile_id]() {
-        QProcess::startDetached(QStringLiteral("systemsettings"), {
-            QStringLiteral("kcm_btrfsbackup"),
-            QStringLiteral("--args"),
-            profile_id,
-        });
+        launcher::launch(launcher::open_backup_settings(profile_id));
     });
     auto* settings = notification->addAction(i18n("Configure notifications"));
     QObject::connect(settings, &KNotificationAction::activated, []() {
-        QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_notifications")});
+        launcher::launch(launcher::open_notification_settings());
     });
     notification->sendEvent();
 }
