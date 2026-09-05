@@ -23,7 +23,6 @@ Every roadmap item must preserve these properties:
   responsible for runner execution;
 - broaden provisioning tests across the supported systemd range;
 - test physical removable devices from multiple vendors;
-- add emulated NVMe and SCSI/SATA controller coverage;
 - cover more unsupported block stacks and power-loss boundaries.
 
 ## Backup Semantics
@@ -59,8 +58,8 @@ Improve configuration without weakening the privileged boundary:
   validation without expanding the set of supported destructive layouts;
 - extend successful media preparation with an explicit trial backup and trial
   restore;
-- evaluate TPM2, FIDO2 and PKCS#11 enrollment only after recovery-key and LUKS
-  header-backup guidance is in place;
+- evaluate TPM2, FIDO2 and PKCS#11 enrollment after recovery-key workflows and
+  credential recovery tests are in place;
 - strengthen cancellation and recovery coverage for credential enrollment
   before adding further enrollment methods.
 
@@ -126,9 +125,8 @@ a broad directory migration or behavioral rewrite:
   outcomes where failure is expected;
 - keep CMake interfaces minimal and model targets free of Linux, JSON and UI
   dependencies;
-- keep ASan, UBSan, GCC, Clang, formatting and static-analysis gates, and
-  extend compiler coverage to manager-enabled and manager-disabled
-  builds.
+- keep ASan, UBSan, GCC, Clang, formatting and static-analysis gates, including
+  manager-enabled and manager-disabled builds.
 
 Refactors must preserve public CLI, profile, status, history, recovery and
 package contracts and pass the real-Btrfs regression suite when storage
@@ -155,25 +153,18 @@ No integration may become a required dependency of the base runtime.
 
 ## Verification Investment
 
-Add QEMU coverage for ENOSPC and more interruption boundaries. Add fuzzing for
-untrusted JSON and path inputs, and extend compiler and runtime checks when new
-supported platforms are introduced.
+Add QEMU coverage for ENOSPC and more interruption boundaries, and extend
+compiler and runtime checks when new supported platforms are introduced.
 
 ## Open Source And Release Maturity
 
 Bring contributor and release governance up to the level of the runtime:
 
-- publish a tested platform support matrix and distinguish native packages from
-  best-effort packaging templates;
-- add CodeQL as an appropriate pull-request gate;
-- validate pull-request titles against the documented Conventional Commits
-  types and scopes, without adding a runtime dependency;
 - automate tagged releases only after verifying `VERSION`, changelog, tests,
   reproducibility, checksums and artifact inventory;
 - derive changelog, release-note and SemVer automation from Conventional
   Commits only after the title policy has remained stable in normal use;
 - add signed checksums or artifact attestations/provenance;
-- provide man pages and Bash, Zsh and Fish completions;
 - document development versus stable versions clearly;
 - adopt a code of conduct when actively inviting community participation and
   CODEOWNERS when multiple maintainers make ownership meaningful;
