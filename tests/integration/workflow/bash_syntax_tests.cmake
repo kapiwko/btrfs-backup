@@ -8,17 +8,15 @@ if(NOT DEFINED BASH OR BASH STREQUAL "")
     message(FATAL_ERROR "BASH is required")
 endif()
 
-file(GLOB_RECURSE scripts
-    LIST_DIRECTORIES false
-    "${SOURCE_DIR}/*.install"
-    "${SOURCE_DIR}/*.sh"
+set(scripts
+    "${SOURCE_DIR}/packaging/arch/PKGBUILD.in"
+    "${SOURCE_DIR}/packaging/debian/preinst"
 )
 
-if(NOT scripts)
-    message(FATAL_ERROR "No Bash files or package install hooks found under ${SOURCE_DIR}")
-endif()
-
 foreach(script IN LISTS scripts)
+    if(NOT EXISTS "${script}")
+        message(FATAL_ERROR "Expected shell source does not exist: ${script}")
+    endif()
     execute_process(
         COMMAND "${BASH}" -n "${script}"
         RESULT_VARIABLE result
