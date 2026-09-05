@@ -4,6 +4,7 @@
 #pragma once
 
 #include "RepositorySnapshotModel.hpp"
+#include "BrowseSessionClient.hpp"
 
 #include <KIO/WorkerBase>
 
@@ -66,5 +67,6 @@ class BtrfsBackupWorker final : public KIO::WorkerBase {
     QHash<QString, Session> sessions_;
     btrfsbackup::kde::kio::SecureBrowseFile open_file_;
     QString open_session_id_;
+    std::optional<btrfsbackup::kde::BrowseOperationLease> open_operation_lease_;
     QString session_error_name_;
 };

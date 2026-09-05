@@ -23,6 +23,11 @@ class ManagerTestClient final {
     [[nodiscard]] std::string call(
         std::string_view method,
         std::string_view first,
+        std::string_view second
+    ) const;
+    [[nodiscard]] std::string call(
+        std::string_view method,
+        std::string_view first,
         std::string_view second,
         std::string_view third
     ) const;

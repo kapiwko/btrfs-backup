@@ -5,6 +5,8 @@
 
 #include <QDBusPendingReply>
 #include <QDBusUnixFileDescriptor>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <utility>
 
@@ -32,6 +34,32 @@ std::optional<BrowseSessionInfo> BrowseSessionClient::renew(const QString& sessi
 
 bool BrowseSessionClient::setActive(const QString& session_id, bool active) const {
     return payload(manager_.setBrowseSessionActive(session_id, active)).has_value();
+}
+
+std::optional<BrowseOperationLease> BrowseSessionClient::beginOperation(const QString& session_id) const {
+    const auto value = payload(manager_.beginBrowseOperation(session_id));
+    if (!value) {
+        if (last_error_name_ != QStringLiteral("org.freedesktop.DBus.Error.UnknownMethod") ||
+            !setActive(session_id, true))
+            return std::nullopt;
+        return BrowseOperationLease{{}, true};
+    }
+    const QJsonDocument document = QJsonDocument::fromJson(value->toUtf8());
+    if (!document.isObject())
+        return std::nullopt;
+    const QJsonObject object = document.object();
+    const QString lease_id = object.value(QStringLiteral("leaseId")).toString();
+    if (object.value(QStringLiteral("schemaVersion")).toInt() != 1 || lease_id.isEmpty())
+        return std::nullopt;
+    return BrowseOperationLease{lease_id, false};
+}
+
+bool BrowseSessionClient::endOperation(const QString& session_id, const BrowseOperationLease& lease) const {
+    if (lease.legacy)
+        return setActive(session_id, false);
+    if (lease.lease_id.isEmpty())
+        return false;
+    return payload(manager_.endBrowseOperation(session_id, lease.lease_id)).has_value();
 }
 
 bool BrowseSessionClient::close(const QString& session_id) const {

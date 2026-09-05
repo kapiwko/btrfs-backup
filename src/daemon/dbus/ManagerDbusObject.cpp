@@ -69,6 +69,12 @@ int renew_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* 
 int set_browse_session_active(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->browse_methods().set_browse_session_active(message, error);
 }
+int begin_browse_operation(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->browse_methods().begin_browse_operation(message, error);
+}
+int end_browse_operation(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->browse_methods().end_browse_operation(message, error);
+}
 int close_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->browse_methods().close_browse_session(message, error);
 }
@@ -154,6 +160,8 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::renew_browse_session, "s", "s", renew_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::set_browse_session_active, "sb", "s", set_browse_session_active, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::begin_browse_operation, "s", "s", begin_browse_operation, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::end_browse_operation, "ss", "s", end_browse_operation, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_browse_directory, "ss", "s", list_browse_directory, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_browse_directory_page, "sssu", "s", list_browse_directory_page, SD_BUS_VTABLE_UNPRIVILEGED),

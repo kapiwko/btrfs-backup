@@ -92,6 +92,49 @@ int ManagerBrowseMethods::set_browse_session_active(sd_bus_message* message, sd_
     );
 }
 
+int ManagerBrowseMethods::begin_browse_operation(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &session_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string lease_id = browse_sessions_.begin_operation(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id
+            );
+            return ManagerMethodSupport::reply_json(message, config::json::dump_json({
+                                                                 {"schemaVersion", manager_protocol::operation_result_schema_version},
+                                                                 {"leaseId", lease_id},
+                                                             }));
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
+int ManagerBrowseMethods::end_browse_operation(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const char* lease_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "ss", &session_id, &lease_id);
+            if (read_result < 0)
+                return read_result;
+            browse_sessions_.end_operation(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id,
+                lease_id == nullptr ? "" : lease_id
+            );
+            return ManagerMethodSupport::reply_json(message, config::json::dump_json({
+                                                                 {"schemaVersion", manager_protocol::operation_result_schema_version},
+                                                                 {"operation", "end-browse-operation"},
+                                                                 {"accepted", true},
+                                                             }));
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerBrowseMethods::close_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {

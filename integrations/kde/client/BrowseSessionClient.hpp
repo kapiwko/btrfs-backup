@@ -11,6 +11,11 @@
 
 namespace btrfsbackup::kde {
 
+struct BrowseOperationLease {
+    QString lease_id;
+    bool legacy = false;
+};
+
 class BrowseSessionClient {
   public:
     explicit BrowseSessionClient(QDBusConnection bus = QDBusConnection::systemBus());
@@ -18,6 +23,8 @@ class BrowseSessionClient {
     [[nodiscard]] std::optional<BrowseSessionInfo> open(const QString& profile_id) const;
     [[nodiscard]] std::optional<BrowseSessionInfo> renew(const QString& session_id) const;
     [[nodiscard]] bool setActive(const QString& session_id, bool active) const;
+    [[nodiscard]] std::optional<BrowseOperationLease> beginOperation(const QString& session_id) const;
+    [[nodiscard]] bool endOperation(const QString& session_id, const BrowseOperationLease& lease) const;
     [[nodiscard]] bool close(const QString& session_id) const;
     [[nodiscard]] std::optional<QString> listDirectory(const QString& session_id, const QString& path) const;
     [[nodiscard]] std::optional<QString> listDirectoryPage(

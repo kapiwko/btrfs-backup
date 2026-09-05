@@ -57,7 +57,9 @@ schema versions are not advertised as public API versions.
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
-| `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | acquires or releases one counted operation pin for an owned session |
+| `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | legacy counted operation pin retained for API 2 compatibility |
+| `BeginBrowseOperation` | `(s sessionId)` | `(s)` | acquires an identified, caller-owned operation lease |
+| `EndBrowseOperation` | `(s sessionId, s leaseId)` | `(s)` | releases exactly one identified operation lease |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
 | `ListBrowseDirectory` | `(s sessionId, s relativePath)` | `(s)` | lists regular files and directories below an owned session root |
 | `ListBrowseDirectoryPage` | `(s sessionId, s relativePath, s continuationToken, u limit)` | `(s)` | lists one stable name-sorted page of up to 512 entries |
@@ -156,8 +158,8 @@ identifiers.
 API minor version 8 removes the local `rootPath` from browse-session documents
 and adds `OpenBrowseRoot`. Session directories and mount points remain
 root-owned and private; clients access repository contents only through brokered
-operations or a pinned directory descriptor. Active-operation pins are counted,
-so finishing one concurrent KIO request cannot unpin another request.
+operations or a pinned directory descriptor. Active operations use identified
+leases, so finishing one concurrent KIO request cannot unpin another request.
 
 API minor version 9 adds `ListBrowseDirectoryPage`. An empty continuation token
 starts a listing; a non-empty token resumes after the last name returned by the
@@ -195,6 +197,15 @@ Each response uses schema version 1:
   "continuationToken": ""
 }
 ```
+
+API minor version 11 adds `BeginBrowseOperation` and `EndBrowseOperation`.
+`BeginBrowseOperation` returns a schema-versioned `leaseId`; the same caller
+must return that identifier to the same session. Unknown, duplicate, foreign and
+mismatched releases fail, and each session may hold at most 64 operation leases.
+An unexpired operation lease prevents idle expiration, while closing the session
+or losing the caller's bus name clears every lease. Current KDE clients use the
+identified methods and fall back to `SetBrowseSessionActive` only when an older
+daemon reports `org.freedesktop.DBus.Error.UnknownMethod`.
 
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
 `cleanupResult`. They are presentation-safe recovery evidence: clients can show
@@ -291,6 +302,8 @@ currently open profile, including changes published by the CLI.
 | `OpenBrowseSession` | repository access | `io.github.btrfsbackup.open-browse-session` |
 | `RenewBrowseSession` | session ownership | none |
 | `SetBrowseSessionActive` | session ownership | none |
+| `BeginBrowseOperation` | session ownership and per-session lease limit | none |
+| `EndBrowseOperation` | session and lease ownership | none |
 | `CloseBrowseSession` | session ownership | none |
 | `ListBrowseDirectory` | session ownership and path confinement | none |
 | `ListBrowseDirectoryPage` | session ownership, path confinement and continuation-token binding | none |

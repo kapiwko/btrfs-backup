@@ -110,6 +110,14 @@ QDBusPendingCall ManagerClient::setBrowseSessionActive(const QString& session_id
     return call(QLatin1String(manager_protocol::method::set_browse_session_active), {session_id, active});
 }
 
+QDBusPendingCall ManagerClient::beginBrowseOperation(const QString& session_id) const {
+    return call(QLatin1String(manager_protocol::method::begin_browse_operation), {session_id});
+}
+
+QDBusPendingCall ManagerClient::endBrowseOperation(const QString& session_id, const QString& lease_id) const {
+    return call(QLatin1String(manager_protocol::method::end_browse_operation), {session_id, lease_id});
+}
+
 QDBusPendingCall ManagerClient::closeBrowseSession(const QString& session_id) const {
     return call(QLatin1String(manager_protocol::method::close_browse_session), {session_id});
 }

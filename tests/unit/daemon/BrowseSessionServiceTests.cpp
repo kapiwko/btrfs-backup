@@ -354,6 +354,57 @@ void test_concurrent_operation_pins_are_counted() {
     test_helpers::expect_true("all concurrent leases released", backend.closed.size() == 1, "released session did not expire");
 }
 
+void test_operation_leases_are_balanced_bounded_and_owned() {
+    Authorizer authorizer;
+    Backend backend;
+    auto monotonic = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    int session_number = 0;
+    int lease_number = 0;
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::seconds{10},
+        [&] { return BrowseSessionId{"browse-lease-" + std::to_string(++session_number)}; },
+        [&] { return monotonic; },
+        {},
+        {},
+        4,
+        2,
+        2,
+        [&] { return "lease-" + std::to_string(++lease_number); }
+    );
+    const auto first = service.open(":1.62", 1000, "default");
+    const auto second = service.open(":1.63", 1001, "archive");
+    const std::string first_lease = service.begin_operation(":1.62", first.session_id);
+    const std::string second_lease = service.begin_operation(":1.62", first.session_id);
+    const std::string other_session_lease = service.begin_operation(":1.63", second.session_id);
+    expect_error("lease limit", ManagerErrorCode::Busy, [&] {
+        (void)service.begin_operation(":1.62", first.session_id);
+    });
+    expect_error("foreign lease release", ManagerErrorCode::NotAuthorized, [&] {
+        service.end_operation(":1.63", first.session_id, first_lease);
+    });
+    expect_error("wrong session lease release", ManagerErrorCode::InvalidRequest, [&] {
+        service.end_operation(":1.63", second.session_id, first_lease);
+    });
+    monotonic += std::chrono::hours{1};
+    service.expire();
+    test_helpers::expect_true("leased session remains", backend.closed.empty(), "leased session expired");
+    service.end_operation(":1.62", first.session_id, first_lease);
+    expect_error("double lease release", ManagerErrorCode::InvalidRequest, [&] {
+        service.end_operation(":1.62", first.session_id, first_lease);
+    });
+    service.end_operation(":1.62", first.session_id, second_lease);
+    service.end_operation(":1.63", second.session_id, other_session_lease);
+    monotonic += std::chrono::seconds{11};
+    service.expire();
+    test_helpers::expect_true(
+        "released leases expire",
+        backend.closed == std::vector<std::string>{first.session_id, second.session_id},
+        "released sessions remained active"
+    );
+}
+
 void test_session_limits_are_enforced_before_backend_open() {
     Authorizer authorizer;
     Backend backend;
@@ -492,6 +543,7 @@ int main() {
     test_failed_disconnect_unpins_session_for_cleanup_retry();
     test_renewal_uses_monotonic_deadline_and_active_pin();
     test_concurrent_operation_pins_are_counted();
+    test_operation_leases_are_balanced_bounded_and_owned();
     test_session_limits_are_enforced_before_backend_open();
     test_directory_pages_bind_tokens_to_session_and_path();
     test_previous_versions_pages_bind_tokens_to_session_and_query();

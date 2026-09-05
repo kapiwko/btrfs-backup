@@ -165,7 +165,8 @@ assert_delegated_methods(
 )
 assert_delegated_methods(
     browse_methods
-    open_browse_session renew_browse_session set_browse_session_active close_browse_session
+    open_browse_session renew_browse_session set_browse_session_active begin_browse_operation
+    end_browse_operation close_browse_session
     list_browse_directory list_browse_directory_page list_previous_versions inspect_browse_entry open_browse_file resolve_backup_coverage
 )
 assert_delegated_methods(
@@ -276,6 +277,14 @@ assert_unprivileged_method(
 assert_unprivileged_method(
     set_browse_session_active SetBrowseSessionActive sb s
     "<methodname=\"SetBrowseSessionActive\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"active\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_unprivileged_method(
+    begin_browse_operation BeginBrowseOperation s s
+    "<methodname=\"BeginBrowseOperation\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_unprivileged_method(
+    end_browse_operation EndBrowseOperation ss s
+    "<methodname=\"EndBrowseOperation\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"leaseId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_unprivileged_method(
     close_browse_session CloseBrowseSession s s

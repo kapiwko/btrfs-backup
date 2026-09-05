@@ -487,6 +487,8 @@ void Fixture::verify_read_api() {
         "OpenBrowseSession",
         "RenewBrowseSession",
         "SetBrowseSessionActive",
+        "BeginBrowseOperation",
+        "EndBrowseOperation",
         "CloseBrowseSession",
         "ListBrowseDirectory",
         "ListBrowseDirectoryPage",
