@@ -227,6 +227,30 @@ jobs:
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
 
+  fuzz-smoke:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Prepare Arch Linux
+        run: |
+          pacman -Syu --noconfirm --needed \
+            btrfs-progs \
+            clang \
+            cmake \
+            git \
+            ninja \
+            nlohmann-json \
+            pkgconf \
+            systemd \
+            util-linux
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build fuzz targets
+        run: |
+          cmake --preset fuzz
+          cmake --build --preset fuzz --parallel "$(nproc)"
+      - name: Run seeded fuzz smoke tests
+        run: ctest --preset fuzz --parallel 2
+
   strict-warnings:
     runs-on: ubuntu-24.04
     container: archlinux:base-devel
