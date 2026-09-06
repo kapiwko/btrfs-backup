@@ -405,7 +405,7 @@ void test_renewal_uses_monotonic_deadline_and_operation_lease() {
     );
     monotonic += std::chrono::seconds{11};
     const std::string lease = service.begin_operation(":1.60", opened.session_id);
-    monotonic += std::chrono::hours{1};
+    monotonic += std::chrono::seconds{4};
     service.expire();
     test_helpers::expect_true("active session pinned", backend.closed.empty(), "active operation expired");
     service.end_operation(":1.60", opened.session_id, lease);
@@ -447,9 +447,6 @@ void test_operation_leases_are_balanced_bounded_and_owned() {
     expect_error("wrong session lease release", ManagerErrorCode::InvalidRequest, [&] {
         service.end_operation(":1.63", second.session_id, first_lease);
     });
-    monotonic += std::chrono::hours{1};
-    service.expire();
-    test_helpers::expect_true("leased session remains", backend.closed.empty(), "leased session expired");
     service.end_operation(":1.62", first.session_id, first_lease);
     expect_error("double lease release", ManagerErrorCode::InvalidRequest, [&] {
         service.end_operation(":1.62", first.session_id, first_lease);
@@ -462,6 +459,59 @@ void test_operation_leases_are_balanced_bounded_and_owned() {
         "released leases expire",
         backend.closed == std::vector<std::string>{first.session_id, second.session_id},
         "released sessions remained active"
+    );
+}
+
+void test_operation_leases_and_sessions_have_absolute_deadlines() {
+    Authorizer authorizer;
+    Backend backend;
+    auto monotonic = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    auto wall = std::chrono::system_clock::time_point{std::chrono::seconds{1000}};
+    int next_session = 0;
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::seconds{10},
+        [&] { return BrowseSessionId{"browse-bounded-" + std::to_string(++next_session)}; },
+        [&] { return monotonic; },
+        [&] { return wall; },
+        {},
+        64,
+        8,
+        64,
+        [] { return "bounded-lease"; },
+        std::chrono::seconds{30},
+        std::chrono::seconds{5}
+    );
+
+    const auto leased = service.open(":1.64", 1000, "default");
+    const std::string lease = service.begin_operation(":1.64", leased.session_id);
+    monotonic += std::chrono::seconds{6};
+    wall += std::chrono::seconds{6};
+    expect_error("expired lease release", ManagerErrorCode::InvalidRequest, [&] {
+        service.end_operation(":1.64", leased.session_id, lease);
+    });
+    service.begin_target_eject(ProfileId{"default"});
+    test_helpers::expect_true(
+        "expired lease permits eject",
+        backend.closed == std::vector<std::string>{leased.session_id},
+        "expired operation lease kept the target busy"
+    );
+    service.end_target_eject(ProfileId{"default"});
+
+    const auto bounded = service.open(":1.65", 1000, "archive");
+    for (int renewal = 0; renewal < 3; ++renewal) {
+        monotonic += std::chrono::seconds{9};
+        wall += std::chrono::seconds{9};
+        (void)service.renew(":1.65", bounded.session_id);
+    }
+    monotonic += std::chrono::seconds{4};
+    wall += std::chrono::seconds{4};
+    service.expire();
+    test_helpers::expect_true(
+        "absolute session expiry",
+        backend.closed == std::vector<std::string>{leased.session_id, bounded.session_id},
+        "renewals extended a browse session beyond its absolute lifetime"
     );
 }
 
@@ -608,6 +658,7 @@ int main() {
     test_failed_disconnect_clears_leases_for_cleanup_retry();
     test_renewal_uses_monotonic_deadline_and_operation_lease();
     test_operation_leases_are_balanced_bounded_and_owned();
+    test_operation_leases_and_sessions_have_absolute_deadlines();
     test_session_limits_are_enforced_before_backend_open();
     test_directory_pages_bind_tokens_to_session_and_path();
     test_previous_versions_pages_bind_tokens_to_session_and_query();

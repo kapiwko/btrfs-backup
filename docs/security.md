@@ -87,8 +87,10 @@ pinned directly to the authorized file or directory inside a verified snapshot.
 The private repository layout therefore remains inaccessible to the desktop
 process and is not part of the path used by the restore engine.
 
-Each active KIO or restore operation acquires an identified session lease. Expiry
-and cleanup are permitted only after every concurrent lease has been released.
+Each active KIO or restore operation acquires an identified session lease. A
+lease expires after five minutes, and a browse session closes after at most one
+hour even when a client keeps renewing it. Losing the caller's bus name clears
+all of its sessions and leases immediately.
 Repository traversal rejects absolute paths, `..`, symlinks and special files,
 and regular-file reads use already-open descriptors passed over D-Bus.
 Stored ownership, group mode bits and POSIX ACLs are evaluated against the UID,

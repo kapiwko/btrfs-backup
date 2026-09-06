@@ -153,7 +153,10 @@ migration, export and upgrade-preflight commands have been removed.
 15. the public browse API no longer returns a descriptor for the repository
    root; clients can open only entries authorized by the broker;
 16. stored permissions are evaluated against the UID and group set of the
-   actual D-Bus sender process captured when its browse session opens.
+   actual D-Bus sender process captured when its browse session opens;
+17. operation leases expire after five minutes and browse sessions have a
+   one-hour absolute lifetime, so an abandoned client cannot block eject
+   indefinitely.
 
 ### KDE Desktop Integration
 
