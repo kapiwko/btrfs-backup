@@ -23,8 +23,8 @@
       "mode": "transferring",
       "page": "",
       "path": "plasma-widget-transferring.png",
-      "bytes": 96592,
-      "sha256": "199d47a721609508789ec0c93216a7fc34b562afe8744762a7c414149634495b"
+      "bytes": 96572,
+      "sha256": "8daa917c83855358aa53ca008b993cfa1c3a8612818f86de4d025a17c5a2359c"
     },
     {
       "scenario": "notification",
@@ -71,32 +71,32 @@
       "mode": "disconnected",
       "page": "",
       "path": "system-settings-disconnected.png",
-      "bytes": 70798,
-      "sha256": "594039ec3679e198a662c7531f2b0f81f1d46efa20e1511d8ae5bc2e3d2cb21b"
+      "bytes": 70731,
+      "sha256": "61532faaabf8f986f092e71e40d9d8f2699c02660eca312561b9aff097d2e317"
     },
     {
       "scenario": "system-settings",
       "mode": "transferring",
       "page": "",
       "path": "system-settings-transferring.png",
-      "bytes": 72803,
-      "sha256": "fd25c9225d5eb951f7ee85451f48ab7341da9d179507e2ebf930102960569927"
+      "bytes": 72734,
+      "sha256": "35d09a0828a2d44a89de33f25fd3a8676792cce2bcba83e6ba8f580c41837e25"
     },
     {
       "scenario": "system-settings",
       "mode": "connected",
       "page": "profile-details",
       "path": "system-settings-profile-details.png",
-      "bytes": 101557,
-      "sha256": "e40cc467e626202de467f2defed5dd6b2b4c43c50fecbe3d8a4dced1f4668edb"
+      "bytes": 102173,
+      "sha256": "54b40c9633e2e7b09a06ad96b8b9c48b5518027967b07a63b254b4b4c2f5d487"
     },
     {
       "scenario": "system-settings",
       "mode": "connected",
       "page": "profile-settings",
       "path": "system-settings-profile-settings.png",
-      "bytes": 54182,
-      "sha256": "fd5dce228269c8acb9dea0d8a59ea552ccb10d86c119552f6e12899976c9e5e0"
+      "bytes": 54156,
+      "sha256": "7d4cb08702601df3992844a62d03bec2bc4686fc2d7b03008559520ec8daab1a"
     },
     {
       "scenario": "system-settings",
