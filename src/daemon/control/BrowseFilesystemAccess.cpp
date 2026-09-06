@@ -26,6 +26,8 @@ namespace {
 using btrfsbackup::platform::linux::OwnedFileDescriptor;
 
 [[noreturn]] void path_error(const char* operation) {
+    if (errno == ENOENT || errno == ENOTDIR)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, operation);
     throw std::system_error(errno, std::generic_category(), operation);
 }
 

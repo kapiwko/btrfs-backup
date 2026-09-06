@@ -165,7 +165,10 @@ migration, export and upgrade-preflight commands have been removed.
 20. restore file copies use checked Linux syscalls through close, preserving
    the exact `ENOSPC` result even when free space changes after preflight;
 21. the restore window exposes space estimation as a separate cancellable,
-   indeterminate phase before byte progress and transfer speed begin.
+   indeterminate phase before byte progress and transfer speed begin;
+22. repository browsing distinguishes an absent entry from denied access while
+   checking parent traversal first to avoid exposing entries below private
+   directories.
 
 ### KDE Desktop Integration
 

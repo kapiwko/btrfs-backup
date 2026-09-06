@@ -99,15 +99,18 @@ struct RemoteDirectoryPage {
 std::optional<RemoteDirectoryPage> remote_directory_page(
     const QString& session_id,
     const QString& path,
-    const QString& continuation_token
+    const QString& continuation_token,
+    QString& error_name
 ) {
     constexpr uint page_size = 512;
-    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.listDirectoryPage(
+    btrfsbackup::kde::BrowseSessionClient client;
+    const auto payload = client.listDirectoryPage(
         session_id,
         path,
         continuation_token,
         page_size
     );
+    error_name = client.lastErrorName();
     if (!payload)
         return std::nullopt;
     const QJsonDocument document = QJsonDocument::fromJson(payload->toUtf8());
@@ -128,8 +131,14 @@ std::optional<RemoteDirectoryPage> remote_directory_page(
     return result;
 }
 
-std::optional<RemoteEntry> remote_entry(const QString& session_id, const QString& path) {
-    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.inspectEntry(session_id, path);
+std::optional<RemoteEntry> remote_entry(
+    const QString& session_id,
+    const QString& path,
+    QString& error_name
+) {
+    btrfsbackup::kde::BrowseSessionClient client;
+    const auto payload = client.inspectEntry(session_id, path);
+    error_name = client.lastErrorName();
     if (!payload)
         return std::nullopt;
     const QJsonDocument document = QJsonDocument::fromJson(payload->toUtf8());
@@ -166,12 +175,25 @@ std::optional<QHash<QString, btrfsbackup::kde::kio::RepositorySnapshot>> remote_
     return payload ? btrfsbackup::kde::kio::parse_repository_snapshots(*payload) : std::nullopt;
 }
 
-btrfsbackup::kde::kio::SecureBrowseFile remote_file(const QString& session_id, const QString& path) {
+btrfsbackup::kde::kio::SecureBrowseFile remote_file(
+    const QString& session_id,
+    const QString& path,
+    QString& error_name
+) {
     QDBusPendingReply<QDBusUnixFileDescriptor> reply(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::open_browse_file), {session_id, path}));
     reply.waitForFinished();
+    error_name = reply.isError() ? reply.error().name() : QString{};
     if (reply.isError() || !reply.value().isValid())
         return {};
     return btrfsbackup::kde::kio::SecureBrowseFile(dup(reply.value().fileDescriptor()));
+}
+
+KIO::WorkerResult remote_entry_failure(const QString& error_name, int fallback) {
+    if (error_name.endsWith(u".NotAuthorized"_s))
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    if (error_name.endsWith(u".NotFound"_s))
+        return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
+    return KIO::WorkerResult::fail(fallback);
 }
 
 class BrowseSessionPin final {
@@ -379,7 +401,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
         if (!page) {
             if (first_page && btrfsbackup::kde::kio::previous_versions_method_unavailable(error_name))
                 break;
-            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
+            return remote_entry_failure(error_name, KIO::ERR_CANNOT_ENTER_DIRECTORY);
         }
         if (!page->continuation_token.isEmpty() && page->continuation_token == continuation_token)
             return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
@@ -423,7 +445,14 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
         std::filesystem::path repository_entry{snapshot.repository_path.toStdString()};
         if (requested != u"."_s)
             repository_entry /= requested.toStdString();
-        const auto remote = remote_entry(active->id, QString::fromStdString(repository_entry.string()));
+        QString error_name;
+        const auto remote = remote_entry(
+            active->id,
+            QString::fromStdString(repository_entry.string()),
+            error_name
+        );
+        if (!remote && error_name.endsWith(u".NotAuthorized"_s))
+            return remote_entry_failure(error_name, KIO::ERR_CANNOT_ENTER_DIRECTORY);
         if (!remote)
             continue;
         const auto target = btrfsbackup::kde::kio::version_target_url(url.profile, snapshot.id, requested);
@@ -457,9 +486,12 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
     const QString path = QString::fromStdString(relative->string());
     QString continuation_token;
+    QString error_name;
     do {
-        const auto page = remote_directory_page(active->id, path, continuation_token);
-        if (!page || (!page->continuation_token.isEmpty() && page->continuation_token == continuation_token))
+        const auto page = remote_directory_page(active->id, path, continuation_token, error_name);
+        if (!page)
+            return remote_entry_failure(error_name, KIO::ERR_CANNOT_ENTER_DIRECTORY);
+        if (!page->continuation_token.isEmpty() && page->continuation_token == continuation_token)
             return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
         KIO::UDSEntryList entries;
         for (const auto& child : page->entries) {
@@ -496,9 +528,10 @@ KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
     if (!relative)
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
     try {
-        auto file = remote_file(active->id, QString::fromStdString(relative->string()));
+        QString error_name;
+        auto file = remote_file(active->id, QString::fromStdString(relative->string()), error_name);
         if (!file.valid())
-            return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
+            return remote_entry_failure(error_name, KIO::ERR_CANNOT_READ);
         struct stat status{};
         if (fstat(file.descriptor(), &status) != 0)
             return KIO::WorkerResult::fail(KIO::ERR_CANNOT_READ);
@@ -550,9 +583,12 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
     }
     try {
-        open_file_ = remote_file(active->id, QString::fromStdString(relative->string()));
-        if (!open_file_.valid())
-            throw std::runtime_error("cannot open remote browse file");
+        QString error_name;
+        open_file_ = remote_file(active->id, QString::fromStdString(relative->string()), error_name);
+        if (!open_file_.valid()) {
+            (void)btrfsbackup::kde::BrowseSessionClient{}.endOperation(active->id, *operation_lease);
+            return remote_entry_failure(error_name, KIO::ERR_CANNOT_READ);
+        }
         open_session_id_ = active->id;
         open_operation_lease_ = std::move(operation_lease);
         struct stat status{};
@@ -630,9 +666,10 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     const auto relative = resolve_entry(*parsed, *active);
     if (!relative)
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
-    const auto entry = remote_entry(active->id, QString::fromStdString(relative->string()));
+    QString error_name;
+    const auto entry = remote_entry(active->id, QString::fromStdString(relative->string()), error_name);
     if (!entry)
-        return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
+        return remote_entry_failure(error_name, KIO::ERR_CANNOT_READ);
     KIO::UDSEntry result;
     result.fastInsert(KIO::UDSEntry::UDS_NAME, relative->filename().empty() ? u"."_s : QString::fromStdString(relative->filename().string()));
     result.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, entry->directory ? S_IFDIR : S_IFREG);
@@ -662,9 +699,10 @@ KIO::WorkerResult BtrfsBackupWorker::mimetype(const QUrl& url) {
     const auto relative = resolve_entry(*parsed, *active);
     if (!relative)
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
-    const auto entry = remote_entry(active->id, QString::fromStdString(relative->string()));
+    QString error_name;
+    const auto entry = remote_entry(active->id, QString::fromStdString(relative->string()), error_name);
     if (!entry)
-        return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
+        return remote_entry_failure(error_name, KIO::ERR_CANNOT_READ);
     mimeType(entry->directory ? u"inode/directory"_s : QMimeDatabase{}.mimeTypeForFile(QString::fromStdString(relative->filename().string()), QMimeDatabase::MatchExtension).name());
     return KIO::WorkerResult::pass();
 }
