@@ -745,6 +745,12 @@ msgstr "Dodaj profil"
 msgid "Settings"
 msgstr "Ustawienia"
 
+msgid "About"
+msgstr "O programie"
+
+msgid "Btrfs Backup version %1"
+msgstr "Btrfs Backup, wersja %1"
+
 #: integrations/kde/kcm/ProfileConfigurationModel.cpp:239
 msgid "Source %1"
 msgstr "Źródło %1"

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-foreach(variable IN ITEMS BACKUPCTL SOURCE_DIR TEST_ROOT)
+foreach(variable IN ITEMS BACKUPCTL BACKUP SOURCE_DIR TEST_ROOT)
     if(NOT DEFINED ${variable} OR "${${variable}}" STREQUAL "")
         message(FATAL_ERROR "${variable} is required")
     endif()
@@ -56,6 +56,20 @@ file(MAKE_DIRECTORY "${output}")
 capture_help("${output}/root.txt" --help)
 capture_help("${output}/profile.txt" profile --help)
 capture_help("${output}/status.txt" status --help)
+
+file(READ "${SOURCE_DIR}/VERSION" expected_version)
+string(STRIP "${expected_version}" expected_version)
+execute_process(COMMAND "${BACKUPCTL}" --version OUTPUT_VARIABLE backupctl_version RESULT_VARIABLE backupctl_result)
+execute_process(COMMAND "${BACKUP}" --version OUTPUT_VARIABLE backup_version RESULT_VARIABLE backup_result)
+if(NOT backupctl_result EQUAL 0 OR NOT backup_result EQUAL 0)
+    message(FATAL_ERROR "Version commands failed")
+endif()
+if(NOT backupctl_version STREQUAL "btrfs-backupctl ${expected_version}\n")
+    message(FATAL_ERROR "Unexpected btrfs-backupctl version: ${backupctl_version}")
+endif()
+if(NOT backup_version STREQUAL "btrfs-backup ${expected_version}\n")
+    message(FATAL_ERROR "Unexpected btrfs-backup version: ${backup_version}")
+endif()
 
 assert_not_contains("${output}/root.txt" "state COMMAND")
 assert_not_contains("${output}/profile.txt" "sources --file")
