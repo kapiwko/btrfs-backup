@@ -12,7 +12,9 @@ KCMUtils.SimpleKCM {
     id: root
 
     required property var settings
-    title: translations.i18n("Backup notifications")
+    property string applicationVersion: ""
+    readonly property string displayedVersion: versionLabel.text
+    title: translations.i18n("Settings")
     enabled: root.settings !== null
 
     KI18n.KI18nContext {
@@ -113,6 +115,27 @@ KCMUtils.SimpleKCM {
                 text: translations.i18n("The critical notification also appears when free space falls below the minimum configured for a profile.")
                 wrapMode: Text.Wrap
                 opacity: 0.75
+            }
+        }
+
+        SettingsSection {
+            title: translations.i18n("About")
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+
+                Kirigami.Icon {
+                    source: "backup"
+                    implicitWidth: Kirigami.Units.iconSizes.medium
+                    implicitHeight: implicitWidth
+                }
+
+                QQC2.Label {
+                    id: versionLabel
+                    text: translations.i18n("Btrfs Backup version %1", root.applicationVersion)
+                    textFormat: Text.PlainText
+                }
             }
         }
 

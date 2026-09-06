@@ -5,4 +5,5 @@ _arguments \
   '--force[ignore the daily completion limit]' \
   '--validate[validate without creating snapshots]' \
   '--no-eject[leave the target mounted]' \
+  '(-V --version)'{-V,--version}'[show version]' \
   '(-h --help)'{-h,--help}'[show help]'

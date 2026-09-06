@@ -26,6 +26,7 @@ set_target_properties(
         INSTALL_RPATH "$ORIGIN/../../../../qml/org/btrfsbackup/kde"
 )
 target_compile_features(kcm_btrfsbackup PRIVATE cxx_std_23)
+target_compile_definitions(kcm_btrfsbackup PRIVATE BTRFS_BACKUP_VERSION="${BTRFS_BACKUP_VERSION}")
 target_link_libraries(
     kcm_btrfsbackup
     PRIVATE

@@ -22,6 +22,7 @@ class BackupKcm final : public KQuickConfigModule {
     Q_PROPERTY(DeviceProvisioningModel* deviceProvisioning READ deviceProvisioning CONSTANT)
     Q_PROPERTY(BackupReminderSettings* backupReminderSettings READ backupReminderSettings CONSTANT)
     Q_PROPERTY(bool partitionManagerAvailable READ partitionManagerAvailable CONSTANT)
+    Q_PROPERTY(QString applicationVersion READ applicationVersion CONSTANT)
 
   public:
     BackupKcm(QObject* parent, const KPluginMetaData& metadata);
@@ -31,6 +32,7 @@ class BackupKcm final : public KQuickConfigModule {
     Q_INVOKABLE void copyText(const QString& text);
     Q_INVOKABLE QString toLocalFile(const QUrl& url) const;
     [[nodiscard]] bool partitionManagerAvailable() const;
+    [[nodiscard]] QString applicationVersion() const;
     ProfileConfigurationModel* profileConfiguration();
     BackupHistoryModel* profileHistory();
     TargetCredentialModel* targetCredentials();

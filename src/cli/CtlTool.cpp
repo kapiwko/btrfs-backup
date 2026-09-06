@@ -52,6 +52,7 @@ void usage() {
         "  --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).\n"
         "  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).\n"
         "  --profile-dir PATH   Override profile config root (default: /etc/btrfs-backup).\n"
+        "  -V, --version        Show the program version.\n"
         "\nCommands:\n"
         "  profile COMMAND\n"
         "  repository COMMAND\n"
@@ -89,6 +90,9 @@ int ctl_tool_main(int argc, char** argv) {
                 profile_config_dir = arg_value(i, argc, argv, arg);
             } else if (arg == "-h" || arg == "--help") {
                 usage();
+                return 0;
+            } else if (arg == "-V" || arg == "--version") {
+                std::println("btrfs-backupctl {}", BTRFS_BACKUP_VERSION);
                 return 0;
             } else {
                 for (; i < argc; ++i) {

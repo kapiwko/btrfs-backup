@@ -96,6 +96,18 @@ void test_help_does_not_run_backup() {
     test_helpers::expect_true("backup help runner", fixture.runner_calls.empty(), "runner should not run");
 }
 
+void test_version_does_not_run_backup() {
+    BackupToolFixture fixture;
+    btrfsbackup::cli::BackupToolServices services = fixture.services();
+    std::ostringstream output;
+
+    int result = btrfsbackup::cli::backup_tool("/etc/btrfs-backup", {"--version"}, output, &services);
+
+    test_helpers::expect_eq("backup version result", std::to_string(result), "0");
+    test_helpers::expect_contains("backup version output", output.str(), "btrfs-backup ");
+    test_helpers::expect_true("backup version runner", fixture.runner_calls.empty(), "runner should not run");
+}
+
 void test_manual_run_executes_runner_and_ejects() {
     BackupToolFixture fixture;
     btrfsbackup::cli::BackupToolServices services = fixture.services();
@@ -219,6 +231,7 @@ void test_spawned_children_do_not_inherit_blocked_termination_signals() {
 
 int main() {
     test_help_does_not_run_backup();
+    test_version_does_not_run_backup();
     test_manual_run_executes_runner_and_ejects();
     test_no_eject_skips_target_command();
     test_service_invocation_skips_runner_eject();

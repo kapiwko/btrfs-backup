@@ -4,6 +4,7 @@ _arguments \
   '--status-root[override status root]:directory:_directories' \
   '--history-root[override history root]:directory:_directories' \
   '--profile-dir[override profile root]:directory:_directories' \
+  '(-V --version)'{-V,--version}'[show version]' \
   '(-h --help)'{-h,--help}'[show help]' \
   '1:command:(profile repository status installation runner restore target)' \
   '*:argument:(list wizard create validate render save regenerate show export rebuild history watch plan execute cancel catalog versions drill activate deactivate mount eject --profile --all --human --limit --interval --file --output --output-dir --apply --render-only --validate-dir --offline --mount-target --timestamp --run-id --force --repository --snapshot --source --source-id --destination --transaction --host --replace --subvolume --from-service --from-runner)'

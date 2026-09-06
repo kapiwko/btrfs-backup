@@ -99,6 +99,7 @@ add_test(
     COMMAND
         ${CMAKE_COMMAND}
         -DBACKUPCTL=$<TARGET_FILE:btrfs-backupctl>
+        -DBACKUP=$<TARGET_FILE:btrfs-backup-native>
         -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
         -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
         -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/command_surface_tests.cmake

@@ -43,6 +43,10 @@ bool BackupKcm::partitionManagerAvailable() const {
     return launcher::application_available(launcher::open_partition_manager());
 }
 
+QString BackupKcm::applicationVersion() const {
+    return QStringLiteral(BTRFS_BACKUP_VERSION);
+}
+
 QString BackupKcm::toLocalFile(const QUrl& url) const {
     return url.toLocalFile();
 }

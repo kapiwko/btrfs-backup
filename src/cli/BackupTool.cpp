@@ -44,6 +44,7 @@ void usage(std::ostream& output) {
         "  --force        Run even if a successful backup was already made today.\n"
         "  --validate     Mount the target and validate configuration without creating snapshots.\n"
         "  --no-eject     Do not automatically eject after a manual invocation.\n"
+        "  -V, --version  Show the program version.\n"
         "  -h, --help     Show this help.\n"
     );
 }
@@ -112,6 +113,10 @@ int backup_tool(
 ) {
     if (args.size() == 1 && (args.at(0) == "-h" || args.at(0) == "--help")) {
         usage(output);
+        return 0;
+    }
+    if (args.size() == 1 && (args.at(0) == "-V" || args.at(0) == "--version")) {
+        std::println(output, "btrfs-backup {}", BTRFS_BACKUP_VERSION);
         return 0;
     }
 

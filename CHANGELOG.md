@@ -57,6 +57,8 @@ with command-line tools and native KDE integration.
   a guided restore window with file metadata, plan preview and outcome details.
 - Adds KRunner commands for status, backup start, repository browsing and
   previous-version lookup.
+- Shows the installed version from both CLI programs and on the System Settings
+  settings page.
 - Ships localized user interfaces and current reference screenshots.
 
 ### Security And Reliability

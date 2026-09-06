@@ -3,7 +3,7 @@ _btrfs_backupctl()
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local commands='profile repository status installation runner restore target'
     local subcommands='list wizard create validate render save regenerate show export rebuild history watch plan execute cancel catalog versions drill activate deactivate mount eject'
-    local options='--status-root --history-root --profile-dir --profile --all --human --limit --interval --file --output --output-dir --apply --render-only --validate-dir --offline --mount-target --timestamp --run-id --force --repository --snapshot --source --source-id --destination --transaction --host --replace --subvolume --from-service --from-runner --help'
+    local options='--status-root --history-root --profile-dir --profile --all --human --limit --interval --file --output --output-dir --apply --render-only --validate-dir --offline --mount-target --timestamp --run-id --force --repository --snapshot --source --source-id --destination --transaction --host --replace --subvolume --from-service --from-runner --version --help'
     COMPREPLY=( $(compgen -W "$commands $subcommands $options" -- "$cur") )
 }
 complete -F _btrfs_backupctl btrfs-backupctl
