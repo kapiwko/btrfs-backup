@@ -204,7 +204,7 @@ BrowseSessionService::~BrowseSessionService() noexcept {
 
 BrowseSessionInfo BrowseSessionService::open(
     const std::string& caller_bus_name,
-    std::uint32_t caller_uid,
+    const BrowseAccessIdentity& caller_identity,
     const std::string& profile_id
 ) {
     const ProfileId profile{profile_id};
@@ -235,13 +235,13 @@ BrowseSessionInfo BrowseSessionService::open(
     BrowseSessionId id = session_ids_();
     if (sessions_.contains(std::string(id.value())))
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "browse session identifier collision");
-    backend_.open(profile, id, caller_uid);
+    backend_.open(profile, id, caller_identity);
     const std::string key{id.value()};
     Session session{
         .id = id,
         .profile_id = profile,
         .caller_bus_name = caller_bus_name,
-        .caller_uid = caller_uid,
+        .caller_uid = caller_identity.uid,
         .deadline = {},
         .expires_at = {},
         .operation_leases = {},
@@ -250,6 +250,14 @@ BrowseSessionInfo BrowseSessionService::open(
     auto [position, inserted] = sessions_.emplace(key, std::move(session));
     (void)inserted;
     return session_info(position->second);
+}
+
+BrowseSessionInfo BrowseSessionService::open(
+    const std::string& caller_bus_name,
+    std::uint32_t caller_uid,
+    const std::string& profile_id
+) {
+    return open(caller_bus_name, BrowseAccessIdentity{.uid = caller_uid, .groups = {}}, profile_id);
 }
 
 std::map<std::string, BrowseSessionService::Session>::iterator BrowseSessionService::owned_session(

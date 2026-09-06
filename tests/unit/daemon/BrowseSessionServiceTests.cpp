@@ -19,6 +19,7 @@ using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::BrowseSessionCloseReason;
 using btrfsbackup::daemon::control::BrowseSessionEvent;
 using btrfsbackup::daemon::control::BrowseSessionService;
+using btrfsbackup::daemon::control::BrowseAccessIdentity;
 using btrfsbackup::daemon::control::IBrowseSessionBackend;
 using btrfsbackup::daemon::control::IManagerAuthorizer;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
@@ -51,8 +52,10 @@ class Backend final : public IBrowseSessionBackend {
     std::string versions_source;
     std::filesystem::path versions_path;
     std::vector<std::filesystem::path> coverage_paths;
-    void open(const ProfileId& profile, const BrowseSessionId& id, std::uint32_t uid) override {
-        opened.push_back(std::string(profile.value()) + ":" + std::string(id.value()) + ":" + std::to_string(uid));
+    btrfsbackup::daemon::control::BrowseAccessIdentity opened_identity;
+    void open(const ProfileId& profile, const BrowseSessionId& id, const btrfsbackup::daemon::control::BrowseAccessIdentity& identity) override {
+        opened_identity = identity;
+        opened.push_back(std::string(profile.value()) + ":" + std::string(id.value()) + ":" + std::to_string(identity.uid));
     }
     void close(const BrowseSessionId& id) override {
         closed.push_back(std::string(id.value()));
@@ -151,10 +154,19 @@ void test_authorized_open_and_owned_close() {
     std::vector<BrowseSessionEvent> events;
     BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-one"}; }, {}, {}, [&](const BrowseSessionEvent& event) { events.push_back(event); });
 
-    const auto session = service.open(":1.10", 1000, "default");
+    const auto session = service.open(
+        ":1.10",
+        BrowseAccessIdentity{.uid = 1000, .groups = {10, 20}},
+        "default"
+    );
     test_helpers::expect_eq("session id", session.session_id, "browse-one");
     test_helpers::expect_true("read only", session.read_only, "session was not declared read-only");
     test_helpers::expect_true("authorization action", authorizer.actions == std::vector{ManagerAuthorizationAction::OpenBrowseSession}, "wrong authorization action");
+    test_helpers::expect_true(
+        "process identity snapshot",
+        backend.opened_identity.uid == 1000 && backend.opened_identity.groups == std::vector<std::uint32_t>{10, 20},
+        "backend did not receive the D-Bus process identity unchanged"
+    );
     test_helpers::expect_eq(
         "repository inspection",
         service.inspect_repository(":1.10", session.session_id),

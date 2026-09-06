@@ -33,7 +33,7 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     void open(
         const ProfileId& profile_id,
         const BrowseSessionId& session_id,
-        std::uint32_t caller_uid
+        const BrowseAccessIdentity& caller_identity
     ) override;
     void close(const BrowseSessionId& session_id) override;
     void cleanup_stale() override;
