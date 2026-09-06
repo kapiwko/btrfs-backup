@@ -39,11 +39,21 @@ ProfileDirectoryModel::ProfileDirectoryModel(QObject* parent)
     });
 }
 
-QVariantList ProfileDirectoryModel::profiles() const { return profiles_; }
-bool ProfileDirectoryModel::managerConnected() const { return manager_connected_; }
-QString ProfileDirectoryModel::lastError() const { return last_error_; }
-QString ProfileDirectoryModel::lastErrorCode() const { return last_error_code_; }
-bool ProfileDirectoryModel::supports(const QString& feature) const { return features_.contains(feature); }
+QVariantList ProfileDirectoryModel::profiles() const {
+    return profiles_;
+}
+bool ProfileDirectoryModel::managerConnected() const {
+    return manager_connected_;
+}
+QString ProfileDirectoryModel::lastError() const {
+    return last_error_;
+}
+QString ProfileDirectoryModel::lastErrorCode() const {
+    return last_error_code_;
+}
+bool ProfileDirectoryModel::supports(const QString& feature) const {
+    return features_.contains(feature);
+}
 
 void ProfileDirectoryModel::start() {
     if (active_)
@@ -78,14 +88,16 @@ void ProfileDirectoryModel::refreshNow() {
 
 void ProfileDirectoryModel::openSettings() {
     btrfsbackup::kde::launcher::launch(
-        btrfsbackup::kde::launcher::open_backup_settings(), this,
+        btrfsbackup::kde::launcher::open_backup_settings(),
+        this,
         [this](const QString&) { setLastError(tr("Could not open backup settings."), QStringLiteral("desktop.settings-launch-failed")); }
     );
 }
 
 void ProfileDirectoryModel::openNotificationSettings() {
     btrfsbackup::kde::launcher::launch(
-        btrfsbackup::kde::launcher::open_notification_settings(), this,
+        btrfsbackup::kde::launcher::open_notification_settings(),
+        this,
         [this](const QString&) { setLastError(tr("Could not open notification settings."), QStringLiteral("desktop.notification-settings-launch-failed")); }
     );
 }
