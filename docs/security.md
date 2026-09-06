@@ -13,8 +13,8 @@ interface: its device topology is sanitized, while source discovery may expose
 the active user's Btrfs mount paths and filesystem UUIDs so that the user can
 choose a source. The active local session may invoke already configured
 operational controls through their separate polkit actions; inactive callers
-still require administrator authentication. Repository browsing and local-path
-coverage queries are available to the active local session. Repository reads
+still require administrator authentication. Repository browsing and
+descriptor-backed coverage queries are available to the active local session. Repository reads
 are checked against the snapshot's stored owner, group, mode and POSIX ACL
 before the root manager opens a file. Run history, profile state, key
 material, complete storage identity, and trusted runtime configuration are
@@ -93,6 +93,9 @@ hour even when a client keeps renewing it. Losing the caller's bus name clears
 all of its sessions and leases immediately.
 Repository traversal rejects absolute paths, `..`, symlinks and special files,
 and regular-file reads use already-open descriptors passed over D-Bus.
+Coverage lookup likewise accepts only an `O_PATH` descriptor for a regular file
+or directory that the desktop process has already opened; it does not accept an
+arbitrary path string at the privileged boundary.
 Stored ownership, group mode bits and POSIX ACLs are evaluated against the UID,
 primary GID and supplementary groups captured from the actual D-Bus sender
 process when the browse session opens. Account-database membership is not used

@@ -172,7 +172,7 @@ assert_delegated_methods(
     browse_methods
     open_browse_session renew_browse_session begin_browse_operation
     end_browse_operation close_browse_session
-    list_browse_directory list_browse_directory_page list_previous_versions inspect_browse_entry open_browse_file open_browse_entry resolve_backup_coverage
+    list_browse_directory list_browse_directory_page list_previous_versions inspect_browse_entry open_browse_file open_browse_entry resolve_backup_coverage_by_fd
 )
 assert_delegated_methods(
     credential_methods
@@ -320,8 +320,8 @@ assert_unprivileged_method(
     "<methodname=\"InspectBrowseRepository\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_unprivileged_method(
-    resolve_backup_coverage ResolveBackupCoverage s s
-    "<methodname=\"ResolveBackupCoverage\"><argname=\"localPath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    resolve_backup_coverage_by_fd ResolveBackupCoverageByFd h s
+    "<methodname=\"ResolveBackupCoverageByFd\"><argname=\"entry\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_unprivileged_method(
     list_target_credentials ListTargetCredentials s s

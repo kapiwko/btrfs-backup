@@ -150,8 +150,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
-    <method name="ResolveBackupCoverage">
-      <arg name="localPath" type="s" direction="in"/>
+    <method name="ResolveBackupCoverageByFd">
+      <arg name="entry" type="h" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
     <method name="ListTargetCredentials">

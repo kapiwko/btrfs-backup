@@ -56,7 +56,7 @@ int main() {
         const auto coverage = btrfsbackup::kde::parse_backup_coverage(
             resolve_backup_coverage(local_url.toLocalFile())
         );
-        expect(coverage && coverage->size() == 2, "ResolveBackupCoverage response was not accepted");
+        expect(coverage && coverage->size() == 2, "ResolveBackupCoverageByFd response was not accepted");
 
         const auto versions_url = btrfsbackup::kde::dolphin::select_previous_versions_url(
             *coverage,
