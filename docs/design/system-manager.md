@@ -62,7 +62,7 @@ InspectBrowseEntry
 OpenBrowseFile
 OpenBrowseEntry
 InspectBrowseRepository
-ResolveBackupCoverage
+ResolveBackupCoverageByFd
 ListTargetCredentials
 AddTargetPassphrase
 AddTargetKey

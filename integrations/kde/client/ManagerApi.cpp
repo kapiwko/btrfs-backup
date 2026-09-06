@@ -7,11 +7,20 @@
 #include "Manager1Interface.h"
 
 #include <QDBusMessage>
+#include <QDBusError>
+#include <QDBusUnixFileDescriptor>
 #include <QDateTime>
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFile>
+
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstring>
 
 #include <algorithm>
 #include <limits>
@@ -95,7 +104,20 @@ QDBusPendingCall ManagerClient::ejectTarget(const QString& profile_id) const {
 }
 
 QDBusPendingCall ManagerClient::resolveBackupCoverage(const QString& local_path) const {
-    return call(QLatin1String(manager_protocol::method::resolve_backup_coverage), {local_path});
+    const QByteArray encoded_path = QFile::encodeName(local_path);
+    const int descriptor = ::open(encoded_path.constData(), O_PATH | O_CLOEXEC | O_NOFOLLOW);
+    if (descriptor < 0) {
+        return QDBusPendingCall::fromError(QDBusError(
+            QDBusError::Failed,
+            QStringLiteral("Cannot open the selected local path: %1").arg(QString::fromLocal8Bit(std::strerror(errno)))
+        ));
+    }
+    const QDBusUnixFileDescriptor entry(descriptor);
+    ::close(descriptor);
+    return call(
+        QLatin1String(manager_protocol::method::resolve_backup_coverage_by_fd),
+        {QVariant::fromValue(entry)}
+    );
 }
 
 QDBusPendingCall ManagerClient::openBrowseSession(const QString& profile_id) const {

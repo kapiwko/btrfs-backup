@@ -11,7 +11,39 @@
 #include <core/Identifiers.hpp>
 #include <core/ManagerProtocol.hpp>
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <array>
+
 namespace btrfsbackup::daemon::dbus {
+namespace {
+
+std::string path_from_coverage_descriptor(int descriptor) {
+    if (descriptor < 0)
+        throw ManagerOperationError(ManagerErrorCode::InvalidRequest, "coverage descriptor is invalid");
+    const int flags = ::fcntl(descriptor, F_GETFL);
+    if (flags < 0 || (flags & O_PATH) != O_PATH)
+        throw ManagerOperationError(ManagerErrorCode::InvalidRequest, "coverage descriptor must be opened with O_PATH");
+    struct stat status{};
+    if (::fstat(descriptor, &status) != 0 || (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode)))
+        throw ManagerOperationError(ManagerErrorCode::InvalidRequest, "coverage descriptor must identify a file or directory");
+
+    const std::string proc_path = "/proc/self/fd/" + std::to_string(descriptor);
+    std::array<char, 4096> resolved{};
+    const ssize_t length = ::readlink(proc_path.c_str(), resolved.data(), resolved.size());
+    if (length < 0)
+        throw ManagerOperationError(ManagerErrorCode::InvalidRequest, "cannot resolve coverage descriptor");
+    if (static_cast<std::size_t>(length) == resolved.size())
+        throw ManagerOperationError(ManagerErrorCode::InvalidRequest, "coverage path is too long");
+    std::string path(resolved.data(), static_cast<std::size_t>(length));
+    if (path.ends_with(" (deleted)") || !std::filesystem::path{path}.is_absolute())
+        throw ManagerOperationError(ManagerErrorCode::InvalidRequest, "coverage descriptor no longer identifies a local path");
+    return path;
+}
+
+} // namespace
 
 ManagerBrowseMethods::ManagerBrowseMethods(
     ManagerService& service,
@@ -341,11 +373,11 @@ int ManagerBrowseMethods::inspect_browse_repository(sd_bus_message* message, sd_
     );
 }
 
-int ManagerBrowseMethods::resolve_backup_coverage(sd_bus_message* message, sd_bus_error* error) noexcept {
+int ManagerBrowseMethods::resolve_backup_coverage_by_fd(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
-            const char* local_path = nullptr;
-            const int read_result = sd_bus_message_read(message, "s", &local_path);
+            int descriptor = -1;
+            const int read_result = sd_bus_message_read(message, "h", &descriptor);
             if (read_result < 0)
                 return read_result;
             std::vector<ProfileId> profile_ids;
@@ -354,7 +386,7 @@ int ManagerBrowseMethods::resolve_backup_coverage(sd_bus_message* message, sd_bu
             return support_.reply_operational_json(message, error, "resolve-backup-coverage", "", [&] {
                 return support_.codec().encode(browse_sessions_.resolve_coverage(
                     ManagerMethodSupport::caller_bus_name(message),
-                    local_path == nullptr ? "" : local_path,
+                    path_from_coverage_descriptor(descriptor),
                     profile_ids
                 ));
             });

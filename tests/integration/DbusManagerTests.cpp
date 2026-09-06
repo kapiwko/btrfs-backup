@@ -496,7 +496,7 @@ void Fixture::verify_read_api() {
         "OpenBrowseFile",
         "OpenBrowseEntry",
         "InspectBrowseRepository",
-        "ResolveBackupCoverage",
+        "ResolveBackupCoverageByFd",
         "ListTargetCredentials",
         "AddTargetPassphrase",
         "AddTargetKey",
@@ -581,9 +581,20 @@ void Fixture::verify_authorization_and_errors() {
     static_cast<void>(call("StartBackup", {"s", "default"}));
     static_cast<void>(call("ValidateTarget", {"s", "default"}));
     const auto browse = call("OpenBrowseSession", {"s", "default"});
-    const auto coverage = call("ResolveBackupCoverage", {"s", "/home/other-user/private"});
+    const int coverage_descriptor = ::open((root_ / "public/default.json").c_str(), O_PATH);
+    require(coverage_descriptor >= 0, "cannot open coverage fixture with O_PATH");
+    const auto coverage = call("ResolveBackupCoverageByFd", {"h", std::to_string(coverage_descriptor)});
+    ::close(coverage_descriptor);
+    const int readable_descriptor = ::open((root_ / "public/default.json").c_str(), O_RDONLY);
+    require(readable_descriptor >= 0, "cannot open readable coverage fixture");
+    const auto invalid_coverage = call("ResolveBackupCoverageByFd", {"h", std::to_string(readable_descriptor)});
+    ::close(readable_descriptor);
     require(browse.status != 0, "repository browse was available without authorization");
     require(coverage.status != 0, "backup coverage was available without authorization");
+    require(
+        invalid_coverage.status != 0 && invalid_coverage.output.contains("request is invalid"),
+        "coverage accepted a descriptor that was not opened with O_PATH: " + invalid_coverage.output
+    );
     const std::string polkit_log = read_file(root_ / "polkit.log");
     require_contains(polkit_log, "io.github.btrfsbackup.start-backup", "start request used the wrong polkit action");
     require_contains(polkit_log, "io.github.btrfsbackup.validate-target", "validate request used the wrong polkit action");

@@ -66,7 +66,7 @@ schema versions are not advertised as public API versions.
 | `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
 | `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
 | `OpenBrowseEntry` | `(s sessionId, s relativePath)` | `(h)` | returns an authorized descriptor pinned directly to a restorable file or directory |
-| `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
+| `ResolveBackupCoverageByFd` | `(h entry)` | `(s)` | presentation-safe profile/source coverage for an opened local file or directory |
 | `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
 | `AddTargetPassphrase` | `(s profileId, h authorization, h newSecret, s label)` | `(s)` | adds a LUKS2 passphrase through file descriptors |
 | `AddTargetKey` | `(s profileId, h authorization, h key, s label, b automatic)` | `(s)` | imports and optionally activates a protected key file |
@@ -212,6 +212,11 @@ API minor version 12 adds `OpenBrowseEntry`. Restore clients receive a descripto
 pinned directly to an authorized file or directory, so private repository layout
 directories do not block access to content allowed by the stored permissions.
 
+API minor version 13 replaces the unreleased string-based coverage query with
+`ResolveBackupCoverageByFd`. Clients open the selected local file or directory
+with `O_PATH` and pass that descriptor, and the manager rejects other descriptor
+types, deleted objects and special files.
+
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
 `cleanupResult`. They are presentation-safe recovery evidence: clients can show
 which durable steps completed and whether the temporary mapper was closed
@@ -314,14 +319,16 @@ currently open profile, including changes published by the CLI.
 | `InspectBrowseEntry` | session ownership and path confinement | none |
 | `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
 | `OpenBrowseEntry` | session ownership, path confinement, stored permissions and supported entry type | none |
-| `ResolveBackupCoverage` | repository access | `io.github.btrfsbackup.open-browse-session` |
+| `ResolveBackupCoverageByFd` | repository access | `io.github.btrfsbackup.open-browse-session` |
 
 Operational backup controls are allowed without a password from the active
 local session. The profile and hooks remain root-owned, so this grants control
 over an already approved backup definition, not configuration or arbitrary
 code execution. Opening a read-only browse session and resolving coverage for
-an arbitrary local path are available without a password to the active local
-session; inactive and remote sessions require administrator authentication.
+a local file or directory already opened by the caller are available without a
+password to the active local session; inactive and remote sessions require
+administrator authentication. Coverage accepts only an `O_PATH` descriptor for
+a regular file or directory and resolves that pinned object inside the manager.
 The manager applies the caller's UID and supplementary groups to stored mode and
 POSIX ACL checks before opening repository contents. An owned session may list confined entries
 and receive only already-open, read-only regular-file descriptors. The daemon rejects absolute

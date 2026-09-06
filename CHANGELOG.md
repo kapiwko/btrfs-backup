@@ -156,7 +156,10 @@ migration, export and upgrade-preflight commands have been removed.
    actual D-Bus sender process captured when its browse session opens;
 17. operation leases expire after five minutes and browse sessions have a
    one-hour absolute lifetime, so an abandoned client cannot block eject
-   indefinitely.
+   indefinitely;
+18. backup coverage queries pass an `O_PATH` descriptor for a local file or
+   directory, preventing callers from probing coverage with arbitrary path
+   strings at the privileged boundary.
 
 ### KDE Desktop Integration
 
