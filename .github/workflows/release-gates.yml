@@ -65,6 +65,7 @@ jobs:
             btrfs-progs \
             build-essential \
             cmake \
+            libacl1-dev \
             libblkid-dev \
             libbtrfsutil-dev \
             libcryptsetup-dev \
@@ -96,6 +97,7 @@ jobs:
             btrfs-progs \
             build-essential \
             cmake \
+            libacl1-dev \
             libblkid-dev \
             libbtrfsutil-dev \
             libcryptsetup-dev \
