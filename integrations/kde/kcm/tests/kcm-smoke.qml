@@ -56,6 +56,13 @@ Item {
                 return
             }
             page.item.editorOverride = editor
+            if (page.item.actions.length !== 2
+                    || page.item.actions[0].icon.name !== "list-add-symbolic"
+                    || page.item.actions[1].icon.name !== "configure-symbolic") {
+                console.error("Backup KCM header actions are incomplete")
+                Qt.exit(1)
+                return
+            }
             page.item.openEditorFor("default")
             verifyDialog.start()
         }

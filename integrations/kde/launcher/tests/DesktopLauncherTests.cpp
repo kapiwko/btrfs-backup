@@ -16,7 +16,6 @@ int main() {
     using btrfsbackup::kde::launcher::open_backup_settings;
     using btrfsbackup::kde::launcher::open_partition_manager;
     using btrfsbackup::kde::launcher::open_restore_application;
-    using btrfsbackup::kde::launcher::open_system_log;
     int failures = 0;
     const auto expect = [&](bool condition, const char* message) {
         if (!condition) {
@@ -55,12 +54,6 @@ int main() {
         restore_desktop_contents.contains("X-KDE-Protocols=btrfsbackup"),
         "restore application does not declare support for btrfsbackup URLs"
     );
-
-    const LaunchRequest log = open_system_log();
-    expect(log.method == LaunchMethod::Command, "system log must use a command job");
-    expect(log.executable == u"konsole"_s, "wrong terminal executable");
-    expect(log.desktop_name == u"org.kde.konsole"_s, "missing terminal startup identity");
-    expect(log.arguments.contains(u"btrfs-backupd.service"_s), "daemon unit missing from log command");
 
     const LaunchRequest partition_manager = open_partition_manager();
     expect(

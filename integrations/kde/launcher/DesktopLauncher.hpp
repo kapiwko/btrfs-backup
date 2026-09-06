@@ -38,7 +38,6 @@ LaunchRequest open_backup_settings(QString profile_id = {});
 LaunchRequest open_notification_settings();
 LaunchRequest open_backup_directory(QUrl url);
 LaunchRequest open_restore_application(QUrl url);
-LaunchRequest open_system_log();
 LaunchRequest open_partition_manager();
 
 bool application_available(const LaunchRequest& request);

@@ -20,14 +20,6 @@ BackupKcm::BackupKcm(QObject* parent, const KPluginMetaData& metadata)
     setButtons(NoAdditionalButton);
 }
 
-void BackupKcm::openSystemLog() {
-    launcher::launch(launcher::open_system_log(), this);
-}
-
-void BackupKcm::openSupportPage() {
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/kapiwko/btrfs-backup/issues")));
-}
-
 void BackupKcm::openPartitionManager() {
     const auto request = launcher::open_partition_manager();
     if (launcher::application_available(request)) {
