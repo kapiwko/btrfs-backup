@@ -25,10 +25,10 @@ namespace {
 
 using btrfsbackup::platform::linux::OwnedFileDescriptor;
 
-[[noreturn]] void path_error(const char* operation) {
-    if (errno == ENOENT || errno == ENOTDIR)
+[[noreturn]] void path_error(const char* operation, int error_number) {
+    if (error_number == ENOENT || error_number == ENOTDIR)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, operation);
-    throw std::system_error(errno, std::generic_category(), operation);
+    throw std::system_error(error_number, std::generic_category(), operation);
 }
 
 std::vector<std::string> validated_components(const fs::path& relative) {
@@ -49,12 +49,12 @@ std::vector<std::string> validated_components(const fs::path& relative) {
 OwnedFileDescriptor open_beneath(int root, const fs::path& relative, int final_flags) {
     OwnedFileDescriptor current(openat(root, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!current.valid())
-        path_error("cannot open browse root");
+        path_error("cannot open browse root", errno);
     const auto components = validated_components(relative);
     if (components.empty()) {
         OwnedFileDescriptor result(openat(current.get(), ".", final_flags | O_CLOEXEC | O_NOFOLLOW));
         if (!result.valid())
-            path_error("cannot open browse entry");
+            path_error("cannot open browse entry", errno);
         return result;
     }
     for (std::size_t index = 0; index + 1 < components.size(); ++index) {
@@ -64,7 +64,7 @@ OwnedFileDescriptor open_beneath(int root, const fs::path& relative, int final_f
             O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
         ));
         if (!next.valid())
-            path_error("cannot traverse browse entry");
+            path_error("cannot traverse browse entry", errno);
         current = std::move(next);
     }
     OwnedFileDescriptor result(openat(
@@ -73,14 +73,14 @@ OwnedFileDescriptor open_beneath(int root, const fs::path& relative, int final_f
         final_flags | O_CLOEXEC | O_NOFOLLOW
     ));
     if (!result.valid())
-        path_error("cannot open browse entry");
+        path_error("cannot open browse entry", errno);
     return result;
 }
 
 OwnedFileDescriptor session_root(const fs::path& root) {
     OwnedFileDescriptor descriptor(::open(root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!descriptor.valid())
-        path_error("cannot open browse session view");
+        path_error("cannot open browse session view", errno);
     return descriptor;
 }
 
@@ -103,7 +103,7 @@ int acl_permissions(acl_permset_t permissions) {
     const int write = acl_get_perm(permissions, ACL_WRITE);
     const int execute = acl_get_perm(permissions, ACL_EXECUTE);
     if (read < 0 || write < 0 || execute < 0)
-        path_error("cannot read stored POSIX ACL permissions");
+        path_error("cannot read stored POSIX ACL permissions", errno);
     return (read == 1 ? 4 : 0) | (write == 1 ? 2 : 0) | (execute == 1 ? 1 : 0);
 }
 
@@ -120,7 +120,7 @@ int effective_permissions(int descriptor, const struct stat& status, const Brows
     if (!acl && (errno == ENOTSUP || errno == EOPNOTSUPP || errno == ENOSYS))
         return mode_permissions(status, identity);
     if (!acl)
-        path_error("cannot read stored POSIX ACL");
+        path_error("cannot read stored POSIX ACL", errno);
 
     int owner = -1;
     int named_user = -1;
@@ -136,14 +136,14 @@ int effective_permissions(int descriptor, const struct stat& status, const Brows
         acl_tag_t tag{};
         acl_permset_t permissions{};
         if (acl_get_tag_type(entry, &tag) != 0 || acl_get_permset(entry, &permissions) != 0)
-            path_error("cannot read stored POSIX ACL entry");
+            path_error("cannot read stored POSIX ACL entry", errno);
         const int value = acl_permissions(permissions);
         if (tag == ACL_USER_OBJ) {
             owner = value;
         } else if (tag == ACL_USER) {
             OwnedAclQualifier qualifier(acl_get_qualifier(entry));
             if (!qualifier)
-                path_error("cannot read stored POSIX ACL user");
+                path_error("cannot read stored POSIX ACL user", errno);
             if (*static_cast<uid_t*>(qualifier.get()) == static_cast<uid_t>(identity.uid))
                 named_user = value;
         } else if (tag == ACL_GROUP_OBJ) {
@@ -154,7 +154,7 @@ int effective_permissions(int descriptor, const struct stat& status, const Brows
         } else if (tag == ACL_GROUP) {
             OwnedAclQualifier qualifier(acl_get_qualifier(entry));
             if (!qualifier)
-                path_error("cannot read stored POSIX ACL group");
+                path_error("cannot read stored POSIX ACL group", errno);
             if (contains_group(identity, *static_cast<gid_t*>(qualifier.get()))) {
                 matching_groups |= value;
                 group_matched = true;
@@ -166,7 +166,7 @@ int effective_permissions(int descriptor, const struct stat& status, const Brows
         }
     }
     if (entry_result < 0)
-        path_error("cannot enumerate stored POSIX ACL");
+        path_error("cannot enumerate stored POSIX ACL", errno);
     if (status.st_uid == static_cast<uid_t>(identity.uid))
         return owner >= 0 ? owner : mode_permissions(status, identity);
     if (named_user >= 0)
@@ -181,7 +181,7 @@ void require_access(int descriptor, const BrowseAccessIdentity* identity, int re
         return;
     struct stat status{};
     if (fstat(descriptor, &status) != 0)
-        path_error("cannot inspect browse permissions");
+        path_error("cannot inspect browse permissions", errno);
     if ((effective_permissions(descriptor, status, *identity) & required) != required)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, operation);
 }
@@ -194,7 +194,7 @@ OwnedFileDescriptor open_authorized_directory(
 ) {
     OwnedFileDescriptor current(openat(root, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!current.valid())
-        path_error("cannot open browse root");
+        path_error("cannot open browse root", errno);
     require_access(current.get(), identity, 1, "stored directory permissions deny traversal");
     for (const std::string& component : validated_components(relative)) {
         OwnedFileDescriptor next(openat(
@@ -203,7 +203,7 @@ OwnedFileDescriptor open_authorized_directory(
             O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
         ));
         if (!next.valid())
-            path_error("cannot traverse browse entry");
+            path_error("cannot traverse browse entry", errno);
         current = std::move(next);
         require_access(current.get(), identity, 1, "stored directory permissions deny traversal");
     }
@@ -221,11 +221,12 @@ struct DirectoryCloser {
 std::unique_ptr<DIR, DirectoryCloser> directory_stream(int descriptor) {
     const int duplicate = dup(descriptor);
     if (duplicate < 0)
-        path_error("cannot duplicate browse directory");
+        path_error("cannot duplicate browse directory", errno);
     std::unique_ptr<DIR, DirectoryCloser> stream(fdopendir(duplicate));
     if (!stream) {
+        const int open_error = errno;
         ::close(duplicate);
-        path_error("cannot open browse directory stream");
+        path_error("cannot open browse directory stream", open_error);
     }
     return stream;
 }
@@ -233,7 +234,7 @@ std::unique_ptr<DIR, DirectoryCloser> directory_stream(int descriptor) {
 BrowseEntryInfo entry_info(int parent, const std::string& name) {
     struct stat status{};
     if (fstatat(parent, name.c_str(), &status, AT_SYMLINK_NOFOLLOW) != 0)
-        path_error("cannot inspect browse entry");
+        path_error("cannot inspect browse entry", errno);
     if (S_ISLNK(status.st_mode) || (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode)))
         throw std::invalid_argument("browse entry has an unsupported type");
     return {
@@ -280,7 +281,7 @@ std::vector<BrowseEntryInfo> BrowseFilesystemAccess::list_directory(
         errno = 0;
     }
     if (errno != 0)
-        path_error("cannot read browse directory");
+        path_error("cannot read browse directory", errno);
     return result;
 }
 
@@ -308,7 +309,7 @@ BrowseDirectoryPage BrowseFilesystemAccess::list_directory_page(
         errno = 0;
     }
     if (errno != 0)
-        path_error("cannot read browse directory");
+        path_error("cannot read browse directory", errno);
     return entries.finish();
 }
 
@@ -323,7 +324,7 @@ BrowseEntryInfo BrowseFilesystemAccess::inspect_entry(
     OwnedFileDescriptor entry = open_beneath(root_descriptor.get(), relative_path, O_PATH);
     struct stat status{};
     if (fstat(entry.get(), &status) != 0)
-        path_error("cannot inspect browse entry");
+        path_error("cannot inspect browse entry", errno);
     if (!S_ISREG(status.st_mode) && !S_ISDIR(status.st_mode))
         throw std::invalid_argument("browse entry has an unsupported type");
     return {
@@ -346,7 +347,7 @@ OwnedFileDescriptor BrowseFilesystemAccess::open_file(
     OwnedFileDescriptor result = open_beneath(root_descriptor.get(), relative_path, O_RDONLY | O_NONBLOCK);
     struct stat status{};
     if (fstat(result.get(), &status) != 0)
-        path_error("cannot inspect browse file");
+        path_error("cannot inspect browse file", errno);
     if (!S_ISREG(status.st_mode))
         throw std::invalid_argument("browse entry is not a regular file");
     require_access(result.get(), identity, 4, "stored file permissions deny reading");
@@ -369,7 +370,7 @@ OwnedFileDescriptor BrowseFilesystemAccess::open_entry(
     OwnedFileDescriptor probe = open_beneath(root_descriptor.get(), relative_path, O_PATH);
     struct stat status{};
     if (fstat(probe.get(), &status) != 0)
-        path_error("cannot inspect browse entry");
+        path_error("cannot inspect browse entry", errno);
     if (S_ISREG(status.st_mode))
         return open_file(root, relative_path, identity);
     if (S_ISDIR(status.st_mode))
@@ -380,7 +381,7 @@ OwnedFileDescriptor BrowseFilesystemAccess::open_entry(
 OwnedFileDescriptor BrowseFilesystemAccess::open_root(const fs::path& root) const {
     OwnedFileDescriptor result(::open(root.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!result.valid())
-        path_error("cannot open browse session root");
+        path_error("cannot open browse session root", errno);
     return result;
 }
 
