@@ -108,7 +108,7 @@ void install_test_profile_transactionally(
 
 btrfsbackup::config::json::Json valid_profile() {
     return {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
@@ -278,14 +278,14 @@ void test_invalid_profile_document_does_not_create_profile() {
     );
 }
 
-void test_profile_rejects_old_schema_versions() {
-    for (const int version : {1, 2, 3}) {
+void test_profile_rejects_unsupported_schema_versions() {
+    for (const int version : {0, 2, 3, 4}) {
         btrfsbackup::config::json::Json old = valid_profile();
         old["schemaVersion"] = version;
         expect_validation_error(
-            "old profile schema",
+            "unsupported profile schema",
             [&] { (void)btrfsbackup::config::json::normalize_profile(old); },
-            "schemaVersion must be 4"
+            "schemaVersion must be 1"
         );
     }
 }
@@ -306,7 +306,7 @@ void test_installed_legacy_profile_is_rejected_without_modification() {
     expect_validation_error(
         "installed legacy profile",
         [&] { (void)repository.get(btrfsbackup::ProfileId{"default"}); },
-        "schemaVersion must be 4"
+        "schemaVersion must be 1"
     );
     expect_true(
         "installed legacy profile preserved",
@@ -1053,7 +1053,7 @@ int main() {
     test_target_activation_is_structured();
     test_profile_round_trips_normalized_json();
     test_invalid_profile_document_does_not_create_profile();
-    test_profile_rejects_old_schema_versions();
+    test_profile_rejects_unsupported_schema_versions();
     test_installed_legacy_profile_is_rejected_without_modification();
     test_profile_rejects_removed_sources_directory();
     test_profile_rejects_system_path_overrides();

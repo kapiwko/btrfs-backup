@@ -22,7 +22,7 @@ namespace {
 constexpr std::size_t max_history_limit = 100;
 constexpr std::size_t max_history_offset = 10000;
 
-using PrivateHistory = btrfsbackup::state::document::PrivateRunHistoryV2;
+using PrivateHistory = btrfsbackup::state::document::PrivateRunHistoryV1;
 
 btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const PrivateHistory& input) {
     const std::string& state = input.state.value;

@@ -298,10 +298,10 @@ Runner development files.
 
 ## Upgrading To 1.0
 
-Version 1.0 accepts only canonical profile schema v4 and requires
+Version 1.0 accepts only canonical profile schema v1 and requires
 `configurationGeneration`. Legacy profile schemas, automatic profile migration
 and old activation markers have been removed from normal runtime loading. The
-project does not support an in-place upgrade from a 3.x profile installation.
+project does not support an in-place upgrade from a pre-1.0 profile installation.
 Install 1.0 with a freshly reviewed v4 profile and verify a backup and restore
 before relying on it.
 

@@ -87,7 +87,7 @@ void test_status_history_and_device() {
         .last_attempt_state = "failed",
     };
     const Json status_document = Json::parse(codec.encode(status));
-    expect_field("status", status_document, "schemaVersion", 6);
+    expect_field("status", status_document, "schemaVersion", 1);
     expect_field("status", status_document, "operationKind", "backup");
     expect_field("status", status_document, "runId", std::string(status.run.run_id->value()));
     expect_field("status", status_document, "activity", "sizing");
@@ -231,7 +231,7 @@ void test_storage_topology_and_plan_contract() {
     const provisioning::StorageTopology topology{.generation = "topology-1", .devices = {device}};
     const std::string topology_payload = codec.encode(topology);
     const Json topology_document = Json::parse(topology_payload);
-    expect_field("topology", topology_document, "schemaVersion", 2);
+    expect_field("topology", topology_document, "schemaVersion", 1);
     expect_field("topology", topology_document, "generation", "topology-1");
     expect_field("topology candidate", topology_document.at("devices").at(0), "candidateId", "opaque-device");
     expect_field("topology system device", topology_document.at("devices").at(0), "systemDevice", true);
@@ -275,7 +275,7 @@ void test_storage_topology_and_plan_contract() {
         provisioning::PlannedPartitionGeometry{.start_sector = 0, .sector_count = 2, .partition_number = 1}
     );
     const Json plan_document = Json::parse(codec.encode(plan));
-    expect_field("plan", plan_document, "schemaVersion", 3);
+    expect_field("plan", plan_document, "schemaVersion", 1);
     expect_field("plan", plan_document, "planId", "plan-1");
     expect_field("plan", plan_document, "mode", "erase-whole-device");
     test_helpers::expect_true(
@@ -346,7 +346,7 @@ void test_storage_topology_and_plan_contract() {
     };
     const std::string inspection_payload = codec.encode(inspection);
     const Json inspection_document = Json::parse(inspection_payload);
-    expect_field("target inspection", inspection_document, "schemaVersion", 3);
+    expect_field("target inspection", inspection_document, "schemaVersion", 1);
     expect_field("target inspection", inspection_document, "inspectionId", "inspection-1");
     expect_field("target inspection", inspection_document, "classification", "compatible-repository");
     expect_field("target inspection", inspection_document, "repositoryId", "repository-1");
@@ -381,7 +381,7 @@ void test_device_preparation_status_contract() {
         .can_cancel = false,
     };
     const Json document = Json::parse(codec.encode(status));
-    expect_field("preparation status", document, "schemaVersion", 3);
+    expect_field("preparation status", document, "schemaVersion", 1);
     expect_field("preparation status", document, "lastCompletedPhase", "close");
     expect_field("preparation status", document, "cleanupResult", "mapper-closed");
     expect_field("preparation status", document, "errorCode", status.error_code);

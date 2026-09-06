@@ -26,7 +26,7 @@ btrfsbackup::config::json::Json profile_document(
     const fs::path& device = "/dev/null"
 ) {
     return {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"configurationGeneration", "0123456789abcdef0123456789abcdef"},
         {"profileId", "default"},
         {"name", "Default backup"},

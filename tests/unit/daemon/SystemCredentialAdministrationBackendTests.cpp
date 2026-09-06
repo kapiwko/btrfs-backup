@@ -117,7 +117,7 @@ control::CredentialAdministrationRoots roots(const fs::path& root) {
 
 void install_profile(const control::CredentialAdministrationRoots& paths) {
     const btrfsbackup::config::json::Json document{
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"profileId", "default"},
         {"name", "Default"},
         {"enabled", false},

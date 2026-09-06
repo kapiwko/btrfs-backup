@@ -57,7 +57,7 @@ void test_installation_render_writes_static_files() {
     fs::path root = test_root("render");
     fs::path profile_json = root / "profile.json";
     btrfsbackup::config::json::Json profile = {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
@@ -184,7 +184,7 @@ void test_installation_render_allows_explicit_backup_command_override() {
     fs::path root = test_root("render-backup-command");
     fs::path profile_json = root / "profile.json";
     btrfsbackup::config::json::Json profile = {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},

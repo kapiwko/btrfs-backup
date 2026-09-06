@@ -17,7 +17,7 @@ btrfs-backupctl profile show --profile default
 btrfs-backupctl profile export --profile default --output profile.json
 ```
 
-Version 1.0 accepts only schema-v4 profiles created for this release. It does
+Version 1.0 accepts only schema-v1 profiles created for this release. It does
 not import, convert, or update profiles from earlier versions. Back up any data
 you need independently, create a new profile, and verify both backup and restore
 before relying on the new configuration.
@@ -129,7 +129,7 @@ must not be a symbolic link, and must not be writable by group or other users
 with id `laptop` is always mounted at `TARGET_MOUNT_ROOT/laptop`; neither the
 mount point nor its systemd mount unit is stored in profile JSON.
 
-Only profile schema version 4 is accepted. It requires structured target
+Only profile schema version 1 is accepted. It requires structured target
 activation and does not allow `target.mountPoint`, `target.mountUnit`, or
 application-owned state paths in profile JSON.
 

@@ -167,7 +167,7 @@ void RealBtrfsTestEnvironment::write_configuration(const std::string& target_uui
     if (luks_uuid_result.status != 0 || trim_output(luks_uuid_result.output).empty())
         throw std::runtime_error("read target LUKS UUID failed: " + command_diagnostic(luks_uuid_result));
     const Json profile = {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"configurationGeneration", "0123456789abcdef0123456789abcdef"},
         {"profileId", "raii"},
         {"name", "RAII real Btrfs"},

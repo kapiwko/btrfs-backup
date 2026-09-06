@@ -104,11 +104,11 @@ The engine writes current status atomically:
 <STATUS_ROOT>/<PROFILE_ID>/current.json
 ```
 
-Schema version 4 contains only presentation-safe fields:
+Schema version 1 contains only presentation-safe fields:
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 1,
   "runId": "20260829T160000Z-1-1",
   "operationKind": "backup",
   "state": "running",
@@ -157,7 +157,7 @@ Finished runs are written atomically:
 <HISTORY_ROOT>/<PROFILE_ID>/last.json
 ```
 
-History uses diagnostic schema version 2 and includes the complete record.
+History uses diagnostic schema version 1 and includes the complete record.
 Directories must use mode `0700` and JSON entries mode `0600`.
 
 ## Exit Codes
@@ -222,8 +222,8 @@ not change the selected program.
 
 ## Compatibility
 
-Profile configuration uses `schemaVersion: 4`. Public current status uses
-`schemaVersion: 4`; private diagnostic history uses `schemaVersion: 2`;
+Profile configuration uses `schemaVersion: 1`. Public current status uses
+`schemaVersion: 1`; private diagnostic history uses `schemaVersion: 1`;
 checkpoint and internal event documents retain their own version 1 contracts.
 Run status intentionally does not contain target
 safe-removal state. Consumers must ignore unknown fields and treat missing

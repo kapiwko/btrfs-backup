@@ -31,21 +31,32 @@ class FakeBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
 
 json::Json profile_document() {
     return {
-        {"schemaVersion", 4}, {"profileId", "default"}, {"name", "Default"}, {"enabled", true},
+        {"schemaVersion", 1},
+        {"profileId", "default"},
+        {"name", "Default"},
+        {"enabled", true},
         {"target", {
-            {"device", "/dev/null"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"},
-            {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"partitionUuid", ""},
-            {"serial", ""}, {"mapperName", "backupdisk"},
-            {"activation", {{"mode", "keyFile"}, {"keyFile", "/etc/btrfs-backup/key.secret"}}},
-        }},
+                       {"device", "/dev/null"},
+                       {"luksUuid", "11111111-2222-3333-4444-555555555555"},
+                       {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
+                       {"partitionUuid", ""},
+                       {"serial", ""},
+                       {"mapperName", "backupdisk"},
+                       {"activation", {{"mode", "keyFile"}, {"keyFile", "/etc/btrfs-backup/key.secret"}}},
+                   }},
         {"paths", {{"remoteRoot", "/snapshots"}, {"incomingRoot", "/.incoming"}}},
         {"settings", json::Json::object()},
         {"hooks", {{"beforeSnapshot", json::Json::array()}, {"afterSnapshot", json::Json::array()}}},
         {"sources", json::Json::array({{
-            {"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"},
-            {"localSnapshotDir", "/.snapshots/home"}, {"remoteSubdir", "home"},
-            {"remoteRetention", 2}, {"localRetention", 2},
-        }})},
+                        {"id", "home"},
+                        {"name", "Home"},
+                        {"enabled", true},
+                        {"subvolume", "/home"},
+                        {"localSnapshotDir", "/.snapshots/home"},
+                        {"remoteSubdir", "home"},
+                        {"remoteRetention", 2},
+                        {"localRetention", 2},
+                    }})},
     };
 }
 

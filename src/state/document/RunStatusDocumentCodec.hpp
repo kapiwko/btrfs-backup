@@ -66,7 +66,7 @@ struct TransferProgress {
     ProgressAccuracy accuracy = ProgressAccuracy::Indeterminate;
 };
 
-struct PublicRunStatusV4 {
+struct PublicRunStatusV1 {
     std::optional<RunId> run_id;
     PublicOperationKind operation_kind = PublicOperationKind::Backup;
     PublicRunState state = PublicRunState::Unavailable;
@@ -82,7 +82,7 @@ struct PublicRunStatusV4 {
     std::string unknown_operation_kind;
 };
 
-struct PrivateRunHistoryV2 {
+struct PrivateRunHistoryV1 {
     ProfileId profile_id;
     std::string profile_name;
     RunId run_id;
@@ -111,19 +111,19 @@ struct PrivateRunHistoryV2 {
 
 class RunStatusDocumentCodec {
   public:
-    [[nodiscard]] PublicRunStatusV4 parse_public(std::string_view document) const;
-    [[nodiscard]] std::optional<PublicRunStatusV4> try_parse_public(std::string_view document) const noexcept;
-    [[nodiscard]] PrivateRunHistoryV2 parse_private(std::string_view document) const;
+    [[nodiscard]] PublicRunStatusV1 parse_public(std::string_view document) const;
+    [[nodiscard]] std::optional<PublicRunStatusV1> try_parse_public(std::string_view document) const noexcept;
+    [[nodiscard]] PrivateRunHistoryV1 parse_private(std::string_view document) const;
 
-    [[nodiscard]] std::string serialize_public(const PublicRunStatusV4& status) const;
-    [[nodiscard]] std::string serialize_private(const PrivateRunHistoryV2& history) const;
+    [[nodiscard]] std::string serialize_public(const PublicRunStatusV1& status) const;
+    [[nodiscard]] std::string serialize_private(const PrivateRunHistoryV1& history) const;
 };
 
-[[nodiscard]] PublicRunStatusV4 make_public_status(const RunStatus& status);
-[[nodiscard]] PrivateRunHistoryV2 make_private_history(const RunStatus& status);
-[[nodiscard]] std::string public_run_state_name(const PublicRunStatusV4& status);
-[[nodiscard]] std::string public_activity_name(const PublicRunStatusV4& status);
-[[nodiscard]] std::string public_operation_kind_name(const PublicRunStatusV4& status);
+[[nodiscard]] PublicRunStatusV1 make_public_status(const RunStatus& status);
+[[nodiscard]] PrivateRunHistoryV1 make_private_history(const RunStatus& status);
+[[nodiscard]] std::string public_run_state_name(const PublicRunStatusV1& status);
+[[nodiscard]] std::string public_activity_name(const PublicRunStatusV1& status);
+[[nodiscard]] std::string public_operation_kind_name(const PublicRunStatusV1& status);
 [[nodiscard]] std::string public_error_code_name(PublicErrorCode code);
 
 } // namespace document

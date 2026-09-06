@@ -238,7 +238,7 @@ Json normalize_profile_impl(const Json& raw, const fs::path& target_mount_root) 
     }
     const int input_schema_version = raw.at("schemaVersion").get<int>();
     if (input_schema_version != current_profile_schema_version)
-        throw ValidationError("schemaVersion must be 4");
+        throw ValidationError("schemaVersion must be 1");
     std::string profile_id = identifier(raw.at("profileId"), "profileId");
     std::string configuration_generation = text(
         raw.value("configurationGeneration", ""),

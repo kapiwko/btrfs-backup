@@ -23,12 +23,12 @@ Current status is written atomically to:
 
 The runtime writer root can be overridden only by the trusted global
 `STATUS_ROOT` setting in `/etc/btrfs-backup.conf`, never by a profile. This file
-is readable by unprivileged local users, so schema version 4 contains only
+is readable by unprivileged local users, so schema version 1 contains only
 presentation-safe state and progress:
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 1,
   "runId": "20260829T160000Z-1-1",
   "operationKind": "backup",
   "state": "running",
@@ -83,8 +83,8 @@ messages, timestamps, paths, UUIDs, detailed error codes,
 diagnostic details, recovery guidance, and exit codes.
 
 The byte-count fields are a backward-compatible extension: current producers
-always include them, while consumers accept version 4 documents without them.
-All other fields shown in the schema version 4 example are required.
+always include them, while consumers accept schema version 1 documents without them.
+All other fields shown in the schema version 1 example are required.
 Unknown numeric progress is represented by `-1`, and an unavailable run
 identifier is represented by an empty `runId`; fields are not omitted. Producers and in-tree consumers use
 the shared typed `RunStatusDocumentCodec`. Consumers reject missing fields, wrong
@@ -102,7 +102,7 @@ Finished runs are written atomically to:
 ```
 
 The root and per-profile directories use mode `0700`; JSON entries use mode
-`0600`. History retains diagnostic schema version 2 with the complete record,
+`0600`. History retains diagnostic schema version 1 with the complete record,
 including names, run id, phase, messages, timestamps, detailed error code,
 `details`, recovery guidance, byte counters, and exit code. Reading the full
 private history requires root. The system manager exposes a separate sanitized
@@ -118,7 +118,7 @@ btrfs-backupctl status watch --profile default
 ```
 
 Human output for a public current-status document labels the run with its
-profile id because schema version 4 deliberately does not expose the profile
+profile id because schema version 1 deliberately does not expose the profile
 display name. When `status show` falls back to the latest durable history
 record, it can use the stored profile display name and diagnostic fields. The
 per-run document is authoritative; `last.json` is only a rebuildable cache.
@@ -129,7 +129,7 @@ History commands require root:
 sudo btrfs-backupctl status history --profile default --limit 10
 ```
 
-`status watch` reads and validates schema version 4 once, then waits for an
+`status watch` reads and validates schema version 1 once, then waits for an
 inotify invalidation before reading the JSON document again. The watcher tracks
 the containing directory so atomic replacement by `rename` remains visible.
 `--interval SECONDS` optionally enables a periodic resynchronization timeout;
@@ -170,8 +170,8 @@ chunk allocation, compression ratios, metadata pressure or qgroup accounting.
 
 ## Compatibility
 
-Public current status uses schema version 4. Private history retains schema
-version 2. These are separate contracts; consumers must not expect diagnostic
+Public current status uses schema version 1. Private history uses schema
+version 1. These are separate contracts; consumers must not expect diagnostic
 history or target capacity fields in public current status. Target lifecycle
 and storage usage use the separate authorized system API described in
 [system-dbus-api.md](system-dbus-api.md).

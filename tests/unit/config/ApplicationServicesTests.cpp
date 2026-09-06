@@ -31,7 +31,7 @@ std::string read_text(const fs::path& path) {
 }
 
 btrfsbackup::config::Profile sample_profile() {
-    return btrfsbackup::config::json::profile_from_json({{"schemaVersion", 4}, {"profileId", "laptop"}, {"name", "Laptop backup"}, {"enabled", true}, {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}}, {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}});
+    return btrfsbackup::config::json::profile_from_json({{"schemaVersion", 1}, {"profileId", "laptop"}, {"name", "Laptop backup"}, {"enabled", true}, {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}}, {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}});
 }
 
 void test_profile_and_installation_use_cases() {
@@ -62,7 +62,7 @@ void test_profile_and_installation_use_cases() {
 void test_status_use_cases() {
     fs::path root = test_root("status");
     const std::string status =
-        "{\"schemaVersion\":4,\"runId\":\"run-1\",\"operationKind\":\"backup\",\"state\":\"running\","
+        "{\"schemaVersion\":1,\"runId\":\"run-1\",\"operationKind\":\"backup\",\"state\":\"running\","
         "\"phase\":\"transferring\",\"activity\":\"transferring\",\"canCancel\":true,\"errorCode\":\"\","
         "\"sourceName\":\"Home\",\"targetName\":\"Backup\",\"speedBps\":1,"
         "\"etaSeconds\":2,\"sourceProgress\":3,\"overallProgress\":4,"
@@ -70,7 +70,7 @@ void test_status_use_cases() {
     test_helpers::write_file(root / "status" / "laptop" / "current.json", status);
     test_helpers::write_file(
         root / "history" / "laptop" / "2026-08-24T000000Z.json",
-        "{\"schemaVersion\":2,\"profileId\":\"laptop\",\"profileName\":\"Laptop\",\"runId\":\"run-1\","
+        "{\"schemaVersion\":1,\"profileId\":\"laptop\",\"profileName\":\"Laptop\",\"runId\":\"run-1\","
         "\"state\":\"succeeded\",\"phase\":\"succeeded\",\"message\":\"\",\"currentSourceName\":\"Home\","
         "\"targetName\":\"Backup\",\"sourceIndex\":1,\"sourceCount\":1,\"startedAt\":\"2026-08-24T00:00:00Z\","
         "\"updatedAt\":\"2026-08-24T00:01:00Z\",\"finishedAt\":\"2026-08-24T00:01:00Z\",\"errorCode\":\"\","
@@ -81,7 +81,7 @@ void test_status_use_cases() {
 
     auto current = btrfsbackup::state::poll_status(root / "status", "laptop", "");
     test_helpers::expect_true("polled status", current.has_value(), "current status was not returned");
-    const auto& parsed = std::get<btrfsbackup::state::document::PublicRunStatusV4>(current->status);
+    const auto& parsed = std::get<btrfsbackup::state::document::PublicRunStatusV1>(current->status);
     test_helpers::expect_true(
         "parsed status",
         parsed.state == btrfsbackup::state::document::PublicRunState::Running,

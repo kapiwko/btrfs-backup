@@ -109,7 +109,7 @@ int mode_of(const fs::path& path) {
 void test_build_status_json_matches_contract_shape() {
     btrfsbackup::config::json::Json data = btrfsbackup::state::build_status_json(sample_record());
 
-    expect_true("schema", data.at("schemaVersion") == 2, "wrong schemaVersion");
+    expect_true("schema", data.at("schemaVersion") == 1, "wrong schemaVersion");
     expect_true("profile id", data.at("profileId") == "default", "wrong profileId");
     expect_true("profile name", data.at("profileName") == "Default backup", "wrong profileName");
     expect_true("run id", data.at("runId") == "20260823T024407Z-4298-30158", "wrong runId");
@@ -192,7 +192,7 @@ void test_build_public_status_json_excludes_diagnostics() {
 
     btrfsbackup::config::json::Json data = btrfsbackup::state::build_public_status_json(record);
 
-    expect_true("public schema", data.at("schemaVersion") == 4, "wrong public schemaVersion");
+    expect_true("public schema", data.at("schemaVersion") == 1, "wrong public schemaVersion");
     expect_true("public run id", data.at("runId") == record.run_id.value(), "wrong public runId");
     expect_true("public operation kind", data.at("operationKind") == "backup", "wrong public operationKind");
     expect_true("public state", data.at("state") == "failed", "wrong public state");
@@ -225,7 +225,7 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "dump",
         dumped,
         "{\n"
-        "  \"schemaVersion\": 2,\n"
+        "  \"schemaVersion\": 1,\n"
         "  \"profileId\": \"default\",\n"
         "  \"profileName\": \"Default backup\",\n"
         "  \"runId\": \"20260823T024407Z-4298-30158\",\n"
@@ -268,7 +268,7 @@ void test_write_current_status() {
     btrfsbackup::config::json::Json data = btrfsbackup::config::json::load_json_file(current);
     expect_true("current exists", fs::is_regular_file(current), "missing current.json");
     expect_true("current state", data.at("state") == "succeeded", "wrong current state");
-    expect_true("current public schema", data.at("schemaVersion") == 4, "wrong current schema");
+    expect_true("current public schema", data.at("schemaVersion") == 1, "wrong current schema");
     expect_true("current diagnostics absent", !data.contains("details") && !data.contains("message"), "current status exposes diagnostics");
     expect_true("current mode", mode_of(current) == 0644, "current.json should be 0644");
     expect_true("current dir mode", mode_of(current.parent_path()) == 0755, "status profile dir should be 0755");

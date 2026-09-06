@@ -33,7 +33,7 @@ btrfsbackup::daemon::ManagerPaths manager_paths(const fs::path& root) {
 
 std::string public_status() {
     return R"({
-  "schemaVersion": 4,
+  "schemaVersion": 1,
   "runId": "20260829T160000Z-1-1",
   "operationKind": "backup",
   "state": "running",
@@ -62,7 +62,7 @@ std::string private_history(
     const std::string& finished_at
 ) {
     return btrfsbackup::config::json::Json({
-                                               {"schemaVersion", 2},
+                                               {"schemaVersion", 1},
                                                {"profileId", "default"},
                                                {"profileName", "Default backup"},
                                                {"runId", run_id},
@@ -107,8 +107,8 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API major", capabilities.api_major == 2, "manager API major was not advanced");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 13, "manager API minor was not updated");
+    test_helpers::expect_true("manager API major", capabilities.api_major == 1, "wrong manager API major");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 0, "wrong manager API minor");
     test_helpers::expect_true(
         "profile administration capability",
         std::ranges::find(capabilities.features, "profile-administration") != capabilities.features.end(),
@@ -116,7 +116,7 @@ void test_capabilities_and_profiles() {
     );
     test_helpers::expect_true(
         "manager status schema",
-        capabilities.public_status_schema_version == 6,
+        capabilities.public_status_schema_version == 1,
         "manager did not advertise the backup summary schema"
     );
     test_helpers::expect_true(
@@ -141,7 +141,7 @@ void test_capabilities_and_profiles() {
     );
     test_helpers::expect_true(
         "sanitized history schema capability",
-        capabilities.history_schema_version == 3,
+        capabilities.history_schema_version == 1,
         "manager advertises the private history schema"
     );
     test_helpers::expect_true(

@@ -22,7 +22,7 @@ void expect(bool condition, const char* message) {
 
 QString run_payload(const QString& state, bool can_cancel) {
     return QStringLiteral(R"({
-        "schemaVersion": 6,
+        "schemaVersion": 1,
         "runId": "run-1",
         "operationKind": "backup",
         "state": "%1",
@@ -81,7 +81,7 @@ void test_history_validation_and_reset() {
     BackupHistoryModel model;
     expect(
         model.apply(QStringLiteral(R"([{
-            "schemaVersion": 3,
+            "schemaVersion": 1,
             "state": "succeeded",
             "errorCode": "",
             "sourceName": "Home",

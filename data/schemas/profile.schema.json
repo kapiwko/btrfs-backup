@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "sources"],
   "properties": {
-    "schemaVersion": { "const": 4 },
+    "schemaVersion": { "const": 1 },
     "configurationGeneration": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
     "profileId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
     "name": { "type": "string", "minLength": 1, "maxLength": 160 },

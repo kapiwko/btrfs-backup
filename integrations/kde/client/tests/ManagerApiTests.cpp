@@ -78,7 +78,7 @@ void test_invalid_parent_is_rejected() {
 
 void test_profile_configuration_health_is_decoded() {
     const auto profiles = btrfsbackup::kde::parse_profiles(QStringLiteral(R"([{
-        "schemaVersion":2,"profileId":"default","name":"Default","enabled":true,
+        "schemaVersion":1,"profileId":"default","name":"Default","enabled":true,
         "targetName":"Backup disk","sources":[],"configurationValid":false,
         "configurationErrorCode":"configuration.source_missing"
     }])"));
@@ -92,7 +92,7 @@ void test_profile_configuration_health_is_decoded() {
 
 void test_run_transfer_bytes_are_decoded() {
     const auto run = btrfsbackup::kde::parse_status(QStringLiteral(R"({
-        "schemaVersion":6,"runId":"run-1","operationKind":"backup","state":"running","phase":"transferring",
+        "schemaVersion":1,"runId":"run-1","operationKind":"backup","state":"running","phase":"transferring",
         "activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home",
         "targetName":"Backup disk","bytesProcessed":1048576,"bytesTotalEstimated":4194304,
         "speedBps":1024,"etaSeconds":20,"sourceProgress":25,"overallProgress":25,
@@ -108,7 +108,7 @@ void test_run_transfer_bytes_are_decoded() {
 
 void test_history_is_decoded_once_for_every_kde_client() {
     const auto history = btrfsbackup::kde::parse_history(QStringLiteral(R"([{
-        "schemaVersion":3,"state":"succeeded","errorCode":"","sourceName":"Home",
+        "schemaVersion":1,"state":"succeeded","errorCode":"","sourceName":"Home",
         "targetName":"Backup disk","startedAt":"2026-09-03T12:00:00Z",
         "finishedAt":"2026-09-03T12:01:30Z","sourceCount":2,"overallProgress":100,
         "bytesTransferred":1048576
@@ -117,13 +117,15 @@ void test_history_is_decoded_once_for_every_kde_client() {
     expect(history.has_value() && history->front().duration_seconds == 90, "history duration is wrong");
     expect(history.has_value() && history->front().bytes_transferred == 1048576, "history byte count is wrong");
     expect(!btrfsbackup::kde::parse_history(QStringLiteral(R"([{
-        "schemaVersion":3,"startedAt":"invalid","finishedAt":"2026-09-03T12:01:30Z"
-    }])")).has_value(), "invalid history timestamp was accepted");
+        "schemaVersion":1,"startedAt":"invalid","finishedAt":"2026-09-03T12:01:30Z"
+    }])"))
+                .has_value(),
+           "invalid history timestamp was accepted");
 }
 
 void test_browse_session_requires_read_only_absolute_root() {
     const auto session = btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
-        "schemaVersion": 2,
+        "schemaVersion": 1,
         "sessionId": "browse-1",
         "profileId": "default",
         "expiresAt": "2026-08-31T12:00:00Z",
@@ -131,13 +133,13 @@ void test_browse_session_requires_read_only_absolute_root() {
     })"));
     expect(session.has_value() && session->session_id == QStringLiteral("browse-1"), "valid browse session was rejected");
     expect(!btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
-        "schemaVersion": 1, "sessionId": "browse-1", "profileId": "default",
+        "schemaVersion": 2, "sessionId": "browse-1", "profileId": "default",
         "expiresAt": "2026-08-31T12:00:00Z", "readOnly": true
     })"))
                 .has_value(),
-           "legacy browse session was accepted");
+           "unsupported browse session was accepted");
     expect(!btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
-        "schemaVersion": 2, "sessionId": "browse-1", "profileId": "default",
+        "schemaVersion": 1, "sessionId": "browse-1", "profileId": "default",
         "expiresAt": "2026-08-31T12:00:00Z", "readOnly": false
     })"))
                 .has_value(),
