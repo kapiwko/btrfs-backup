@@ -104,7 +104,10 @@ migration, export and upgrade-preflight commands have been removed.
 5. eject handles an unmounted stale mapper and a mapper whose backing device
    disappeared without treating unrelated mappings as owned resources;
 6. manual eject closes idle repository-browse sessions for the selected profile
-   before unmounting, while an active browse or restore operation remains busy.
+   before unmounting, while an active browse or restore operation remains busy;
+7. unlocking methods are rendered from a stable scalar model and show their
+   complete description directly in the list, avoiding a crash-prone details
+   popup during credential refresh.
 
 ### Restore And Repository Access
 
