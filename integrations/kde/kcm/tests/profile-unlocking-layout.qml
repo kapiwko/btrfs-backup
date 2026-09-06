@@ -137,5 +137,26 @@ Item {
             tryCompare(unlocking, "credentialCount", 0)
             tryVerify(() => findChild(unlocking, "unlockingMethodRow") === null)
         }
+
+        function test_credentialDialogsAreIndependentComponents() {
+            const passphrase = findChild(unlocking, "addPassphraseDialog")
+            const generatedKey = findChild(unlocking, "generateKeyDialog")
+            const removal = findChild(unlocking, "removeCredentialDialog")
+            const importedKey = findChild(unlocking, "importKeyDialog")
+            verify(passphrase !== null)
+            verify(generatedKey !== null)
+            verify(removal !== null)
+            verify(importedKey !== null)
+
+            passphrase.open()
+            tryVerify(() => passphrase.opened)
+            passphrase.close()
+            generatedKey.open()
+            tryVerify(() => generatedKey.opened)
+            generatedKey.close()
+            removal.open()
+            tryVerify(() => removal.opened)
+            removal.close()
+        }
     }
 }

@@ -6,7 +6,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
-import QtQuick.Dialogs
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 
@@ -20,12 +19,6 @@ Item {
 
     ListModel {
         id: stableCredentials
-    }
-
-    QtObject {
-        id: credentialToRemove
-        property string credentialId: ""
-        property string label: ""
     }
 
     onCurrentCredentialsChanged: synchronizeCredentials()
@@ -76,12 +69,12 @@ Item {
                 QQC2.MenuItem {
                     text: translations.i18n("Generate key")
                     icon.name: "password-generate-symbolic"
-                    onTriggered: keyDialog.open()
+                    onTriggered: generateKeyDialog.open()
                 }
                 QQC2.MenuItem {
                     text: translations.i18n("Add key file")
                     icon.name: "document-open-symbolic"
-                    onTriggered: keyFileDialog.open()
+                    onTriggered: importKeyDialog.open()
                 }
             }
         }
@@ -127,8 +120,8 @@ Item {
                             visible: methodRow.managed && !methodRow.automatic
                             enabled: (root.credentialModel?.credentials.length ?? 0) > 1 && !root.credentialModel.busy
                             onTriggered: {
-                                credentialToRemove.credentialId = methodRow.credentialId;
-                                credentialToRemove.label = methodRow.label;
+                                removeDialog.credentialId = methodRow.credentialId;
+                                removeDialog.credentialLabel = methodRow.label;
                                 removeDialog.open();
                             }
                         }
@@ -191,129 +184,24 @@ Item {
         }
     }
 
-    QQC2.Dialog {
+    AddPassphraseDialog {
         id: passphraseDialog
-        parent: QQC2.Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        title: translations.i18n("Add passphrase")
-        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
-        onOpened: {
-            passphraseLabel.text = translations.i18n("Additional passphrase");
-            currentPassphrase.text = "";
-            newPassphrase.text = "";
-            confirmPassphrase.text = "";
-        }
-        onAccepted: root.credentialModel.addPassphrase(currentPassphrase.text, newPassphrase.text, confirmPassphrase.text, passphraseLabel.text)
-
-        contentItem: ColumnLayout {
-            width: Kirigami.Units.gridUnit * 24
-            spacing: Kirigami.Units.smallSpacing
-            QQC2.Label { text: translations.i18n("Name") }
-            QQC2.TextField { id: passphraseLabel; Layout.fillWidth: true }
-            QQC2.Label { text: translations.i18n("Current passphrase") }
-            QQC2.TextField { id: currentPassphrase; Layout.fillWidth: true; echoMode: TextInput.Password }
-            QQC2.Label { text: translations.i18n("New passphrase") }
-            QQC2.TextField { id: newPassphrase; Layout.fillWidth: true; echoMode: TextInput.Password }
-            QQC2.Label { text: translations.i18n("Confirm new passphrase") }
-            QQC2.TextField { id: confirmPassphrase; Layout.fillWidth: true; echoMode: TextInput.Password }
-        }
+        credentialModel: root.credentialModel
     }
 
-    QQC2.Dialog {
-        id: keyDialog
-        parent: QQC2.Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        title: translations.i18n("Generate key")
-        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
-        onOpened: {
-            keyLabel.text = translations.i18n("Automatic backup key");
-            keyAuthorization.text = "";
-            automaticKey.checked = true;
-        }
-        onAccepted: root.credentialModel.generateKey(keyAuthorization.text, keyLabel.text, automaticKey.checked)
-
-        contentItem: ColumnLayout {
-            width: Kirigami.Units.gridUnit * 24
-            spacing: Kirigami.Units.smallSpacing
-            QQC2.Label { text: translations.i18n("Name") }
-            QQC2.TextField { id: keyLabel; Layout.fillWidth: true }
-            QQC2.Label { text: translations.i18n("Current passphrase") }
-            QQC2.TextField { id: keyAuthorization; Layout.fillWidth: true; echoMode: TextInput.Password }
-            QQC2.CheckBox {
-                id: automaticKey
-                text: translations.i18n("Use this key for automatic backups")
-            }
-            QQC2.Label {
-                Layout.fillWidth: true
-                text: translations.i18n("The generated key is stored in the protected system configuration and is never shown in this interface.")
-                wrapMode: Text.Wrap
-                opacity: 0.7
-            }
-        }
+    GenerateKeyDialog {
+        id: generateKeyDialog
+        credentialModel: root.credentialModel
     }
 
-    QQC2.Dialog {
+    RemoveCredentialDialog {
         id: removeDialog
-        parent: QQC2.Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        title: translations.i18n("Remove unlocking method")
-        standardButtons: QQC2.Dialog.Yes | QQC2.Dialog.Cancel
-        onOpened: removalAuthorization.text = ""
-        onAccepted: root.credentialModel.removeCredential(credentialToRemove.credentialId, removalAuthorization.text)
-        contentItem: ColumnLayout {
-            width: Kirigami.Units.gridUnit * 24
-            QQC2.Label {
-                Layout.fillWidth: true
-                text: translations.i18n("Enter an existing passphrase to remove %1.", credentialToRemove.label)
-                wrapMode: Text.Wrap
-            }
-            QQC2.TextField {
-                id: removalAuthorization
-                Layout.fillWidth: true
-                placeholderText: translations.i18n("Existing passphrase")
-                echoMode: TextInput.Password
-            }
-        }
+        credentialModel: root.credentialModel
     }
 
-    FileDialog {
-        id: keyFileDialog
-        title: translations.i18n("Select key file")
-        fileMode: FileDialog.OpenFile
-        onAccepted: importedKeyDialog.open()
-    }
-
-    QQC2.Dialog {
-        id: importedKeyDialog
-        parent: QQC2.Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        title: translations.i18n("Add key file")
-        standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
-        onOpened: {
-            importedKeyLabel.text = translations.i18n("Imported key");
-            importedKeyAuthorization.text = "";
-            importedKeyAutomatic.checked = false;
-        }
-        onAccepted: root.credentialModel.addKey(
-            importedKeyAuthorization.text, keyFileDialog.selectedFile,
-            importedKeyLabel.text, importedKeyAutomatic.checked
-        )
-        contentItem: ColumnLayout {
-            width: Kirigami.Units.gridUnit * 24
-            spacing: Kirigami.Units.smallSpacing
-            QQC2.Label { text: translations.i18n("Name") }
-            QQC2.TextField { id: importedKeyLabel; Layout.fillWidth: true }
-            QQC2.Label { text: translations.i18n("Current passphrase") }
-            QQC2.TextField { id: importedKeyAuthorization; Layout.fillWidth: true; echoMode: TextInput.Password }
-            QQC2.CheckBox {
-                id: importedKeyAutomatic
-                text: translations.i18n("Use this key for automatic backups")
-            }
-        }
+    ImportKeyDialog {
+        id: importKeyDialog
+        credentialModel: root.credentialModel
     }
 
     Component.onCompleted: {
