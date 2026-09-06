@@ -34,15 +34,13 @@ the Plasma panel.*
 
 ## Install On Arch Linux
 
-The stable release line is 0.3.x. The `master` branch and the package names
-below describe the unreleased 1.0 development line; build them from this
-checkout only for testing. Install the base development package with:
+The stable release line is 1.0.x. Install the base package with:
 
 ```bash
 sudo pacman -U btrfs-backup-1.0.0-1-x86_64.pkg.tar.zst
 ```
 
-For the KDE desktop tools, install the matching development package:
+For the KDE desktop tools, install the matching package:
 
 ```bash
 sudo pacman -U btrfs-backup-kde-1.0.0-1-x86_64.pkg.tar.zst
