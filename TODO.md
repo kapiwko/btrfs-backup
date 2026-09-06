@@ -3,8 +3,8 @@
 ## 1.0 Release Gate
 
 Current decision: **NO-GO** until the remote test and release workflows pass
-for the final candidate commit. A 3.x bridge release is not part of this gate;
-the project has no deployed 3.x profile base that requires migration support.
+for the final candidate commit. Version 1.0 supports no configuration from
+earlier releases and has no bridge or migration path.
 
 ### Verified Gates
 

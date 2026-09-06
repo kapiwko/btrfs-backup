@@ -70,4 +70,6 @@ assert_contains(
 assert_command_rejected(state --help)
 assert_command_rejected(profile sources --help)
 assert_command_rejected(profile migrate --help)
+assert_command_rejected(profile export-v4 --help)
+assert_command_rejected(upgrade preflight)
 assert_command_rejected(status write --help)

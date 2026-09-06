@@ -19,10 +19,6 @@ struct ProfileDocument {
 };
 
 Json normalize_profile(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
-Json normalize_profile_for_v4_export(
-    const Json& raw,
-    const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup"
-);
 ProfileDocument normalize_profile_document(
     const Json& raw,
     const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup"

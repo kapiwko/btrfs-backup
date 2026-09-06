@@ -13,7 +13,6 @@
 #include <config/json/JsonIo.hpp>
 #include <cli/profile/ProfileCommand.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
-#include <platform/linux/config/ProfileMigration.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -178,93 +177,6 @@ void test_profile_regenerate_all_restores_derived_artifacts() {
     fs::remove_all(root);
 }
 
-void test_profile_export_v4_all_converts_legacy_profiles_atomically() {
-    const fs::path root = test_root("profile-export-v4-all");
-    const fs::path etc_root = root / "etc";
-    const fs::path output = root / "export";
-    auto legacy = sample_profile_json();
-    legacy["schemaVersion"] = 1;
-    legacy["target"].erase("activation");
-    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
-    legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
-    legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
-    legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
-    const fs::path installed = etc_root / "profiles/default/profile.json";
-    test_helpers::write_file(installed, btrfsbackup::config::json::dump_json(legacy));
-    chmod(installed.c_str(), 0600);
-    test_helpers::write_file(
-        etc_root / "btrfs-backup.conf",
-        "CONFIG_VERSION=1\nTARGET_MOUNT_ROOT=/mnt/btrfs-backup\n"
-    );
-
-    btrfsbackup::config::NullConfigurationActivator activator;
-    const int result = btrfsbackup::cli::profile::profile(
-        {"--etc-root", etc_root.string(), "export-v4", "--all", "--output-dir", output.string()},
-        etc_root,
-        activator
-    );
-
-    test_helpers::expect_eq("profile export-v4 result", std::to_string(result), "0");
-    const auto exported = btrfsbackup::config::json::load_json_file(
-        output / "profiles/default/profile.json"
-    );
-    test_helpers::expect_true("profile export-v4 schema", exported.at("schemaVersion") == 4, "wrong schema");
-    test_helpers::expect_true(
-        "profile export-v4 activation",
-        exported.at("target").at("activation").at("mode") == "askPassword",
-        "legacy activation was not normalized"
-    );
-    test_helpers::expect_true(
-        "profile export-v4 removes system paths",
-        !exported.at("paths").contains("stateDir"),
-        "legacy system path remains"
-    );
-    test_helpers::expect_true(
-        "profile export-v4 instructions",
-        fs::is_regular_file(output / "RESTORE.txt"),
-        "restore instructions are missing"
-    );
-    test_helpers::expect_true(
-        "profile export-v4 application config",
-        fs::is_regular_file(output / "btrfs-backup.conf"),
-        "application configuration is missing"
-    );
-    fs::remove_all(root);
-}
-
-void test_profile_export_v4_all_leaves_no_partial_backup() {
-    const fs::path root = test_root("profile-export-v4-invalid");
-    const fs::path etc_root = root / "etc";
-    auto valid = sample_profile_json();
-    valid["configurationGeneration"] = "0123456789abcdef0123456789abcdef";
-    const fs::path valid_path = etc_root / "profiles/default/profile.json";
-    test_helpers::write_file(valid_path, btrfsbackup::config::json::dump_json(valid));
-    chmod(valid_path.c_str(), 0600);
-
-    auto invalid = sample_profile_json();
-    invalid["profileId"] = "broken";
-    invalid["sources"] = btrfsbackup::config::json::Json::array();
-    const fs::path invalid_path = etc_root / "profiles/broken/profile.json";
-    test_helpers::write_file(invalid_path, btrfsbackup::config::json::dump_json(invalid));
-    chmod(invalid_path.c_str(), 0600);
-    const fs::path output = root / "export";
-
-    bool rejected = false;
-    try {
-        static_cast<void>(
-            btrfsbackup::platform::linux::config::export_all_profiles_v4(etc_root, output)
-        );
-    } catch (const std::exception&) {
-        rejected = true;
-    }
-    test_helpers::expect_true("profile export-v4 invalid rejected", rejected, "invalid profile was exported");
-    test_helpers::expect_true(
-        "profile export-v4 no partial backup",
-        !fs::exists(output),
-        "partial export directory remains"
-    );
-    fs::remove_all(root);
-}
 
 } // namespace
 
@@ -272,7 +184,5 @@ int main() {
     test_profile_create_writes_json();
     test_profile_list_uses_config_root();
     test_profile_regenerate_all_restores_derived_artifacts();
-    test_profile_export_v4_all_converts_legacy_profiles_atomically();
-    test_profile_export_v4_all_leaves_no_partial_backup();
     return test_helpers::finish("profile command tests");
 }
