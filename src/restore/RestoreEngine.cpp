@@ -27,7 +27,8 @@ RestoreExecutor::RestoreExecutor(IRestoreOperations& operations) : operations_(o
 RestoreResult RestoreExecutor::execute(
     const RestorePlan& plan,
     CancellationToken& cancellation,
-    const RestoreProgressSink& progress
+    const RestoreProgressSink& progress,
+    const RestorePhaseSink& phase
 ) {
     throw_if_cancelled(cancellation);
     if (operations_.exists(plan.staging) || operations_.exists(plan.previous)) {
@@ -38,8 +39,12 @@ RestoreResult RestoreExecutor::execute(
     bool previous_moved = false;
     bool committed = false;
     try {
+        if (phase)
+            phase(RestorePhase::CheckingSpace);
         operations_.ensure_sufficient_space(plan.source, plan.staging, cancellation);
         throw_if_cancelled(cancellation);
+        if (phase)
+            phase(RestorePhase::Copying);
         if (plan.kind == RestoreKind::Subvolume) {
             operations_.create_subvolume_root(plan.staging);
         } else {

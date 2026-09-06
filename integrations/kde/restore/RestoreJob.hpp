@@ -35,6 +35,7 @@ class RestoreJob final : public KJob {
     [[nodiscard]] std::uint64_t restoredBytes() const noexcept;
 
   signals:
+    void phaseChanged(bool checking_space);
     void progressChanged(
         qulonglong files,
         qulonglong bytes,

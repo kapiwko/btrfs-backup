@@ -138,6 +138,9 @@ bool RestoreController::busy() const {
 bool RestoreController::completed() const {
     return completed_;
 }
+bool RestoreController::checkingSpace() const noexcept {
+    return checking_space_;
+}
 qulonglong RestoreController::restoredFiles() const noexcept {
     return restored_files_;
 }
@@ -151,7 +154,7 @@ QString RestoreController::restoredSize() const {
     );
 }
 double RestoreController::progress() const noexcept {
-    return source_size_bytes_ > 0
+    return !checking_space_ && source_size_bytes_ > 0
         ? std::min(1.0, static_cast<double>(progress_bytes_) / static_cast<double>(source_size_bytes_))
         : -1.0;
 }
@@ -350,7 +353,8 @@ void RestoreController::execute() {
     clear_error();
     progress_bytes_ = 0;
     progress_speed_ = 0;
-    current_item_ = sourceName();
+    checking_space_ = true;
+    current_item_ = i18n("Estimating required space…");
     Q_EMIT progressChanged();
     execution_lease_ = btrfsbackup::kde::BrowseSessionClient{}.beginOperation(session_id_);
     if (!execution_lease_) {
@@ -362,6 +366,11 @@ void RestoreController::execute() {
     Q_EMIT stateChanged();
     job_ = new RestoreJob(*plan_, source_size_bytes_, sourceName(), this);
     tracker_.registerJob(job_);
+    connect(job_, &RestoreJob::phaseChanged, this, [this](bool checking_space) {
+        checking_space_ = checking_space;
+        current_item_ = checking_space ? i18n("Estimating required space…") : sourceName();
+        Q_EMIT progressChanged();
+    });
     connect(job_, &RestoreJob::progressChanged, this, [this](qulonglong, qulonglong bytes, qulonglong speed, const QString& current_name) {
         progress_bytes_ = bytes;
         progress_speed_ = speed;
@@ -371,6 +380,7 @@ void RestoreController::execute() {
     connect(job_, &KJob::result, this, [this](KJob* finished) {
         tracker_.unregisterJob(finished);
         busy_ = false;
+        checking_space_ = false;
         completed_ = finished->error() == KJob::NoError;
         if (completed_) {
             restored_files_ = job_->restoredFiles();

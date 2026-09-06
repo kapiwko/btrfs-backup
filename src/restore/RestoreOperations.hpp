@@ -25,6 +25,10 @@ struct RestoreProgress {
 
 using RestoreProgressSink = std::function<void(const RestoreProgress&)>;
 
+enum class RestorePhase { CheckingSpace,
+                          Copying };
+using RestorePhaseSink = std::function<void(RestorePhase)>;
+
 class IRestoreOperations {
   public:
     virtual ~IRestoreOperations() = default;

@@ -170,7 +170,9 @@ Kirigami.Page {
 
                     QQC2.Label {
                         Layout.fillWidth: true
-                        text: translations.i18n("Restoring %1", root.controller.sourceName)
+                        text: root.controller.checkingSpace
+                            ? translations.i18n("Estimating required space…")
+                            : translations.i18n("Restoring %1", root.controller.sourceName)
                         font.weight: Font.DemiBold
                         elide: Text.ElideMiddle
                     }
@@ -185,20 +187,22 @@ Kirigami.Page {
                         QQC2.Label {
                             objectName: "restoreTransferredSize"
                             text: root.controller.transferredSize
+                            visible: !root.controller.checkingSpace
                             opacity: 0.75
                         }
                         Item { Layout.fillWidth: true }
                         QQC2.Label {
                             objectName: "restoreTransferSpeed"
                             text: root.controller.transferSpeed
-                            visible: text.length > 0
+                            visible: !root.controller.checkingSpace && text.length > 0
                             opacity: 0.75
                         }
                     }
                     QQC2.Label {
                         Layout.fillWidth: true
                         text: root.controller.currentItem
-                        visible: text.length > 0 && text !== root.controller.sourceName
+                        visible: !root.controller.checkingSpace
+                            && text.length > 0 && text !== root.controller.sourceName
                         elide: Text.ElideMiddle
                         opacity: 0.7
                     }
