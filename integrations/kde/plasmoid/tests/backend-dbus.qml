@@ -17,10 +17,8 @@ Window {
     property int attempts: 0
     property bool initialStateObserved: false
 
-    BackupStatusModel {
+    ProfileDirectoryModel {
         id: status
-        profile: "default"
-        directoryOnly: true
         Component.onCompleted: start()
     }
 
@@ -62,9 +60,9 @@ Window {
             const profileItem = profiles.itemAtIndex(0) as BackupUi.ProfileItem
             if (!root.initialStateObserved
                     && status.managerConnected
-                    && status.profileName === "Default backup"
                     && profileItem !== null
                     && profileItem.profileStatus === statusStore.statusFor("default")
+                    && profileItem.profileStatus.profileName === "Default backup"
                     && profileItem.profileStatus.run.state === "running"
                     && profileItem.profileStatus.run.runId === "20260829T160000Z-1-1"
                     && profileItem.profileStatus.run.phase === "sizing"
@@ -87,10 +85,10 @@ Window {
                     && profileItem.profileStatus.target.safeToRemove
                     && profileItem.profileStatus.target.state === "connected"
                     && profileItem.profileStatus.history.entries.length === 1
-                    && typeof status.startBackup === "function"
-                    && typeof status.cancelBackup === "function"
-                    && typeof status.validateTarget === "function"
-                    && typeof status.ejectTarget === "function"
+                    && typeof profileItem.profileStatus.startBackup === "function"
+                    && typeof profileItem.profileStatus.cancelBackup === "function"
+                    && typeof profileItem.profileStatus.validateTarget === "function"
+                    && typeof profileItem.profileStatus.ejectTarget === "function"
                     && profileItem.profileId === "default"
                     && profileItem.running
                     && profileItem.progress === 40
@@ -117,14 +115,13 @@ Window {
             }
             if (root.attempts === 50) {
                 console.error("Initial manager state diagnostic:", status.managerConnected,
-                              status.lastError, status.run.state, status.run.runId,
-                              status.run.phase, status.run.activity, status.run.canCancel,
-                              status.run.sourceName, status.run.targetName,
-                              status.run.speedBps, status.run.etaSeconds,
-                              status.run.sourceProgress, status.run.overallProgress,
-                              status.run.progressAccuracy, status.target.connected,
-                              status.target.safeToRemove, status.target.state,
-                              status.history.entries.length, profileItem !== null,
+                              status.lastError,
+                              profileItem !== null ? profileItem.profileStatus.run.state : "missing",
+                              profileItem !== null ? profileItem.profileStatus.run.runId : "missing",
+                              profileItem !== null ? profileItem.profileStatus.run.phase : "missing",
+                              profileItem !== null ? profileItem.profileStatus.target.connected : false,
+                              profileItem !== null ? profileItem.profileStatus.history.entries.length : -1,
+                              profileItem !== null,
                               profileItem !== null ? profileItem.profileId : "missing",
                               profileItem !== null ? profileItem.running : false,
                               profileItem !== null ? profileItem.progress : -2,

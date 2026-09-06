@@ -94,10 +94,8 @@ PlasmoidItem {
     toolTipMainText: translations.i18n("Btrfs Backups")
     toolTipSubText: root.tooltipText()
 
-    BackupStatusModel {
+    ProfileDirectoryModel {
         id: profileDirectory
-        profile: "default"
-        directoryOnly: true
         Component.onCompleted: start()
     }
 
