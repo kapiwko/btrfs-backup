@@ -63,24 +63,24 @@
       "mode": "connected",
       "page": "",
       "path": "system-settings-connected.png",
-      "bytes": 73794,
-      "sha256": "5c607c0fbb9926376660098541fff5d6df6f58f98424814806b5df9a4e20e2f3"
+      "bytes": 65496,
+      "sha256": "0c4991f4a212163b94e4bec1859031709d14db0b77a6fc5e3d6f8df81071103c"
     },
     {
       "scenario": "system-settings",
       "mode": "disconnected",
       "page": "",
       "path": "system-settings-disconnected.png",
-      "bytes": 70731,
-      "sha256": "61532faaabf8f986f092e71e40d9d8f2699c02660eca312561b9aff097d2e317"
+      "bytes": 62447,
+      "sha256": "1a5b3eb34db0322a4c716d11ac15f483e0b9f6044121d5e6d9bd15422131cab2"
     },
     {
       "scenario": "system-settings",
       "mode": "transferring",
       "page": "",
       "path": "system-settings-transferring.png",
-      "bytes": 72734,
-      "sha256": "35d09a0828a2d44a89de33f25fd3a8676792cce2bcba83e6ba8f580c41837e25"
+      "bytes": 64495,
+      "sha256": "8210c70cdd44952be61d1ad4a85f37995219996b936df316b8ba771121762a7f"
     },
     {
       "scenario": "system-settings",
