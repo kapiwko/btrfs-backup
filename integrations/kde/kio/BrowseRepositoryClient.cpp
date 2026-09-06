@@ -67,16 +67,19 @@ std::optional<RemoteDirectoryPage> BrowseRepositoryClient::directoryPage(
     BrowseSessionClient client;
     const auto payload = client.listDirectoryPage(session_id, path, continuation_token, page_size);
     last_error_name_ = client.lastErrorName();
-    if (!payload) return std::nullopt;
+    if (!payload)
+        return std::nullopt;
     const QJsonObject root = QJsonDocument::fromJson(payload->toUtf8()).object();
     if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"entries"_s).isArray() ||
         !root.value(u"continuationToken"_s).isString())
         return std::nullopt;
     RemoteDirectoryPage result;
     for (const QJsonValue& value : root.value(u"entries"_s).toArray()) {
-        if (!value.isObject()) return std::nullopt;
+        if (!value.isObject())
+            return std::nullopt;
         auto decoded = parse_remote_entry(value.toObject());
-        if (!decoded) return std::nullopt;
+        if (!decoded)
+            return std::nullopt;
         result.entries.push_back(std::move(*decoded));
     }
     result.continuation_token = root.value(u"continuationToken"_s).toString();
@@ -87,7 +90,8 @@ std::optional<RemoteEntry> BrowseRepositoryClient::entry(const QString& session_
     BrowseSessionClient client;
     const auto payload = client.inspectEntry(session_id, path);
     last_error_name_ = client.lastErrorName();
-    if (!payload) return std::nullopt;
+    if (!payload)
+        return std::nullopt;
     const QJsonObject object = QJsonDocument::fromJson(payload->toUtf8()).object();
     return object.value(u"schemaVersion"_s).toInt() == 1 ? parse_remote_entry(object) : std::nullopt;
 }
@@ -102,7 +106,12 @@ std::optional<PreviousVersionsPage> BrowseRepositoryClient::previousVersions(
     constexpr uint page_size = 512;
     BrowseSessionClient client;
     const auto payload = client.listPreviousVersions(
-        session_id, profile_id, source_id, relative_path, continuation_token, page_size
+        session_id,
+        profile_id,
+        source_id,
+        relative_path,
+        continuation_token,
+        page_size
     );
     last_error_name_ = client.lastErrorName();
     return payload ? parse_previous_versions_page(*payload) : std::nullopt;
@@ -116,20 +125,29 @@ SecureBrowseFile BrowseRepositoryClient::openFile(const QString& session_id, con
     ));
     reply.waitForFinished();
     last_error_name_ = reply.isError() ? reply.error().name() : QString{};
-    if (reply.isError() || !reply.value().isValid()) return {};
+    if (reply.isError() || !reply.value().isValid())
+        return {};
     return SecureBrowseFile(dup(reply.value().fileDescriptor()));
 }
 
-QString BrowseRepositoryClient::lastErrorName() const { return last_error_name_; }
-
-BrowseOperationPin::BrowseOperationPin(const QString& session_id)
-    : session_id_(session_id), lease_(BrowseSessionClient{}.beginOperation(session_id_)) {}
-
-BrowseOperationPin::~BrowseOperationPin() noexcept {
-    if (!lease_) return;
-    try { (void)BrowseSessionClient{}.endOperation(session_id_, *lease_); } catch (...) {}
+QString BrowseRepositoryClient::lastErrorName() const {
+    return last_error_name_;
 }
 
-BrowseOperationPin::operator bool() const noexcept { return lease_.has_value(); }
+BrowseOperationPin::BrowseOperationPin(const QString& session_id)
+    : session_id_(session_id), lease_(BrowseSessionClient{}.beginOperation(session_id_)) {
+}
+
+BrowseOperationPin::~BrowseOperationPin() noexcept {
+    if (!lease_)
+        return;
+    try {
+        (void)BrowseSessionClient{}.endOperation(session_id_, *lease_);
+    } catch (...) {}
+}
+
+BrowseOperationPin::operator bool() const noexcept {
+    return lease_.has_value();
+}
 
 } // namespace btrfsbackup::kde::kio
