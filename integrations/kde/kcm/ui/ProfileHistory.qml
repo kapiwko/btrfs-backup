@@ -14,7 +14,6 @@ ColumnLayout {
     id: root
 
     required property var historyModel
-    required property var statusTextFor
     property var selectedEntry: ({})
     spacing: 0
 
@@ -61,7 +60,7 @@ ColumnLayout {
                 }
                 Kirigami.TitleSubtitle {
                     Layout.fillWidth: true
-                    title: root.statusTextFor(historyRow.modelData.state)
+                    title: BtrfsBackup.ProfilePresentation.statusText(translations, historyRow.modelData.state)
                     subtitle: root.historySummary(historyRow.modelData)
                     selected: false
                 }
@@ -126,7 +125,7 @@ ColumnLayout {
         contentItem: Kirigami.FormLayout {
             QQC2.Label {
                 Kirigami.FormData.label: translations.i18n("Result:")
-                text: root.statusTextFor(root.selectedEntry.state)
+                text: BtrfsBackup.ProfilePresentation.statusText(translations, root.selectedEntry.state)
             }
             QQC2.Label {
                 Kirigami.FormData.label: translations.i18n("Started:")
@@ -138,7 +137,7 @@ ColumnLayout {
             }
             QQC2.Label {
                 Kirigami.FormData.label: translations.i18n("Duration:")
-                text: root.formatDuration(root.selectedEntry.durationSeconds)
+                text: BtrfsBackup.ProfilePresentation.formatDuration(translations, root.selectedEntry.durationSeconds)
             }
             QQC2.Label {
                 Kirigami.FormData.label: translations.i18n("Sources:")
@@ -165,7 +164,7 @@ ColumnLayout {
     function historySummary(entry) {
         const parts = [];
         if (entry.durationSeconds >= 0)
-            parts.push(root.formatDuration(entry.durationSeconds));
+            parts.push(BtrfsBackup.ProfilePresentation.formatDuration(translations, entry.durationSeconds));
         if (entry.bytesTransferredText?.length > 0)
             parts.push(entry.bytesTransferredText);
         if (entry.sourceCount > 0)
@@ -173,20 +172,6 @@ ColumnLayout {
         if (entry.errorCode?.length > 0)
             parts.push(entry.errorCode);
         return parts.join(" · ");
-    }
-
-    function formatDuration(value) {
-        const seconds = Number(value);
-        if (!isFinite(seconds) || seconds < 0)
-            return translations.i18n("Unknown");
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const remainder = Math.floor(seconds % 60);
-        if (hours > 0)
-            return translations.i18n("%1 h %2 min", hours, minutes);
-        if (minutes > 0)
-            return translations.i18n("%1 min %2 sec", minutes, remainder);
-        return translations.i18np("1 second", "%1 seconds", Math.max(1, remainder));
     }
 
     function dateTime(value, fallback) {

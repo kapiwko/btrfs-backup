@@ -15,8 +15,6 @@ QQC2.ScrollView {
     required property var editor
     required property string profileId
     required property var profileStatus
-    required property var statusTextFor
-    required property var targetStateTextFor
     property var credentialModel: null
 
     signal addSourceRequested(string name, string subvolume, int localRetention, int targetRetention)
@@ -54,8 +52,6 @@ QQC2.ScrollView {
             Layout.fillWidth: true
             editor: root.editor
             profileStatus: root.profileStatus
-            statusTextFor: root.statusTextFor
-            targetStateTextFor: root.targetStateTextFor
         }
 
         ProfileSources {

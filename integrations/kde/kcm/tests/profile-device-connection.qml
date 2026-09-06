@@ -41,8 +41,6 @@ Item {
         width: parent.width
         profileStatus: status
         targetNameHint: ""
-        statusTextFor: state => state
-        targetStateTextFor: state => state
     }
 
     TestCase {
