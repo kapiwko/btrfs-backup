@@ -87,8 +87,33 @@ Item {
             compare(dialog.title, "Automatic backup key")
             compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
 
+            credentials.credentials = [{
+                id: "slot-2",
+                label: "Replacement key",
+                type: "passphrase",
+                keyslot: 2,
+                managed: false,
+                automatic: false
+            }]
+            wait(0)
+
+            verify(dialog.visible)
+            compare(dialog.title, "Automatic backup key")
+            compare(findChild(dialog, "unlockingMethodTypeValue").text, "Key file")
+            compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
+
             dialog.close()
             tryCompare(dialog, "visible", false)
+
+            const replacementRow = findChild(unlocking, "unlockingMethodRow")
+            verify(replacementRow !== null)
+            replacementRow.clicked()
+            wait(0)
+            compare(dialog.title, "LUKS key slot 2")
+            compare(findChild(dialog, "unlockingMethodTypeValue").text, "Passphrase")
+            dialog.close()
+            tryCompare(dialog, "visible", false)
+            credentials.credentials = []
         }
 
         function test_busyOperationIsVisible() {
