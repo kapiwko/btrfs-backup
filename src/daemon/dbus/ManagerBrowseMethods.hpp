@@ -35,7 +35,6 @@ class ManagerBrowseMethods final {
     int inspect_browse_entry(sd_bus_message* message, sd_bus_error* error) noexcept;
     int open_browse_file(sd_bus_message* message, sd_bus_error* error) noexcept;
     int open_browse_entry(sd_bus_message* message, sd_bus_error* error) noexcept;
-    int open_browse_root(sd_bus_message* message, sd_bus_error* error) noexcept;
     int inspect_browse_repository(sd_bus_message* message, sd_bus_error* error) noexcept;
     int resolve_backup_coverage(sd_bus_message* message, sd_bus_error* error) noexcept;
 

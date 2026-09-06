@@ -86,9 +86,6 @@ class IBrowseSessionBackend {
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
     ) = 0;
-    [[nodiscard]] virtual btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
-        const BrowseSessionId& session_id
-    ) = 0;
     [[nodiscard]] virtual std::string inspect_repository(const BrowseSessionId& session_id) = 0;
     [[nodiscard]] virtual std::vector<BackupCoverage> resolve_coverage(
         const std::filesystem::path& local_path,
@@ -188,10 +185,6 @@ class BrowseSessionService final {
         const std::string& caller_bus_name,
         const std::string& session_id,
         const std::string& relative_path
-    );
-    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
-        const std::string& caller_bus_name,
-        const std::string& session_id
     );
     [[nodiscard]] std::string inspect_repository(
         const std::string& caller_bus_name,

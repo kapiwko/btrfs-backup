@@ -164,10 +164,6 @@ QDBusPendingCall ManagerClient::openBrowseEntry(const QString& session_id, const
     return call(QLatin1String(manager_protocol::method::open_browse_entry), {session_id, path});
 }
 
-QDBusPendingCall ManagerClient::openBrowseRoot(const QString& session_id) const {
-    return call(QLatin1String(manager_protocol::method::open_browse_root), {session_id});
-}
-
 QDBusPendingCall manager_call(
     const QDBusConnection& bus,
     const QString& method,

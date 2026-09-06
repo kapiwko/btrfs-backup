@@ -84,28 +84,10 @@ class BrowseSessionClient final {
             if (!browse_root.string().starts_with("/run/btrfs-backup-browse/") ||
                 browse_root.filename() != "repository")
                 throw std::runtime_error("test derived an invalid browse root");
-            btrfsbackup::platform::linux::OwnedFileDescriptor root(
-                manager_->call_for_fd(manager_protocol::method::open_browse_root, session_id)
-            );
-            struct stat root_status{};
-            if (!root.valid() || fstat(root.get(), &root_status) != 0 || !S_ISDIR(root_status.st_mode))
-                throw std::runtime_error("manager did not return a pinned browse root directory");
             const auto options = mount_options(browse_root);
             for (const std::string_view required : {"ro", "nodev", "nosuid", "noexec", "nosymfollow"})
                 if (!options.contains(std::string(required)))
                     throw std::runtime_error("browse mount omitted option " + std::string(required));
-            btrfsbackup::platform::linux::OwnedFileDescriptor probe(
-                openat(root.get(), "browse-probe.txt", O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
-            );
-            char content[32]{};
-            const ssize_t length = probe.valid() ? read(probe.get(), content, sizeof(content)) : -1;
-            if (length != 13 || std::string_view(content, static_cast<std::size_t>(length)) != "browse probe\n")
-                throw std::runtime_error("browse session did not expose repository data");
-            const int writable = openat(root.get(), "browse-probe.txt", O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
-            if (writable >= 0) {
-                close(writable);
-                throw std::runtime_error("browse session unexpectedly permits writes");
-            }
             static_cast<void>(manager_->call(
                 manager_protocol::method::end_browse_operation,
                 session_id,

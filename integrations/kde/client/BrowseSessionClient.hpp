@@ -41,7 +41,6 @@ class BrowseSessionClient {
     ) const;
     [[nodiscard]] std::optional<QString> inspectEntry(const QString& session_id, const QString& path) const;
     [[nodiscard]] std::optional<QString> inspectRepository(const QString& session_id) const;
-    [[nodiscard]] QDBusUnixFileDescriptor openRoot(const QString& session_id) const;
     [[nodiscard]] QDBusUnixFileDescriptor openEntry(const QString& session_id, const QString& path) const;
     [[nodiscard]] const QString& lastErrorName() const noexcept;
 

@@ -146,7 +146,9 @@ migration, export and upgrade-preflight commands have been removed.
    the system browse backend; marker schema v1 and cleanup ordering are
    unchanged;
 14. restore planning receives a descriptor pinned directly to the selected
-   authorized entry, avoiding inaccessible private repository layout parents.
+   authorized entry, avoiding inaccessible private repository layout parents;
+15. the public browse API no longer returns a descriptor for the repository
+   root; clients can open only entries authorized by the broker.
 
 ### KDE Desktop Integration
 

@@ -79,7 +79,6 @@ inline constexpr char list_previous_versions[] = "ListPreviousVersions";
 inline constexpr char inspect_browse_entry[] = "InspectBrowseEntry";
 inline constexpr char open_browse_file[] = "OpenBrowseFile";
 inline constexpr char open_browse_entry[] = "OpenBrowseEntry";
-inline constexpr char open_browse_root[] = "OpenBrowseRoot";
 inline constexpr char inspect_browse_repository[] = "InspectBrowseRepository";
 inline constexpr char resolve_backup_coverage[] = "ResolveBackupCoverage";
 inline constexpr char list_target_credentials[] = "ListTargetCredentials";

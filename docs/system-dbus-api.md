@@ -66,7 +66,6 @@ schema versions are not advertised as public API versions.
 | `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
 | `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
 | `OpenBrowseEntry` | `(s sessionId, s relativePath)` | `(h)` | returns an authorized descriptor pinned directly to a restorable file or directory |
-| `OpenBrowseRoot` | `(s sessionId)` | `(h)` | returns a pinned read-only repository root descriptor for restore |
 | `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
 | `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
 | `AddTargetPassphrase` | `(s profileId, h authorization, h newSecret, s label)` | `(s)` | adds a LUKS2 passphrase through file descriptors |
@@ -155,10 +154,9 @@ keeps LUKS, Btrfs and partition UUIDs out of the response; clients receive only
 the classification, diagnostic code, repository metadata and opaque binding
 identifiers.
 
-API minor version 8 removes the local `rootPath` from browse-session documents
-and adds `OpenBrowseRoot`. Session directories and mount points remain
-root-owned and private; clients access repository contents only through brokered
-operations or a pinned directory descriptor. Active operations use identified
+API minor version 8 removes the local `rootPath` from browse-session documents.
+Session directories and mount points remain root-owned and private; clients
+access repository contents only through brokered operations. Active operations use identified
 leases, so finishing one concurrent KIO request cannot unpin another request.
 
 API minor version 9 adds `ListBrowseDirectoryPage`. An empty continuation token
@@ -313,7 +311,6 @@ currently open profile, including changes published by the CLI.
 | `InspectBrowseEntry` | session ownership and path confinement | none |
 | `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
 | `OpenBrowseEntry` | session ownership, path confinement, stored permissions and supported entry type | none |
-| `OpenBrowseRoot` | session ownership and pinned read-only root | none |
 | `ResolveBackupCoverage` | repository access | `io.github.btrfsbackup.open-browse-session` |
 
 Operational backup controls are allowed without a password from the active

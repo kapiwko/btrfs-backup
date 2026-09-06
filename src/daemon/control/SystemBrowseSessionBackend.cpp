@@ -529,13 +529,6 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_entry(
     return filesystem_access_.open_entry(root, path, &session->second.identity);
 }
 
-OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId& session_id) {
-    const auto session = sessions_.find(std::string(session_id.value()));
-    if (session == sessions_.end())
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
-    return filesystem_access_.open_root(session->second.mount.view);
-}
-
 std::string SystemBrowseSessionBackend::inspect_repository(const BrowseSessionId& session_id) {
     auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
