@@ -159,7 +159,9 @@ migration, export and upgrade-preflight commands have been removed.
    indefinitely;
 18. backup coverage queries pass an `O_PATH` descriptor for a local file or
    directory, preventing callers from probing coverage with arbitrary path
-   strings at the privileged boundary.
+   strings at the privileged boundary;
+19. the browse polkit prompt now describes authorization rather than implying
+   that an active local session must enter an administrator password.
 
 ### KDE Desktop Integration
 
