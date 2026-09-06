@@ -15,17 +15,20 @@ Item {
     required property var editor
     required property string profileId
     property var credentialModel: null
-    property var credentialToRemove: null
+    readonly property var currentCredentials: credentialModel?.credentials ?? []
+    readonly property int credentialCount: stableCredentials.count
+
+    ListModel {
+        id: stableCredentials
+    }
 
     QtObject {
-        id: inspectedCredential
+        id: credentialToRemove
         property string credentialId: ""
         property string label: ""
-        property string credentialType: ""
-        property int keyslot: -1
-        property bool managed: false
-        property bool automatic: false
     }
+
+    onCurrentCredentialsChanged: synchronizeCredentials()
 
     implicitHeight: Math.ceil(methodList.count > 0
         ? methodList.contentHeight
@@ -47,7 +50,7 @@ Item {
             Kirigami.Units.largeSpacing * 4 + emptyMessage.implicitHeight
 
         anchors.fill: parent
-        model: root.credentialModel?.credentials ?? []
+        model: stableCredentials
         interactive: false
         boundsBehavior: Flickable.StopAtBounds
 
@@ -83,31 +86,27 @@ Item {
             }
         }
 
-        delegate: QQC2.ItemDelegate {
+        delegate: Rectangle {
             id: methodRow
             objectName: "unlockingMethodRow"
-            required property var modelData
+            required property string credentialId
+            required property string label
+            required property string credentialType
+            required property int keyslot
+            required property bool managed
+            required property bool automatic
             width: ListView.view?.width ?? implicitWidth
-            hoverEnabled: true
-            focusPolicy: Qt.StrongFocus
-            Kirigami.Theme.useAlternateBackgroundColor: true
-            Accessible.name: methodDetails.title
-            Accessible.description: methodDetails.subtitle
-            onClicked: {
-                inspectedCredential.credentialId = String(methodRow.modelData.id ?? "");
-                inspectedCredential.label = String(methodRow.modelData.label ?? "");
-                inspectedCredential.credentialType = String(methodRow.modelData.type ?? "");
-                inspectedCredential.keyslot = Number(methodRow.modelData.keyslot ?? -1);
-                inspectedCredential.managed = Boolean(methodRow.modelData.managed ?? false);
-                inspectedCredential.automatic = Boolean(methodRow.modelData.automatic ?? false);
-                methodDetailsDialog.open();
-            }
+            implicitHeight: methodContent.implicitHeight + Kirigami.Units.smallSpacing * 2
+            color: Kirigami.Theme.alternateBackgroundColor
 
-            contentItem: RowLayout {
+            RowLayout {
+                id: methodContent
+                anchors.fill: parent
+                anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.smallSpacing
 
                 Kirigami.Icon {
-                    source: root.methodIcon(methodRow.modelData)
+                    source: root.methodIcon(methodRow)
                     implicitWidth: Kirigami.Units.iconSizes.smallMedium
                     implicitHeight: implicitWidth
                 }
@@ -116,19 +115,20 @@ Item {
                     id: methodDetails
                     objectName: "unlockingMethodDetails"
                     Layout.fillWidth: true
-                    title: methodRow.modelData.managed && methodRow.modelData.label
-                        ? methodRow.modelData.label
-                        : translations.i18n("LUKS key slot %1", methodRow.modelData.keyslot)
-                    subtitle: root.methodDescription(methodRow.modelData)
+                    title: methodRow.managed && methodRow.label
+                        ? methodRow.label
+                        : translations.i18n("LUKS key slot %1", methodRow.keyslot)
+                    subtitle: root.methodDescription(methodRow)
                     selected: false
                     actions: [
                         Kirigami.Action {
                             icon.name: "edit-delete-symbolic"
                             text: translations.i18n("Remove unlocking method")
-                            visible: methodRow.modelData.managed && !methodRow.modelData.automatic
+                            visible: methodRow.managed && !methodRow.automatic
                             enabled: (root.credentialModel?.credentials.length ?? 0) > 1 && !root.credentialModel.busy
                             onTriggered: {
-                                root.credentialToRemove = methodRow.modelData;
+                                credentialToRemove.credentialId = methodRow.credentialId;
+                                credentialToRemove.label = methodRow.label;
                                 removeDialog.open();
                             }
                         }
@@ -188,59 +188,6 @@ Item {
             text: (root.credentialModel?.errorMessage?.length ?? 0) > 0
                 ? root.credentialModel.errorMessage
                 : translations.i18n("No LUKS unlocking methods found")
-        }
-    }
-
-    QQC2.Dialog {
-        id: methodDetailsDialog
-        objectName: "unlockingMethodDetailsDialog"
-        parent: QQC2.Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        title: root.credentialTitle(inspectedCredential)
-        standardButtons: QQC2.Dialog.Close
-
-        contentItem: GridLayout {
-            width: Kirigami.Units.gridUnit * 24
-            columns: 2
-            columnSpacing: Kirigami.Units.largeSpacing
-            rowSpacing: Kirigami.Units.smallSpacing
-
-            QQC2.Label { text: translations.i18n("Type:"); opacity: 0.65 }
-            QQC2.Label {
-                objectName: "unlockingMethodTypeValue"
-                Layout.fillWidth: true
-                text: root.methodType(inspectedCredential)
-            }
-            QQC2.Label { text: translations.i18n("LUKS key slot:"); opacity: 0.65 }
-            QQC2.Label {
-                objectName: "unlockingMethodSlotValue"
-                text: inspectedCredential.keyslot >= 0
-                    ? inspectedCredential.keyslot : translations.i18n("Unknown")
-            }
-            QQC2.Label { text: translations.i18n("Management:"); opacity: 0.65 }
-            QQC2.Label {
-                objectName: "unlockingMethodManagementValue"
-                Layout.fillWidth: true
-                text: inspectedCredential.managed
-                    ? translations.i18n("Managed by btrfs-backup")
-                    : translations.i18n("Configured outside btrfs-backup")
-            }
-            QQC2.Label { text: translations.i18n("Usage:"); opacity: 0.65 }
-            QQC2.Label {
-                objectName: "unlockingMethodUsageValue"
-                Layout.fillWidth: true
-                text: inspectedCredential.automatic
-                    ? translations.i18n("Automatic backups")
-                    : translations.i18n("Manual unlocking")
-            }
-            Kirigami.InlineMessage {
-                Layout.columnSpan: 2
-                Layout.fillWidth: true
-                visible: true
-                type: Kirigami.MessageType.Information
-                text: root.methodPrivacyText(inspectedCredential)
-            }
         }
     }
 
@@ -315,12 +262,12 @@ Item {
         title: translations.i18n("Remove unlocking method")
         standardButtons: QQC2.Dialog.Yes | QQC2.Dialog.Cancel
         onOpened: removalAuthorization.text = ""
-        onAccepted: root.credentialModel.removeCredential(root.credentialToRemove.id, removalAuthorization.text)
+        onAccepted: root.credentialModel.removeCredential(credentialToRemove.credentialId, removalAuthorization.text)
         contentItem: ColumnLayout {
             width: Kirigami.Units.gridUnit * 24
             QQC2.Label {
                 Layout.fillWidth: true
-                text: translations.i18n("Enter an existing passphrase to remove %1.", root.credentialToRemove?.label ?? "")
+                text: translations.i18n("Enter an existing passphrase to remove %1.", credentialToRemove.label)
                 wrapMode: Text.Wrap
             }
             QQC2.TextField {
@@ -370,8 +317,25 @@ Item {
     }
 
     Component.onCompleted: {
+        root.synchronizeCredentials()
         if (root.credentialModel !== null && root.profileId.length > 0)
             root.credentialModel.load(root.profileId)
+    }
+
+    function synchronizeCredentials() {
+        stableCredentials.clear()
+        const credentials = root.currentCredentials
+        for (let index = 0; index < credentials.length; ++index) {
+            const credential = credentials[index]
+            stableCredentials.append({
+                credentialId: String(credential.id ?? ""),
+                label: String(credential.label ?? ""),
+                credentialType: String(credential.type ?? ""),
+                keyslot: Number(credential.keyslot ?? -1),
+                managed: Boolean(credential.managed ?? false),
+                automatic: Boolean(credential.automatic ?? false)
+            })
+        }
     }
 
     function methodDescription(method) {
@@ -379,14 +343,6 @@ Item {
         const ownership = method.managed ? translations.i18n("managed by btrfs-backup") : translations.i18n("configured outside btrfs-backup")
         const automatic = method.automatic ? translations.i18n("automatic backups") : translations.i18n("manual unlocking")
         return translations.i18nc("unlocking method details", "%1 - slot %2 - %3 - %4", kind, method.keyslot, ownership, automatic)
-    }
-
-    function credentialTitle(method) {
-        if (method === null || method === undefined)
-            return translations.i18n("Unlocking method details")
-        return method.managed && method.label
-            ? method.label
-            : translations.i18n("LUKS key slot %1", method.keyslot)
     }
 
     function methodType(method) {
@@ -401,21 +357,14 @@ Item {
     }
 
     function methodIcon(method) {
-        if (method?.type === "passphrase")
+        const credentialType = method?.credentialType ?? method?.type ?? ""
+        if (credentialType === "passphrase")
             return "dialog-password";
-        if (method?.type === "keyFile" && method?.automatic)
+        if (credentialType === "keyFile" && method?.automatic)
             return "password-generate";
-        if (method?.type === "keyFile")
+        if (credentialType === "keyFile")
             return "document-encrypt";
         return "dialog-question";
     }
 
-    function methodPrivacyText(method) {
-        const credentialType = method?.credentialType ?? method?.type ?? ""
-        if (credentialType === "passphrase")
-            return translations.i18n("The passphrase itself is not stored by btrfs-backup.")
-        if (credentialType === "keyFile" && method.managed)
-            return translations.i18n("The key is stored in protected system configuration. Its contents and path are hidden.")
-        return translations.i18n("This LUKS slot was configured outside btrfs-backup.")
-    }
 }

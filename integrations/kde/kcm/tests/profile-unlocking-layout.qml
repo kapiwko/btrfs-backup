@@ -27,6 +27,7 @@ Item {
     KcmUi.ProfileUnlocking {
         id: unlocking
         width: parent.width
+        height: parent.height
         editor: editor
         profileId: "default"
         credentialModel: credentials
@@ -54,7 +55,7 @@ Item {
             credentials.errorMessage = ""
         }
 
-        function test_methodDetailsOpenFromActivation() {
+        function test_methodRowsFollowCredentialRefresh() {
             credentials.credentials = [{
                 id: "slot-1",
                 label: "Automatic backup key",
@@ -63,29 +64,18 @@ Item {
                 managed: true,
                 automatic: true
             }]
-            wait(0)
+            tryCompare(unlocking, "credentialCount", 1)
+            tryVerify(() => findChild(unlocking, "unlockingMethodRow") !== null)
 
-            const row = findChild(unlocking, "unlockingMethodRow")
-            const dialog = findChild(unlocking, "unlockingMethodDetailsDialog")
+            let row = findChild(unlocking, "unlockingMethodRow")
             verify(row !== null)
-            verify(dialog !== null)
-
-            row.clicked()
-            wait(0)
-
-            verify(dialog.visible)
-            compare(dialog.title, "Automatic backup key")
-            compare(findChild(dialog, "unlockingMethodTypeValue").text, "Key file")
-            compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
-            compare(findChild(dialog, "unlockingMethodManagementValue").text, "Managed by btrfs-backup")
-            compare(findChild(dialog, "unlockingMethodUsageValue").text, "Automatic backups")
+            compare(row.credentialId, "slot-1")
+            compare(findChild(row, "unlockingMethodDetails").title, "Automatic backup key")
+            verify(findChild(row, "unlockingMethodDetails").subtitle.includes("Key file"))
 
             credentials.credentials = []
-            wait(0)
-
-            verify(dialog.visible)
-            compare(dialog.title, "Automatic backup key")
-            compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
+            tryCompare(unlocking, "credentialCount", 0)
+            tryVerify(() => findChild(unlocking, "unlockingMethodRow") === null)
 
             credentials.credentials = [{
                 id: "slot-2",
@@ -95,25 +85,18 @@ Item {
                 managed: false,
                 automatic: false
             }]
-            wait(0)
+            tryCompare(unlocking, "credentialCount", 1)
+            tryVerify(() => {
+                const currentRow = findChild(unlocking, "unlockingMethodRow")
+                return currentRow !== null && currentRow.credentialId === "slot-2"
+            })
 
-            verify(dialog.visible)
-            compare(dialog.title, "Automatic backup key")
-            compare(findChild(dialog, "unlockingMethodTypeValue").text, "Key file")
-            compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
-
-            dialog.close()
-            tryCompare(dialog, "visible", false)
-
-            const replacementRow = findChild(unlocking, "unlockingMethodRow")
-            verify(replacementRow !== null)
-            replacementRow.clicked()
-            wait(0)
-            compare(dialog.title, "LUKS key slot 2")
-            compare(findChild(dialog, "unlockingMethodTypeValue").text, "Passphrase")
-            dialog.close()
-            tryCompare(dialog, "visible", false)
+            row = findChild(unlocking, "unlockingMethodRow")
+            compare(findChild(row, "unlockingMethodDetails").title, "LUKS key slot 2")
+            verify(findChild(row, "unlockingMethodDetails").subtitle.includes("Passphrase"))
             credentials.credentials = []
+            tryCompare(unlocking, "credentialCount", 0)
+            tryVerify(() => findChild(unlocking, "unlockingMethodRow") === null)
         }
 
         function test_busyOperationIsVisible() {
@@ -142,7 +125,8 @@ Item {
                 managed: false,
                 automatic: false
             }]
-            wait(0)
+            tryCompare(unlocking, "credentialCount", 1)
+            tryVerify(() => findChild(unlocking, "unlockingMethodDetails") !== null)
 
             const method = findChild(unlocking, "unlockingMethodDetails")
             verify(method !== null)
@@ -150,6 +134,8 @@ Item {
             verify(method.subtitle.startsWith("Unknown unlocking method"))
 
             credentials.credentials = []
+            tryCompare(unlocking, "credentialCount", 0)
+            tryVerify(() => findChild(unlocking, "unlockingMethodRow") === null)
         }
     }
 }
