@@ -4,8 +4,6 @@
 #include <daemon/control/SystemBrowseSessionBackend.hpp>
 
 #include <fcntl.h>
-#include <grp.h>
-#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -13,7 +11,6 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
-#include <limits>
 #include <set>
 #include <stdexcept>
 #include <system_error>
@@ -37,27 +34,6 @@ using btrfsbackup::platform::linux::OwnedFileDescriptor;
 
 [[noreturn]] void target_error(const std::string& message) {
     throw dbus::ManagerOperationError(dbus::ManagerErrorCode::TargetUnavailable, message);
-}
-
-BrowseAccessIdentity access_identity(std::uint32_t uid) {
-    if (uid > static_cast<std::uint32_t>(std::numeric_limits<uid_t>::max()))
-        target_error("browse caller UID is outside the platform range");
-    struct passwd account{};
-    struct passwd* found = nullptr;
-    std::vector<char> buffer(16384);
-    const int lookup = getpwuid_r(static_cast<uid_t>(uid), &account, buffer.data(), buffer.size(), &found);
-    if (lookup != 0 || found == nullptr)
-        target_error("cannot resolve browse caller groups");
-    int count = 0;
-    (void)getgrouplist(account.pw_name, account.pw_gid, nullptr, &count);
-    std::vector<gid_t> native_groups(static_cast<std::size_t>(std::max(count, 1)));
-    if (getgrouplist(account.pw_name, account.pw_gid, native_groups.data(), &count) < 0)
-        target_error("cannot resolve browse caller groups");
-    BrowseAccessIdentity result{.uid = uid, .groups = {}};
-    result.groups.reserve(static_cast<std::size_t>(count));
-    for (int index = 0; index < count; ++index)
-        result.groups.push_back(static_cast<std::uint32_t>(native_groups[static_cast<std::size_t>(index)]));
-    return result;
 }
 
 } // namespace
@@ -179,7 +155,7 @@ void SystemBrowseSessionBackend::unmount(const BrowseSessionId& session_id, cons
 void SystemBrowseSessionBackend::open(
     const ProfileId& profile_id,
     const BrowseSessionId& session_id,
-    std::uint32_t caller_uid
+    const BrowseAccessIdentity& caller_identity
 ) {
     mount_store_.prepare_root();
     const auto loaded = profiles_.get(profile_id);
@@ -188,12 +164,12 @@ void SystemBrowseSessionBackend::open(
     SessionMount record{
         .mount = mount_store_.make_record(
             session_id,
-            caller_uid,
+            caller_identity.uid,
             key,
             btrfsbackup::config::target_mount_unit_name(loaded.profile.target.mount_point),
             target.mounted_by_backend
         ),
-        .identity = access_identity(caller_uid),
+        .identity = caller_identity,
         .repository_cached = false,
         .repository_document = {},
         .snapshots = {},

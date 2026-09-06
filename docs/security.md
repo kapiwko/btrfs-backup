@@ -91,6 +91,10 @@ Each active KIO or restore operation acquires an identified session lease. Expir
 and cleanup are permitted only after every concurrent lease has been released.
 Repository traversal rejects absolute paths, `..`, symlinks and special files,
 and regular-file reads use already-open descriptors passed over D-Bus.
+Stored ownership, group mode bits and POSIX ACLs are evaluated against the UID,
+primary GID and supplementary groups captured from the actual D-Bus sender
+process when the browse session opens. Account-database membership is not used
+as a substitute for the caller process credentials.
 
 Opaque identifiers prevent clients from choosing arbitrary device paths, but
 they are not capabilities outside their caller binding and expiry. A topology

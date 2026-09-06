@@ -39,7 +39,7 @@ int ManagerBrowseMethods::open_browse_session(sd_bus_message* message, sd_bus_er
                 [&] {
                     return support_.codec().encode(browse_sessions_.open(
                         ManagerMethodSupport::caller_bus_name(message),
-                        ManagerMethodSupport::caller_uid(message),
+                        ManagerMethodSupport::caller_access_identity(message),
                         profile
                     ));
                 }

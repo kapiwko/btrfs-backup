@@ -13,11 +13,6 @@
 
 namespace btrfsbackup::daemon::control {
 
-struct BrowseAccessIdentity {
-    std::uint32_t uid = 0;
-    std::vector<std::uint32_t> groups;
-};
-
 class BrowseFilesystemAccess final {
   public:
     [[nodiscard]] static std::filesystem::path normalize_relative_path(

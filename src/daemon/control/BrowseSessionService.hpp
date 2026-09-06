@@ -45,13 +45,18 @@ struct PreviousVersionsPage {
     std::string continuation_token;
 };
 
+struct BrowseAccessIdentity {
+    std::uint32_t uid = 0;
+    std::vector<std::uint32_t> groups;
+};
+
 class IBrowseSessionBackend {
   public:
     virtual ~IBrowseSessionBackend() = default;
     virtual void open(
         const ProfileId& profile_id,
         const BrowseSessionId& session_id,
-        std::uint32_t caller_uid
+        const BrowseAccessIdentity& caller_identity
     ) = 0;
     virtual void close(const BrowseSessionId& session_id) = 0;
     virtual void cleanup_stale() = 0;
@@ -143,6 +148,11 @@ class BrowseSessionService final {
     );
     ~BrowseSessionService() noexcept;
 
+    [[nodiscard]] BrowseSessionInfo open(
+        const std::string& caller_bus_name,
+        const BrowseAccessIdentity& caller_identity,
+        const std::string& profile_id
+    );
     [[nodiscard]] BrowseSessionInfo open(
         const std::string& caller_bus_name,
         std::uint32_t caller_uid,

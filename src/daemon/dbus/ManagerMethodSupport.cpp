@@ -5,6 +5,7 @@
 
 #include <systemd/sd-bus.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
@@ -42,10 +43,15 @@ int ManagerMethodSupport::reply_json(sd_bus_message* message, const std::string&
 }
 
 std::uint32_t ManagerMethodSupport::caller_uid(sd_bus_message* message) {
+    return caller_access_identity(message).uid;
+}
+
+control::BrowseAccessIdentity ManagerMethodSupport::caller_access_identity(sd_bus_message* message) {
     sd_bus_creds* raw_credentials = nullptr;
     const int query_result = sd_bus_query_sender_creds(
         message,
-        SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_PID | SD_BUS_CREDS_AUGMENT,
+        SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID |
+            SD_BUS_CREDS_SUPPLEMENTARY_GIDS | SD_BUS_CREDS_PID | SD_BUS_CREDS_AUGMENT,
         &raw_credentials
     );
     if (query_result < 0)
@@ -59,7 +65,30 @@ std::uint32_t ManagerMethodSupport::caller_uid(sd_bus_message* message) {
         throw std::runtime_error("cannot resolve D-Bus caller UID: " + std::string(std::strerror(-uid_result)));
     if (uid > std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("D-Bus caller UID is outside the supported range");
-    return static_cast<std::uint32_t>(uid);
+    control::BrowseAccessIdentity identity{.uid = static_cast<std::uint32_t>(uid), .groups = {}};
+    gid_t gid = 0;
+    int gid_result = sd_bus_creds_get_gid(credentials.get(), &gid);
+    if (gid_result == -ENODATA)
+        gid_result = sd_bus_creds_get_egid(credentials.get(), &gid);
+    if (gid_result >= 0) {
+        if (gid > std::numeric_limits<std::uint32_t>::max())
+            throw std::runtime_error("D-Bus caller GID is outside the supported range");
+        identity.groups.push_back(static_cast<std::uint32_t>(gid));
+    } else if (gid_result != -ENODATA) {
+        throw std::runtime_error("cannot resolve D-Bus caller GID: " + std::string(std::strerror(-gid_result)));
+    }
+    const gid_t* supplementary = nullptr;
+    const int group_count = sd_bus_creds_get_supplementary_gids(credentials.get(), &supplementary);
+    if (group_count < 0 && group_count != -ENODATA)
+        throw std::runtime_error("cannot resolve D-Bus caller supplementary groups: " + std::string(std::strerror(-group_count)));
+    for (int index = 0; index < std::max(group_count, 0); ++index) {
+        if (supplementary[index] > std::numeric_limits<std::uint32_t>::max())
+            throw std::runtime_error("D-Bus caller supplementary GID is outside the supported range");
+        identity.groups.push_back(static_cast<std::uint32_t>(supplementary[index]));
+    }
+    std::ranges::sort(identity.groups);
+    identity.groups.erase(std::ranges::unique(identity.groups).begin(), identity.groups.end());
+    return identity;
 }
 
 std::string ManagerMethodSupport::caller_bus_name(sd_bus_message* message) {
