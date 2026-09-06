@@ -31,6 +31,7 @@ TestCase {
         property string errorTechnicalDetails: ""
         property bool busy: false
         property bool completed: true
+        property bool checkingSpace: false
         property int restoredFiles: 482
         property int restoredBytes: 1932735283
         property string restoredSize: "1.8 GiB"
@@ -128,5 +129,18 @@ TestCase {
         compare(progressBar.value, 0.5)
         compare(findChild(page, "restoreTransferredSize").text, controller.transferredSize)
         compare(findChild(page, "restoreTransferSpeed").text, controller.transferSpeed)
+    }
+
+    function test_spaceEstimationUsesIndeterminateProgress() {
+        controller.completed = false
+        controller.busy = true
+        controller.checkingSpace = true
+        controller.progress = -1
+        wait(0)
+        const progressBar = findChild(page, "restoreProgressBar")
+        verify(progressBar.indeterminate)
+        verify(!findChild(page, "restoreTransferredSize").visible)
+        verify(!findChild(page, "restoreTransferSpeed").visible)
+        controller.checkingSpace = false
     }
 }

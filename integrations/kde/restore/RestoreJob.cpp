@@ -70,8 +70,11 @@ void RestoreJob::start() {
                         progress.statistics.bytes,
                         speed,
                         current_name
-                    ); }, Qt::QueuedConnection);
-            });
+                    ); }, Qt::QueuedConnection); }, [this](btrfsbackup::restore::RestorePhase phase) {
+                const bool checking_space = phase == btrfsbackup::restore::RestorePhase::CheckingSpace;
+                QMetaObject::invokeMethod(this, [this, checking_space] {
+                    Q_EMIT phaseChanged(checking_space);
+                }, Qt::QueuedConnection); });
             QMetaObject::invokeMethod(this, [this, result] {
                 restored_files_ = result.statistics.files;
                 restored_bytes_ = result.statistics.bytes;

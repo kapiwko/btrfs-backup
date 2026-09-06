@@ -108,6 +108,9 @@ msgstr "Przywrócono %1 do %2"
 msgid "Restoring %1"
 msgstr "Przywracanie: %1"
 
+msgid "Estimating required space…"
+msgstr "Szacowanie wymaganej przestrzeni…"
+
 msgid "%1 of %2"
 msgstr "%1 z %2"
 

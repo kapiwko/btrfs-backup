@@ -23,7 +23,8 @@ class RestoreExecutor {
     RestoreResult execute(
         const RestorePlan& plan,
         CancellationToken& cancellation,
-        const RestoreProgressSink& progress = {}
+        const RestoreProgressSink& progress = {},
+        const RestorePhaseSink& phase = {}
     );
 
   private:

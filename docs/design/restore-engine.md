@@ -42,6 +42,10 @@ ACL attributes) before publishing the staging tree.
 - Ownership, mode, ACL and xattr preservation failures are reported, not hidden.
 - File data is copied with checked `open`, `read`, `write`, `fsync` and `close`
   calls so a late `ENOSPC` is reported as insufficient space.
+- Before copying, the engine walks the selected entry to estimate required
+  destination space and compares it with the currently available space. This
+  is an estimate rather than a reservation: concurrent writes can still exhaust
+  the filesystem, so every data and metadata write remains authoritative.
 - Restore never applies retention or modifies the source snapshot.
 
 Whole-system recovery remains a guided administrative procedure: the engine
@@ -63,6 +67,11 @@ leaves the original repository untouched, cleans only owned staging data and
 reports any incomplete cleanup. Re-running the request must either resume a
 defined checkpoint or safely restart; it must not infer success from a partial
 destination.
+
+Space estimation and copying are separate observable phases. Both receive the
+same cancellation token, allowing the desktop client to show indeterminate
+progress while walking a directory and to cancel before any staging data is
+created.
 
 ## Remaining Work
 

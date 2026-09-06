@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 
@@ -47,7 +48,13 @@ void test_success_exposes_restore_statistics() {
 
     QEventLoop loop;
     int progress_updates = 0;
+    std::vector<bool> checking_space_states;
     QString current_name;
+    QObject::connect(
+        &job,
+        &btrfsbackup::kde::restore::RestoreJob::phaseChanged,
+        [&](bool checking_space) { checking_space_states.push_back(checking_space); }
+    );
     QObject::connect(
         &job,
         &btrfsbackup::kde::restore::RestoreJob::progressChanged,
@@ -66,6 +73,10 @@ void test_success_exposes_restore_statistics() {
     expect(job.totalAmount(KJob::Bytes) == 16, "restore job did not expose the total byte count");
     expect(job.processedAmount(KJob::Bytes) == 16, "restore job did not expose copied bytes");
     expect(progress_updates > 0, "restore job did not report progress");
+    expect(
+        checking_space_states == std::vector<bool>{true, false},
+        "restore job did not expose the space-checking phase"
+    );
     expect(current_name == QStringLiteral("source.txt"), "restore job exposed its file descriptor as a name");
     expect(QFile::exists(temporary.filePath(QStringLiteral("restored.txt"))), "restore destination is missing");
 }
