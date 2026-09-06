@@ -125,7 +125,8 @@ diagnostics.
 
 API minor version 4 adds caller-owned browse-session renewal and active-operation
 pinning. Session expiry uses a monotonic clock; the wall-clock expiry in the
-response is informational. The daemon limits sessions globally and per UID,
+response is informational. Idle activity can renew a session only up to its
+one-hour absolute lifetime. The daemon limits sessions globally and per UID,
 keeps each view below a per-UID directory, and persists incomplete cleanup for
 retry after failures or restart.
 
@@ -202,8 +203,10 @@ API minor version 11 replaces the unreleased counted operation-pin method with
 must return that identifier to the same session. Unknown, duplicate, foreign and
 mismatched releases fail, and each session may hold at most 64 operation leases.
 An unexpired operation lease prevents idle expiration, while closing the session
-or losing the caller's bus name clears every lease. Browse operations use only
-the identified lease methods, so a completion cannot decrement unrelated work.
+or losing the caller's bus name clears every lease. Each lease expires after
+five minutes and no lease can extend the session beyond its one-hour absolute
+lifetime. Browse operations use only the identified lease methods, so a
+completion cannot decrement unrelated work.
 
 API minor version 12 adds `OpenBrowseEntry`. Restore clients receive a descriptor
 pinned directly to an authorized file or directory, so private repository layout

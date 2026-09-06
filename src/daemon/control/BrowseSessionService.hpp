@@ -131,7 +131,9 @@ class BrowseSessionService final {
         std::size_t global_limit = 64,
         std::size_t per_caller_limit = 8,
         std::size_t operation_lease_limit = 64,
-        BrowseOperationLeaseIdGenerator operation_lease_ids = {}
+        BrowseOperationLeaseIdGenerator operation_lease_ids = {},
+        std::chrono::seconds maximum_lifetime = std::chrono::hours(1),
+        std::chrono::seconds operation_lease_lifetime = std::chrono::minutes(5)
     );
     [[nodiscard]] BrowseSessionInfo renew(
         const std::string& caller_bus_name,
@@ -217,8 +219,10 @@ class BrowseSessionService final {
         std::string caller_bus_name;
         std::uint32_t caller_uid;
         std::chrono::steady_clock::time_point deadline;
+        std::chrono::steady_clock::time_point absolute_deadline;
         std::chrono::system_clock::time_point expires_at;
-        std::set<std::string> operation_leases;
+        std::chrono::system_clock::time_point absolute_expires_at;
+        std::map<std::string, std::chrono::steady_clock::time_point> operation_leases;
     };
 
     [[nodiscard]] std::map<std::string, Session>::iterator owned_session(
@@ -227,6 +231,7 @@ class BrowseSessionService final {
     );
     [[nodiscard]] BrowseSessionInfo session_info(const Session& session) const;
     void extend(Session& session);
+    void prune_expired_leases(Session& session, std::chrono::steady_clock::time_point now);
     void close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason);
     void close_noexcept(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) noexcept;
 
@@ -241,6 +246,8 @@ class BrowseSessionService final {
     std::size_t per_caller_limit_;
     std::size_t operation_lease_limit_;
     BrowseOperationLeaseIdGenerator operation_lease_ids_;
+    std::chrono::seconds maximum_lifetime_;
+    std::chrono::seconds operation_lease_lifetime_;
     std::map<std::string, Session> sessions_;
     std::set<ProfileId> ejecting_profiles_;
     std::map<ProfileId, std::chrono::steady_clock::time_point> browse_reopen_after_;
