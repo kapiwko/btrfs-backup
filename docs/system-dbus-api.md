@@ -41,7 +41,7 @@ schema versions are not advertised as public API versions.
 |---|---|---|---|
 | `GetCapabilities` | `()` | `(s)` | API/schema versions, features and `readOnly: false` |
 | `ListProfiles` | `()` | `(s)` | sanitized public profile array |
-| `GetStatus` | `(s profileId)` | `(s)` | public status schema 6, including operation kind, run state, source position, timing and backup freshness timestamps |
+| `GetStatus` | `(s profileId)` | `(s)` | public status schema 1, including operation kind, run state, source position, timing and backup freshness timestamps |
 | `GetHistorySanitized` | `(s profileId, u offset, u limit)` | `(s)` | sanitized history array |
 | `GetDeviceState` | `(s profileId)` | `(s)` | labels, lifecycle booleans and optional filesystem usage without storage identifiers |
 | `StartBackup` | `(s profileId)` | `(s)` | accepted systemd runner start |
@@ -87,98 +87,25 @@ request, so a restart reconstructs the same visible state from current status
 or durable history. Operational methods return schema-versioned
 `OperationResult` documents.
 
-API major version 2 removes the full-document editing methods and replaces them
-with bounded profile settings and source operations. Each mutation validates and
-atomically republishes the complete profile internally, while preserving fields
-that are not part of its request. All successful responses use the sanitized
-profile envelope with a new generation and fingerprint. The minor version
-started at 0 because clients built for API major version 1 are not compatible
-with this contract.
+API version 1.0 defines the complete public manager contract described above.
+All project-owned JSON documents exposed by the manager use schema version 1,
+including profiles, summaries, status, history, device state, storage usage,
+operation results, profile details, browse sessions, previous-version pages,
+credentials, storage topology, preparation plans, target inspections and
+device-preparation status. Private persisted status, history and preparation
+transactions also start at schema version 1.
 
-API minor version 1 advances profile summaries and profile-details envelopes to
-schema version 2. Both expose a path-free configuration health result through
-`configurationValid` and `configurationErrorCode`. Profile details additionally
-include editable `sourceCandidates` discovered from mounted Btrfs subvolumes.
-Adding a source verifies that the path exists and is a Btrfs subvolume before
-requesting authorization. Existing profiles are checked on every summary or
-details query, so clients can report stale source configuration independently
-of backup execution.
+Profile mutations use generation and fingerprint preconditions and republish the
+complete profile atomically. Secrets cross D-Bus only through Unix file
+descriptors. Storage discovery returns short-lived opaque identifiers and
+sanitized presentation data; destructive work is authorized and revalidated
+separately. Browse sessions and operation leases are caller-owned, bounded and
+expiring. Paged directory and previous-version queries return at most 512
+entries and use tokens bound to the original query. Restore clients receive
+descriptors pinned to authorized entries, and local coverage lookup accepts an
+`O_PATH` descriptor rather than a path string.
 
-API minor version 2 adds the `target-credentials` and `device-provisioning`
-features. Secrets use Unix file descriptors (`h`) and never enter JSON or a
-textual D-Bus argument. Device preparation is an asynchronous operation; the
-initial call returns after the secret has been copied into protected memory.
-Clients poll the operation document and may cancel only while `canCancel` is
-true. The daemon revalidates the selected disk path, size, serial, mount state
-and initial Btrfs source after polkit authorization and before erasing data.
-Source selection uses short-lived opaque candidate identifiers. A preparation
-request may contain a `sources` array with `candidateId`, display `name`,
-`localRetention`, and `remoteRetention` for each source. The legacy
-`sourceCandidateId` field remains accepted as a single source. The manager
-derives every `localSnapshotDir` below the corresponding Btrfs mount and the
-helper revalidates all paths against their recorded filesystem UUIDs before its
-first storage write.
-Recovery isolates an unreadable or invalid transaction and reports only the
-stable `device-preparation.transaction-corrupted` error with phase
-`manual-intervention-required`; the original record remains root-private for
-diagnostics.
-
-API minor version 4 adds caller-owned browse-session renewal and active-operation
-pinning. Session expiry uses a monotonic clock; the wall-clock expiry in the
-response is informational. Idle activity can renew a session only up to its
-one-hour absolute lifetime. The daemon limits sessions globally and per UID,
-keeps each view below a per-UID directory, and persists incomplete cleanup for
-retry after failures or restart.
-
-API minor version 5 adds `InspectStorageTopology` and
-`BuildDevicePreparationPlan`. The first method returns opaque candidates bound
-to the caller and a short-lived topology generation. The second method rescans
-storage, rejects a changed generation, and returns a stored before/after plan.
-It does not authorize a write and does not replace the separate preparation
-authorization and revalidation performed immediately before execution.
-Topology schema version 2 exposes only display ordinals, coarse device
-properties, geometry, safety decisions and stable blocker codes. Device nodes,
-hardware identity, labels, filesystem and partition UUIDs, mount paths and
-free-form blocker details remain internal to the manager. Preparation-plan
-schema version 3 applies the same rule to before/after layouts and warnings.
-
-API minor version 6 adds `InspectExistingTarget`. Its request contains only the
-topology generation and opaque partition candidate; the credential is supplied
-as a Unix file descriptor. The manager compares the topology before and after
-the read-only LUKS2/Btrfs inspection. API minor version 7 and inspection schema
-version 2 add an explicit `classification` and `diagnosticCode`. Compatible
-repositories receive a caller-bound, expiring `inspectionId`; empty Btrfs,
-legacy layouts, unsupported formats and foreign or invalid repositories do not.
-The mapper and mount are closed before the response is sent, and the stored
-inspection contains no credential material. Inspection schema version 3 also
-keeps LUKS, Btrfs and partition UUIDs out of the response; clients receive only
-the classification, diagnostic code, repository metadata and opaque binding
-identifiers.
-
-API minor version 8 removes the local `rootPath` from browse-session documents.
-Session directories and mount points remain root-owned and private; clients
-access repository contents only through brokered operations. Active operations use identified
-leases, so finishing one concurrent KIO request cannot unpin another request.
-
-API minor version 9 adds `ListBrowseDirectoryPage`. An empty continuation token
-starts a listing; a non-empty token resumes after the last name returned by the
-previous page and is valid only for the same session and normalized relative
-path. Page sizes from 1 through 512 bound response and working-set size. The
-manager selects that bounded working set in `O(n log page-size)` time instead
-of shifting a sorted page for every candidate. The legacy
-`ListBrowseDirectory` method remains available for API compatibility and
-retains its 10,000-entry safety limit.
-
-API minor version 10 adds `ListPreviousVersions`. It replaces one synchronous
-`InspectBrowseEntry` round trip per candidate snapshot with pages of up to 512
-existing versions. The continuation token is valid only for the same owned
-session, profile, source and normalized relative path. Repository discovery and
-the resolved query are cached for the lifetime of the browse session, so later
-pages do not rescan the catalog or repeat filesystem probes. KDE clients fall
-back to the legacy per-snapshot calls only when an older daemon reports
-`org.freedesktop.DBus.Error.UnknownMethod`.
-
-Each response uses schema version 1:
+A previous-versions page has this shape:
 
 ```json
 {
@@ -196,31 +123,6 @@ Each response uses schema version 1:
   "continuationToken": ""
 }
 ```
-
-API minor version 11 replaces the unreleased counted operation-pin method with
-`BeginBrowseOperation` and `EndBrowseOperation`.
-`BeginBrowseOperation` returns a schema-versioned `leaseId`; the same caller
-must return that identifier to the same session. Unknown, duplicate, foreign and
-mismatched releases fail, and each session may hold at most 64 operation leases.
-An unexpired operation lease prevents idle expiration, while closing the session
-or losing the caller's bus name clears every lease. Each lease expires after
-five minutes and no lease can extend the session beyond its one-hour absolute
-lifetime. Browse operations use only the identified lease methods, so a
-completion cannot decrement unrelated work.
-
-API minor version 12 adds `OpenBrowseEntry`. Restore clients receive a descriptor
-pinned directly to an authorized file or directory, so private repository layout
-directories do not block access to content allowed by the stored permissions.
-
-API minor version 13 replaces the unreleased string-based coverage query with
-`ResolveBackupCoverageByFd`. Clients open the selected local file or directory
-with `O_PATH` and pass that descriptor, and the manager rejects other descriptor
-types, deleted objects and special files.
-
-Device-provisioning status schema version 3 adds `lastCompletedPhase` and
-`cleanupResult`. They are presentation-safe recovery evidence: clients can show
-which durable steps completed and whether the temporary mapper was closed
-without receiving device paths, mapper names or private transaction contents.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this

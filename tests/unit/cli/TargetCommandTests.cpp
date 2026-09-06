@@ -123,7 +123,7 @@ btrfsbackup::config::json::Json profile_json(
         activation = {{"mode", "keyFile"}, {"keyFile", key_file.string()}};
     }
     return {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"configurationGeneration", "0123456789abcdef0123456789abcdef"},
         {"profileId", "default"},
         {"name", "Default backup"},

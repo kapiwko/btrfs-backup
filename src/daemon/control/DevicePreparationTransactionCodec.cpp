@@ -274,7 +274,7 @@ DevicePreparationTarget parse_target(const Json& value) {
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 9},
+        {"schemaVersion", 1},
         {"revision", transaction.revision.value},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
@@ -322,7 +322,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 9 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 1 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.revision.value = value.value("revision", std::uint64_t{0});

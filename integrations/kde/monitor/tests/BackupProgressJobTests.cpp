@@ -174,7 +174,7 @@ void test_stopping_tracking_is_not_a_terminal_result() {
 
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
-        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":6,"historySchemaVersion":2,"features":["cancel-backup","change-signals"]})")
+        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"features":["cancel-backup","change-signals"]})")
     );
     expect(
         capabilities.has_value() && capabilities->api_major == 1 &&
@@ -191,7 +191,7 @@ void test_shared_manager_protocol() {
     );
 
     const auto status = btrfsbackup::kde::parse_status(QStringLiteral(
-        R"({"schemaVersion":6,"runId":"run-1","operationKind":"backup","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Disk","speedBps":2048,"etaSeconds":60,"sourceProgress":50,"overallProgress":25,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":2,"startedAt":"2026-08-29T15:00:00Z","updatedAt":"2026-08-29T16:00:00Z","lastSuccessAt":"2026-08-25T10:00:00Z","lastAttemptAt":"2026-08-29T16:00:00Z","lastAttemptState":"failed"})"
+        R"({"schemaVersion":1,"runId":"run-1","operationKind":"backup","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Disk","speedBps":2048,"etaSeconds":60,"sourceProgress":50,"overallProgress":25,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":2,"startedAt":"2026-08-29T15:00:00Z","updatedAt":"2026-08-29T16:00:00Z","lastSuccessAt":"2026-08-25T10:00:00Z","lastAttemptAt":"2026-08-29T16:00:00Z","lastAttemptState":"failed"})"
     ));
     expect(
         status.has_value() && status->run_id == QStringLiteral("run-1") && status->operation_kind == QStringLiteral("backup") &&
@@ -205,7 +205,7 @@ void test_shared_manager_protocol() {
     );
     expect(
         !btrfsbackup::kde::parse_status(QStringLiteral(
-                                            R"({"schemaVersion":5,"lastSuccessAt":"","lastAttemptAt":""})"
+                                            R"({"schemaVersion":1,"lastSuccessAt":"","lastAttemptAt":""})"
                                         ))
              .has_value(),
         "shared client rejects incomplete backup summary"

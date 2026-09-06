@@ -20,12 +20,12 @@ namespace {
 
 using Json = json::Json;
 using document::ExtensibleValue;
-using document::PrivateRunHistoryV2;
+using document::PrivateRunHistoryV1;
 using document::PublicActivity;
 using document::PublicErrorCode;
 using document::PublicOperationKind;
 using document::PublicRunState;
-using document::PublicRunStatusV4;
+using document::PublicRunStatusV1;
 using document::TransferProgress;
 
 Json parse_document(std::string_view content, int schema_version, const char* kind) {
@@ -290,7 +290,7 @@ RunDetails parse_details(const Json& input) {
     return result;
 }
 
-void validate_public_semantics(const PublicRunStatusV4& status) {
+void validate_public_semantics(const PublicRunStatusV1& status) {
     if (status.phase.value.empty()) {
         throw ValidationError("status JSON phase must not be empty");
     }
@@ -333,7 +333,7 @@ void validate_public_semantics(const PublicRunStatusV4& status) {
 
 namespace document {
 
-std::string public_run_state_name(const PublicRunStatusV4& status) {
+std::string public_run_state_name(const PublicRunStatusV1& status) {
     switch (status.state) {
     case PublicRunState::Idle:
         return "idle";
@@ -363,7 +363,7 @@ std::string public_run_state_name(const PublicRunStatusV4& status) {
     return status.unknown_state;
 }
 
-std::string public_activity_name(const PublicRunStatusV4& status) {
+std::string public_activity_name(const PublicRunStatusV1& status) {
     switch (status.activity) {
     case PublicActivity::Preparing:
         return "preparing";
@@ -381,7 +381,7 @@ std::string public_activity_name(const PublicRunStatusV4& status) {
     return status.unknown_activity;
 }
 
-std::string public_operation_kind_name(const PublicRunStatusV4& status) {
+std::string public_operation_kind_name(const PublicRunStatusV1& status) {
     switch (status.operation_kind) {
     case PublicOperationKind::Backup:
         return "backup";
@@ -405,14 +405,14 @@ std::string public_error_code_name(PublicErrorCode code) {
     return {};
 }
 
-PublicRunStatusV4 RunStatusDocumentCodec::parse_public(std::string_view content) const {
-    const Json input = parse_document(content, 4, "public status");
+PublicRunStatusV1 RunStatusDocumentCodec::parse_public(std::string_view content) const {
+    const Json input = parse_document(content, 1, "public status");
     const std::string state_value = required_string(input, "state");
     const std::string phase_value = required_string(input, "phase");
     const std::string activity_value = required_string(input, "activity");
     const std::string operation_kind_value = required_string(input, "operationKind");
     const std::string run_id = required_string(input, "runId");
-    PublicRunStatusV4 result{
+    PublicRunStatusV1 result{
         .run_id = run_id.empty() ? std::nullopt : std::optional<RunId>{RunId{run_id}},
         .operation_kind = parse_operation_kind(operation_kind_value),
         .state = parse_state(state_value),
@@ -433,7 +433,7 @@ PublicRunStatusV4 RunStatusDocumentCodec::parse_public(std::string_view content)
     return result;
 }
 
-std::optional<PublicRunStatusV4> RunStatusDocumentCodec::try_parse_public(std::string_view content) const noexcept {
+std::optional<PublicRunStatusV1> RunStatusDocumentCodec::try_parse_public(std::string_view content) const noexcept {
     try {
         return parse_public(content);
     } catch (...) {
@@ -441,11 +441,11 @@ std::optional<PublicRunStatusV4> RunStatusDocumentCodec::try_parse_public(std::s
     }
 }
 
-PrivateRunHistoryV2 RunStatusDocumentCodec::parse_private(std::string_view content) const {
-    const Json input = parse_document(content, 2, "private history");
+PrivateRunHistoryV1 RunStatusDocumentCodec::parse_private(std::string_view content) const {
+    const Json input = parse_document(content, 1, "private history");
     const std::string state = required_string(input, "state");
     const std::string phase = required_string(input, "phase");
-    PrivateRunHistoryV2 result{
+    PrivateRunHistoryV1 result{
         .profile_id = ProfileId{required_string(input, "profileId")},
         .profile_name = required_string(input, "profileName"),
         .run_id = RunId{required_string(input, "runId")},
@@ -477,10 +477,10 @@ PrivateRunHistoryV2 RunStatusDocumentCodec::parse_private(std::string_view conte
     return result;
 }
 
-std::string RunStatusDocumentCodec::serialize_public(const PublicRunStatusV4& status) const {
+std::string RunStatusDocumentCodec::serialize_public(const PublicRunStatusV1& status) const {
     validate_public_semantics(status);
     const Json result = {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"runId", status.run_id.has_value() ? std::string(status.run_id->value()) : std::string{}},
         {"operationKind", public_operation_kind_name(status)},
         {"state", public_run_state_name(status)},
@@ -501,12 +501,12 @@ std::string RunStatusDocumentCodec::serialize_public(const PublicRunStatusV4& st
     return json::dump_json(result);
 }
 
-std::string RunStatusDocumentCodec::serialize_private(const PrivateRunHistoryV2& history) const {
+std::string RunStatusDocumentCodec::serialize_private(const PrivateRunHistoryV1& history) const {
     if (history.source_index < 0 || history.source_count < 0 || history.source_index > history.source_count) {
         throw ValidationError("private history source indexes are inconsistent");
     }
     const Json result = {
-        {"schemaVersion", 2},
+        {"schemaVersion", 1},
         {"profileId", std::string(history.profile_id.value())},
         {"profileName", history.profile_name},
         {"runId", std::string(history.run_id.value())},
@@ -539,7 +539,7 @@ std::string RunStatusDocumentCodec::serialize_private(const PrivateRunHistoryV2&
     return json::dump_json(result);
 }
 
-PublicRunStatusV4 make_public_status(const RunStatus& status) {
+PublicRunStatusV1 make_public_status(const RunStatus& status) {
     const std::string state = run_state_name(status.state);
     const std::string phase = run_phase_name(status.phase);
     PublicActivity activity = PublicActivity::Preparing;
@@ -588,7 +588,7 @@ PublicRunStatusV4 make_public_status(const RunStatus& status) {
     };
 }
 
-PrivateRunHistoryV2 make_private_history(const RunStatus& status) {
+PrivateRunHistoryV1 make_private_history(const RunStatus& status) {
     const RunError* error = status.error ? &*status.error : nullptr;
     std::optional<std::uint64_t> eta;
     if (status.progress.eta_seconds.has_value()) {

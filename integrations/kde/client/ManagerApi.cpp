@@ -318,7 +318,7 @@ std::optional<RunStatus> parse_status(const QString& payload) {
             return std::nullopt;
         }
     }
-    object[QStringLiteral("schemaVersion")] = 4;
+    object[QStringLiteral("schemaVersion")] = 1;
     const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(
         QJsonDocument(object).toJson(QJsonDocument::Compact).toStdString()
     );

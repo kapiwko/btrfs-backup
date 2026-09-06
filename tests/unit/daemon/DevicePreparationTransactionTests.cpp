@@ -145,11 +145,11 @@ void test_codec_owns_schema_and_validation() {
     );
 
     std::string previous_schema = document;
-    const std::string current_version = "\"schemaVersion\": 9";
+    const std::string current_version = "\"schemaVersion\": 1";
     const auto version = previous_schema.find(current_version);
     test_helpers::expect_true("codec schema field", version != std::string::npos, "current schema field is missing");
     if (version != std::string::npos)
-        previous_schema.replace(version, current_version.size(), "\"schemaVersion\": 8");
+        previous_schema.replace(version, current_version.size(), "\"schemaVersion\": 2");
     try {
         static_cast<void>(codec.deserialize(previous_schema));
         test_helpers::fail("codec previous schema", "the previous unreleased transaction schema was accepted");
@@ -447,7 +447,7 @@ void test_previous_unreleased_transaction_schema_is_rejected() {
     test_helpers::write_file(
         root / "prepare-legacy.json",
         R"({
-  "schemaVersion": 7,
+  "schemaVersion": 2,
   "operationId": "prepare-legacy",
   "profileId": "test",
   "state": "running",

@@ -19,7 +19,7 @@ using btrfsbackup::state::document::RunStatusDocumentCodec;
 
 Json public_document() {
     return {
-        {"schemaVersion", 4},
+        {"schemaVersion", 1},
         {"runId", "run-1"},
         {"operationKind", "backup"},
         {"state", "running"},
@@ -41,7 +41,7 @@ Json public_document() {
 
 Json private_document() {
     return {
-        {"schemaVersion", 2},
+        {"schemaVersion", 1},
         {"profileId", "default"},
         {"profileName", "Default backup"},
         {"runId", "run-1"},

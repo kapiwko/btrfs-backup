@@ -9,7 +9,7 @@
 
 namespace btrfsbackup::config {
 
-inline constexpr std::string_view current_configuration_fingerprint_version = "2.0.0";
+inline constexpr std::string_view current_configuration_fingerprint_version = "1.0.0";
 
 std::string compute_config_fingerprint_from_bytes(
     std::string_view version,

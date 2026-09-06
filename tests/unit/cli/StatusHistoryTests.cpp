@@ -27,7 +27,7 @@ fs::path test_root(const std::string& name) {
 
 std::string private_history(const std::string& run_id, const std::string& message = "") {
     return btrfsbackup::config::json::Json({
-                                               {"schemaVersion", 2},
+                                               {"schemaVersion", 1},
                                                {"profileId", "default"},
                                                {"profileName", "Default backup"},
                                                {"runId", run_id},
@@ -149,7 +149,7 @@ void test_public_status_human_format() {
     test_helpers::write_file(
         root / "status" / "default" / "current.json",
         "{"
-        "\"schemaVersion\":4,"
+        "\"schemaVersion\":1,"
         "\"runId\":\"run-1\","
         "\"operationKind\":\"backup\","
         "\"state\":\"running\","
@@ -254,7 +254,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     for (const std::string& field : required_status_api_fields()) {
         test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
     }
-    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 4, "wrong schema");
+    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 1, "wrong schema");
     test_helpers::expect_true("watch profile hidden", !data.contains("profileId"), "public status exposes profile id");
     test_helpers::expect_true("watch details hidden", !data.contains("details"), "public status exposes details");
     test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");

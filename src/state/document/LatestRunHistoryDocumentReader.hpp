@@ -17,7 +17,7 @@ namespace document {
 inline constexpr std::size_t maximum_run_document_size = 1024 * 1024;
 
 struct PrivateRunHistoryDocument {
-    PrivateRunHistoryV2 history;
+    PrivateRunHistoryV1 history;
     std::string content;
     std::filesystem::path source;
 };

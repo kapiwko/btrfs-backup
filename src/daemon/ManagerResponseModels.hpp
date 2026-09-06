@@ -41,7 +41,7 @@ struct ProfileSummary {
     std::string configuration_error_code;
 };
 
-using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV4;
+using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV1;
 
 struct PublicStatusResponse {
     PublicRunStatus run;
