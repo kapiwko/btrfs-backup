@@ -15,24 +15,12 @@ sudo btrfs-backupctl profile save --file profile.json
 sudo btrfs-backupctl profile regenerate --all
 btrfs-backupctl profile show --profile default
 btrfs-backupctl profile export --profile default --output profile.json
-btrfs-backupctl profile export-v4 --all --output-dir ./before-1.0
-btrfs-backupctl upgrade preflight
 ```
 
-`upgrade preflight` is read-only. It checks the global application
-configuration and every installed profile, requiring schema v4, a valid
-`configurationGeneration`, matching directory/profile identities, trusted file
-ownership and permissions, and the complete runtime policy. Exit status `0`
-means ready, `1` means the upgrade is blocked, and `2` denotes invalid command
-usage.
-
-`export-v4 --all` is the explicit migration-only compatibility path for schema
-versions 1 through 3. Normal profile loading remains v4-only. The command loads
-and validates the complete set before atomically publishing a new backup
-directory; it refuses to overwrite an existing path. The export contains
-canonical profiles, optional `btrfs-backup.conf`, and recovery instructions.
-Key files referenced by profiles remain outside the export and require a
-separate protected backup.
+Version 1.0 accepts only schema-v4 profiles created for this release. It does
+not import, convert, or update profiles from earlier versions. Back up any data
+you need independently, create a new profile, and verify both backup and restore
+before relying on the new configuration.
 
 `save` writes:
 

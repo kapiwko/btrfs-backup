@@ -22,7 +22,6 @@ add_library(btrfsbackup-cli STATIC
     status/StatusShowCommand.cpp
     target/TargetCommand.cpp
     target/TargetService.cpp
-    upgrade/UpgradeCommand.cpp
 )
 
 target_compile_features(btrfsbackup-cli PUBLIC cxx_std_23)
@@ -49,7 +48,6 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/status/StatusShowCommand.hpp
         cli/target/TargetCommand.hpp
         cli/target/TargetService.hpp
-        cli/upgrade/UpgradeCommand.hpp
     PRIVATE_HEADERS
         cli/runner/RunnerComposition.hpp
         cli/runner/RunnerJsonCodec.hpp

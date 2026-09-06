@@ -290,6 +290,32 @@ void test_profile_rejects_old_schema_versions() {
     }
 }
 
+void test_installed_legacy_profile_is_rejected_without_modification() {
+    const fs::path root = test_root();
+    const fs::path profile_path = root / "profiles" / "default" / "profile.json";
+    Json old = valid_profile();
+    old["schemaVersion"] = 3;
+    old["configurationGeneration"] = "0123456789abcdef0123456789abcdef";
+    const std::string original = btrfsbackup::config::json::dump_json(old);
+    btrfsbackup::platform::linux::filesystem::atomic_write(profile_path, original, 0600);
+
+    btrfsbackup::platform::linux::config::FileProfileRepository repository(
+        root,
+        btrfsbackup::config::ApplicationConfig::defaults()
+    );
+    expect_validation_error(
+        "installed legacy profile",
+        [&] { (void)repository.get(btrfsbackup::ProfileId{"default"}); },
+        "schemaVersion must be 4"
+    );
+    expect_true(
+        "installed legacy profile preserved",
+        read_text(profile_path) == original,
+        "legacy profile was modified after rejection"
+    );
+    fs::remove_all(root);
+}
+
 void test_profile_rejects_removed_sources_directory() {
     btrfsbackup::config::json::Json profile = valid_profile();
     profile["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
@@ -1028,6 +1054,7 @@ int main() {
     test_profile_round_trips_normalized_json();
     test_invalid_profile_document_does_not_create_profile();
     test_profile_rejects_old_schema_versions();
+    test_installed_legacy_profile_is_rejected_without_modification();
     test_profile_rejects_removed_sources_directory();
     test_profile_rejects_system_path_overrides();
     test_mount_point_is_application_controlled();

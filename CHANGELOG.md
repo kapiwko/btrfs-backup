@@ -31,30 +31,11 @@
    cleared without applying the former UUID-only recovery behavior;
 5. the retired multi-file configuration fingerprint API has been removed.
 
-`btrfs-backupctl upgrade preflight` now provides a read-only 1.0 release gate.
-It validates the global application configuration and every installed profile,
-reports each incompatible profile, and exits unsuccessfully for legacy
-schemas, missing configuration generations, invalid runtime policy, untrusted
-files, identity mismatches, or unsafe profile-directory contents.
-
-`btrfs-backupctl profile export-v4 --all --output-dir PATH` creates an atomic,
-non-overwriting migration backup only after every profile validates. Its
-explicit migration-only decoder converts profile schemas 1 through 3 without
-weakening the v4-only runtime loader. The export includes canonical profiles,
-the optional global application configuration, and rollback instructions;
-referenced key files remain excluded and must be backed up separately.
-
-Arch, DEB, RPM and Gentoo package upgrades now invoke the installed preflight
-whenever profiles exist. DEB, RPM and Gentoo fail closed for incompatible
-profiles and installations too old to provide the migration command. Arch uses
-an ALPM `PreTransaction` hook with `AbortOnFail`; it must be installed first by
-the final 0.3.x bridge release. Direct Arch upgrades from 0.3.3 remain
-unsupported because an incoming package cannot guard its own transaction.
-
-There is no automatic or in-place 3.x profile migration in 1.0.0. Export schema
-version 4 profiles before upgrading, save them explicitly so all generated
-artifacts and `configurationGeneration` are published together, and repeat the
-preflight until it reports `READY`.
+Version 1.0 does not support configuration from earlier releases. It accepts
+only schema-v4 profiles created for this release and rejects other schemas
+without modifying them. Back up required data independently, create a new v4
+profile, and verify both backup and restore before relying on it. The public
+migration, export and upgrade-preflight commands have been removed.
 
 ### Backup Device Provisioning
 
@@ -98,8 +79,8 @@ preflight until it reports `READY`.
    blocking on special files or replacing diagnostic evidence;
 11. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
    a stable error and explicit manual-recovery guidance rather than guessing;
-12. version 1.0 does not migrate installed 3.x profiles in place; operators must
-   prepare schema-v4 configuration before upgrading as described above;
+12. version 1.0 rejects profiles from every earlier release without modifying
+   them; operators must create a new schema-v4 configuration;
 13. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
    requires that scope to be selected explicitly and keeps rejected devices
    visible with their blocker;
@@ -218,15 +199,13 @@ preflight until it reports `READY`.
 
 ### Profile Configuration Lifecycle
 
-1. migration preflight and bulk v4 export cover valid, legacy, incomplete and
-   unsafe profile sets, validate the whole set before export, publish the copy
-   atomically, refuse backup overwrite and retain normal runtime schema
-   strictness;
-2. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
+1. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
    and udev artifacts for every installed profile;
-3. package upgrades do not rewrite administrator-owned profile artifacts or
+2. package upgrades do not rewrite administrator-owned profile artifacts or
    restart the manager. Regeneration and service reload remain explicit
-   administrator actions.
+   administrator actions;
+3. migration and upgrade-preflight commands for older profile schemas have
+   been removed from the public CLI.
 
 ### Build, Packaging And Test Infrastructure
 
@@ -249,19 +228,16 @@ preflight until it reports `READY`.
 7. `TODO.md` now records the explicit 1.0 go/no-go decision, locally verified
    gates, remaining remote-CI work and the accepted non-blocking P2
    hardware-matrix risk;
-8. release definitions and component packages carry and verify the read-only
-   1.0 pre-upgrade profile gate while leaving normal installation, reloads and
-   profile regeneration declarative;
-9. C++ changes across the release series follow the enforced formatting
+8. C++ changes across the release series follow the enforced formatting
    contract when checked together against their remote base commit;
-10. a manually dispatched release-gate workflow builds every package format
+9. a manually dispatched release-gate workflow builds every package format
     and runs the privileged real-Btrfs and QEMU suites for one candidate SHA;
-11. container-based integration package builders keep their CMake trees in the
+10. container-based integration package builders keep their CMake trees in the
     writable artifact volume while the checked-out source remains read-only;
-12. the compiler, sanitizer, static-analysis, KDE/D-Bus, systemd-security,
+11. the compiler, sanitizer, static-analysis, KDE/D-Bus, systemd-security,
     packaging, real-Btrfs and QEMU release gates pass remotely for the 1.0
     candidate tree;
-13. an interactive libvirt laboratory opens the current Arch packages in a
+12. an interactive libvirt laboratory opens the current Arch packages in a
     disposable Plasma guest, with prepared LUKS2/Btrfs disks, versioned files,
     restore edge cases and controllable target hotplug for manual testing in
     virt-manager.

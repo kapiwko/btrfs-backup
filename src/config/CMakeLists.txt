@@ -117,7 +117,6 @@ add_library(btrfsbackup-platform-linux-config STATIC
     ../platform/linux/config/ProfileArtifactIo.cpp
     ../platform/linux/config/ProfileConfigurationTransaction.cpp
     ../platform/linux/config/ProfileInstaller.cpp
-    ../platform/linux/config/ProfileMigration.cpp
     ../platform/linux/config/ProfileRuntimePolicy.cpp
     ../platform/linux/config/ProfileService.cpp
     ../platform/linux/config/ProfileWizard.cpp
@@ -142,7 +141,6 @@ target_restricted_include_directories(btrfsbackup-platform-linux-config
         platform/linux/config/ProfileArtifactIo.hpp
         platform/linux/config/ProfileConfigurationTransaction.hpp
         platform/linux/config/ProfileInstaller.hpp
-        platform/linux/config/ProfileMigration.hpp
         platform/linux/config/ProfileRuntimePolicy.hpp
         platform/linux/config/ProfileService.hpp
         platform/linux/config/ProfileWizard.hpp

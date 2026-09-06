@@ -77,10 +77,3 @@ add_btrfsbackup_test(
     btrfsbackup-config-json
     btrfsbackup-platform-linux
 )
-add_btrfsbackup_test(
-    btrfsbackup-upgrade-command-tests
-    UpgradeCommandTests.cpp
-    upgrade-command-tests
-    btrfsbackup-cli
-    btrfsbackup-config-json
-)

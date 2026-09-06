@@ -1,4 +1,4 @@
-set -l btrfs_backupctl_commands profile repository status installation runner restore target upgrade
+set -l btrfs_backupctl_commands profile repository status installation runner restore target
 complete -c btrfs-backupctl -n 'not __fish_seen_subcommand_from $btrfs_backupctl_commands' -a "$btrfs_backupctl_commands"
 complete -c btrfs-backupctl -l status-root -r -d 'Override status root'
 complete -c btrfs-backupctl -l history-root -r -d 'Override history root'

@@ -23,7 +23,6 @@
 #include <cli/restore/RestoreCommand.hpp>
 #include <cli/status/StatusCommand.hpp>
 #include <cli/target/TargetCommand.hpp>
-#include <cli/upgrade/UpgradeCommand.hpp>
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Errors.hpp>
 #include <core/Cancellation.hpp>
@@ -61,7 +60,6 @@ void usage() {
         "  runner COMMAND\n"
         "  restore COMMAND\n"
         "  target COMMAND\n"
-        "  upgrade COMMAND\n"
         "  -h, --help\n"
     );
 }
@@ -134,8 +132,6 @@ int ctl_tool_main(int argc, char** argv) {
             return restore::restore(args, std::cout, cancellation);
         } else if (command == "target") {
             return target::target(profile_config_dir, args, std::cout);
-        } else if (command == "upgrade") {
-            return upgrade::upgrade(profile_config_dir, args, std::cout, std::cerr);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
