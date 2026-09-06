@@ -1,268 +1,85 @@
 # Changelog
 
-## 1.0.0 - 2026-09-06
+## 1.0.0 - 2026-09-07
 
-### Highlights
+The first stable release provides a complete Btrfs backup workflow for Linux,
+with command-line tools and native KDE integration.
 
-1. the base package now provides a CLI-first restore engine that discovers and
-   validates repository format v1, browses snapshots, finds previous versions,
-   plans restores and performs transactional file, directory, subvolume and
-   restore-drill workflows;
-2. the KDE package adds authorized read-only repository browsing through KIO,
-   previous-version actions in Dolphin, a guided restore application and
-   backup commands in KRunner;
-3. the System Settings KCM can inspect, validate, save and delete profiles
-   through the manager's authorized administration boundary, with hook changes
-   protected by a separate high-risk authorization;
-4. guided provisioning prepares or adopts encrypted removable targets through
-   a durable, separately isolated system helper and an explicit destructive
-   confirmation flow.
+### Backups And Retention
 
-### Upgrade Notes
+- Creates read-only local Btrfs snapshots and transfers them incrementally to a
+  verified Btrfs repository.
+- Supports multiple named sources per profile, independent local and remote
+  retention, daily-run limits, pre/post hooks and minimum free-space limits.
+- Tracks progress, transferred bytes, speed, estimated completion time, recent
+  history and the latest successful attempt.
+- Supports manual start, run-scoped cancellation, target validation and safe
+  eject, with systemd units for scheduled and device-triggered operation.
+- Recovers conservatively from interrupted runs and preserves diagnostic state
+  when automatic cleanup cannot complete safely.
 
-1. profile loading now accepts only schema version 4; automatic normalization
-   of schema versions 1 through 3 and their retired mount and state-path fields
-   has been removed;
-2. installed profiles without `configurationGeneration` are rejected by the
-   runtime;
-3. `btrfs-backupctl profile migrate-activation` and the crypttab import support
-   have been removed;
-4. pending recovery markers without `final_snapshot_path` are invalid and are
-   cleared without applying the former UUID-only recovery behavior;
-5. the retired multi-file configuration fingerprint API has been removed.
+### Encrypted Backup Targets
 
-Version 1.0 does not support configuration from earlier releases. It accepts
-only schema-v4 profiles created for this release and rejects other schemas
-without modifying them. Back up required data independently, create a new v4
-profile, and verify both backup and restore before relying on it. The public
-migration, export and upgrade-preflight commands have been removed.
+- Activates removable LUKS2/Btrfs targets with a passphrase or protected key
+  file and verifies configured LUKS, Btrfs, partition and device identities.
+- Provides a guided workflow to format a partition, create one in unallocated
+  GPT space, erase a whole selected disk, or adopt a compatible existing
+  repository.
+- Shows the exact destructive scope and before/after storage layout, then
+  revalidates device identity and safety before the first write.
+- Manages recovery passphrases and automatic key files without exposing secret
+  bytes in JSON or D-Bus messages.
+- Handles disconnect, reconnect, stale mapper state, active browse sessions and
+  safe unmounting through the system manager.
 
-### Backup Device Provisioning
+### Browse And Restore
 
-1. returning from device creation and opening it again no longer produces an
-   empty KCM page; the workflow now uses a non-scrollable KCM container around
-   its own step-specific scroll view;
-2. the System Settings workflow supports four explicit modes: formatting an
-   existing partition, creating a partition in unallocated GPT space, erasing
-   and repartitioning an entire selected disk, and adopting an existing
-   compatible target;
-3. existing-partition mode destroys signatures and data only on the selected
-   partition, unallocated-space mode creates one partition within the selected
-   free extent, and whole-device mode destroys the selected disk's partition
-   table and all of its contents; adoption performs read-only inspection and
-   does not format the target;
-4. newly prepared targets use LUKS2 with Btrfs, while adoption accepts only a
-   validated LUKS2+Btrfs repository layout supported by this release;
-5. the profile identifier is reserved before the first destructive operation
-   and final profile publication is create-only, preventing a preparation from
-   overwriting another configuration;
-6. the manager and helper revalidate device identity, geometry, signatures,
-   mounts, swap, holders and the source filesystem at their respective trust
-   boundaries before allowing the first write;
-7. LVM physical-volume and Linux MD RAID member signatures are treated as
-   unsupported block stacks and cannot be selected for destructive
-   preparation;
-8. destructive storage commands run only in a separately hardened transient
-   systemd helper with a per-operation device allow list; the manager
-   coordinates authorization and durable transaction state;
-9. the helper starts with access only to the selected disk and its concrete
-   existing child partitions so their safety state can be revalidated. After
-   inspection it retains only the selected or newly created partition; mapper devices
-   are added by exact `major:minor` only after they exist; mapper control is
-   granted only for the bounded LUKS open/close interval. Each replacement
-   clears the preceding allow list, so sibling disks, unrelated mappers and
-   permissions from an earlier operation are not inherited;
-10. revisioned root-only transactions support restart recovery after
-   interruption and preserve the first cleanup failure. The store rejects
-   unsafe directory ownership or modes, symlinks, non-regular records,
-   insecure locks and reservations, and duplicate corrupted records without
-   blocking on special files or replacing diagnostic evidence;
-11. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
-   a stable error and explicit manual-recovery guidance rather than guessing;
-12. version 1.0 rejects profiles from every earlier release without modifying
-   them; operators must create a new schema-v4 configuration;
-13. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
-   requires that scope to be selected explicitly and keeps rejected devices
-   visible with their blocker;
-14. source choices use user-facing names, automatic-key storage and recovery
-   implications are explained, and failed operations show completed steps,
-   cleanup outcome, a copyable diagnostic report and recovery guidance;
-15. devices and regions rejected by storage-safety checks remain visible with a
-   localized reason, and provisioning sizes use locale-aware C++ formatting.
+- Discovers and validates repository format v1 and can rebuild its catalog from
+  mounted read-only snapshots.
+- Exposes backups through the read-only `btrfsbackup:` KIO worker, including
+  paged directories and previous versions of a selected local file or folder.
+- Evaluates stored owner, group, mode and POSIX ACL permissions for the actual
+  desktop user when browsing backup data.
+- Restores files, directories and subvolumes transactionally, with destination
+  checks, free-space estimation, byte progress, transfer speed and rollback on
+  failure.
+- Includes restore drills and rejects traversal, symlink escapes, special files
+  and unsafe mount-boundary crossings.
 
-### Target Credentials And Hotplug Recovery
+### KDE Integration
 
-1. the manager and KCM list LUKS keyslots and support authorized passphrase,
-   managed-key generation, key enrollment and unambiguous credential removal;
-2. managed key files must remain below the trusted root-only credential store,
-   while incomplete credential mutations preserve rollback diagnostics;
-3. authorization distinguishes read-only credential discovery from privileged
-   storage mutation;
-4. target activation recovers after disconnect and reconnect by rejecting stale
-   mapper state, reopening the verified LUKS device and remounting only the
-   identity configured for the profile;
-5. eject handles an unmounted stale mapper and a mapper whose backing device
-   disappeared without treating unrelated mappings as owned resources;
-6. manual eject closes idle repository-browse sessions for the selected profile
-   before unmounting, while an active browse or restore operation remains busy;
-7. unlocking methods are rendered from a stable scalar model and show their
-   complete description directly in the list, avoiding a crash-prone details
-   popup during credential refresh.
+- Adds a System Settings module for creating profiles, editing sources and
+  retention, inspecting target state and capacity, managing credentials and
+  preparing backup devices.
+- Adds a Plasma widget with profile status and common actions, native progress
+  jobs, completion notifications and configurable overdue/low-space alerts.
+- Adds Dolphin actions for browsing backups and opening previous versions, plus
+  a guided restore window with file metadata, plan preview and outcome details.
+- Adds KRunner commands for status, backup start, repository browsing and
+  previous-version lookup.
+- Ships localized user interfaces and current reference screenshots.
 
-### Restore And Repository Access
+### Security And Reliability
 
-1. active local sessions browse without an authentication prompt while the
-   manager enforces the snapshot's stored owner, group, mode and POSIX ACL;
-2. repository discovery verifies format, catalog structure, snapshot identity,
-   read-only state and Btrfs UUID relationships before exposing restore data;
-3. restore planning rejects traversal, symlink escapes, special files, nested
-   mount boundaries and unsafe destinations, while execution stages changes
-   and either commits the complete result or rolls it back;
-4. the manager opens caller-bound, time-limited, read-only browse sessions in a
-   root-owned hierarchy and exposes a pinned root directory descriptor instead
-   of a reusable host path;
-5. concurrent browse operations hold independent session leases, so completing
-   one KIO request cannot allow cleanup while another request is active;
-6. browse-session lifecycle and authorization are covered by unit tests and a
-   real system D-Bus integration test, including cleanup after client exit;
-7. `btrfs-backupctl repository rebuild` inspects mounted snapshots, previews
-   the resulting metadata by default and atomically rebuilds repository and
-   catalog documents only with explicit `--apply`;
-8. the manager exposes bounded, stable name-sorted directory pages, and KIO
-   streams every page instead of rejecting directories above 10,000 entries;
-   page selection uses a bounded heap, reducing work on very large directories
-   while retaining only the requested page plus one lookahead entry;
-9. previous-version discovery is batched into bounded manager pages and cached
-   per browse session, removing the synchronous D-Bus N+1 path for current
-   daemons while retaining a legacy fallback for older services;
-10. KDE clients keep browse sessions alive with bounded, identified operation
-   leases; duplicate, foreign and mismatched releases are rejected, and the
-   earlier counted operation-pin API has been removed;
-11. restore catalog decoding has a dedicated validated boundary, while restore
-   failures expose a friendly message, stable code and optional technical
-   details separately;
-12. the restore application finishes with a dedicated outcome view showing the
-   restored file count, byte size and destination, with an action to open the
-   restored directory;
-13. browse filesystem traversal and marker persistence now have dedicated,
-   unit-tested components while target lease and mount orchestration remain in
-   the system browse backend; marker schema v1 and cleanup ordering are
-   unchanged;
-14. restore planning receives a descriptor pinned directly to the selected
-   authorized entry, avoiding inaccessible private repository layout parents;
-15. the public browse API no longer returns a descriptor for the repository
-   root; clients can open only entries authorized by the broker;
-16. stored permissions are evaluated against the UID and group set of the
-   actual D-Bus sender process captured when its browse session opens;
-17. operation leases expire after five minutes and browse sessions have a
-   one-hour absolute lifetime, so an abandoned client cannot block eject
-   indefinitely;
-18. backup coverage queries pass an `O_PATH` descriptor for a local file or
-   directory, preventing callers from probing coverage with arbitrary path
-   strings at the privileged boundary;
-19. the browse polkit prompt now describes authorization rather than implying
-   that an active local session must enter an administrator password;
-20. restore file copies use checked Linux syscalls through close, preserving
-   the exact `ENOSPC` result even when free space changes after preflight;
-21. the restore window exposes space estimation as a separate cancellable,
-   indeterminate phase before byte progress and transfer speed begin;
-22. repository browsing distinguishes an absent entry from denied access while
-   checking parent traversal first to avoid exposing entries below private
-   directories.
+- Uses a default-deny system D-Bus policy, Polkit authorization for privileged
+  operations, caller-bound opaque identifiers and Unix file descriptors for
+  secrets and opened files.
+- Runs destructive provisioning in a separately hardened transient systemd
+  helper with a device allow list limited to the selected storage objects.
+- Keeps public status and history free of device paths, UUIDs, hook output and
+  private diagnostics.
+- Includes unit, architecture, integration, real-Btrfs, systemd security, KDE
+  UI and QEMU manual-scenario coverage.
 
-### KDE Desktop Integration
+### Compatibility
 
-1. `btrfsbackup:` URLs expose session-scoped repository entries without
-   publishing device identifiers or persistent host paths;
-2. Dolphin resolves all backup coverage for a local path, asks the user when
-   more than one profile/source pair applies and opens a populated previous
-   versions list backed by the verified repository catalog;
-3. the restore application selects a version and destination, previews the
-   operation and reports completion through native desktop notifications;
-4. KRunner provides status, start, browse and previous-version commands through
-   the shared manager client;
-5. the plasmoid and KCM expose repository browsing alongside their existing
-   status, target and profile workflows;
-6. automatic backup activation can be switched per profile from both the
-   plasmoid and KCM without an administrator password, while configuration
-   edits remain separately authorized;
-7. plasmoid-wide refresh and profile management moved to Plasma's contextual
-   header actions, removing the duplicate in-popup application header;
-8. hidden profiles can continue to affect the panel status icon, and the
-   tooltip summarizes several profiles requiring attention in priority order;
-9. the plasmoid keeps one shared profile directory and event source, while
-   persistent per-profile models fetch only their own status, device state and
-   history instead of creating duplicate profile probes for every delegate;
-10. desktop actions resolve KDE services and URLs through KIO launcher jobs,
-   preserving desktop activation and reporting asynchronous launch failures;
-11. previous-version breadcrumbs show the selected source path, and restore
-   launches preserve `btrfsbackup:` row URLs instead of copying them locally;
-12. the restore dialog keeps long destinations inside the window and presents
-   the entry type, size, modification time and backup date before restoring;
-13. device-inspection progress is centered horizontally and vertically in the
-   available System Settings page, including with wrapped translations.
-
-### Manager And Desktop Reliability
-
-1. public run status identifies backup and target-validation operations, and
-   KDE progress notifications distinguish completed, validated, skipped,
-   cancelled and failed outcomes while keeping stable error codes visible;
-2. profile administration uses generation and fingerprint preconditions so a
-   stale editor cannot overwrite a newer installed profile;
-3. browse-session mount paths remain root-owned, public replies contain no host
-   root path, and restore resolves content from the manager-provided pinned
-   descriptor;
-4. architecture and integration gates cover the expanded KCM, KIO, Dolphin,
-   restore and KRunner surfaces without adding KDE dependencies to the base
-   runtime;
-5. the real target lifecycle test starts and verifies `systemd-udevd` before
-   managed activation, removing an environment-dependent device-publication
-   race from release verification.
-
-### Profile Configuration Lifecycle
-
-1. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
-   and udev artifacts for every installed profile;
-2. package upgrades do not rewrite administrator-owned profile artifacts or
-   restart the manager. Regeneration and service reload remain explicit
-   administrator actions;
-3. migration and upgrade-preflight commands for older profile schemas have
-   been removed from the public CLI.
-
-### Build, Packaging And Test Infrastructure
-
-1. CMake presets and CTest are the canonical build and test entry points;
-   release, screenshot, QEMU and privileged integration orchestration use
-   focused Python drivers instead of a monolithic shell harness;
-2. release packages are assembled from a common CPack staging tree, with Arch,
-   RPM, Nix and Gentoo definitions checked against the installed runtime;
-3. real-Btrfs, system D-Bus, systemd, installed-runtime and provisioning tests
-   use isolated C++/Python fixtures and disposable devices, including clean
-   package installation and loader checks;
-4. package lifecycle scripts are intentionally minimal: tmpfiles and native
-   package triggers replace privileged post-install configuration mutation;
-5. adoption regression tests cover changed LUKS identity, invalid credentials,
-   non-LUKS2 containers, non-Btrfs and unmountable filesystems, empty, legacy,
-   unsupported and incomplete repositories, and simultaneous cleanup failures.
-6. component-based DEB and RPM generation preserves the public package name
-   `btrfs-backup` instead of leaking CPack's internal `Unspecified` component
-   name into package metadata;
-7. `TODO.md` now records the explicit 1.0 go/no-go decision, locally verified
-   gates, remaining remote-CI work and the accepted non-blocking P2
-   hardware-matrix risk;
-8. C++ changes across the release series follow the enforced formatting
-   contract when checked together against their remote base commit;
-9. a manually dispatched release-gate workflow builds every package format
-    and runs the privileged real-Btrfs and QEMU suites for one candidate SHA;
-10. container-based integration package builders keep their CMake trees in the
-    writable artifact volume while the checked-out source remains read-only;
-11. the compiler, sanitizer, static-analysis, KDE/D-Bus, systemd-security,
-    packaging, real-Btrfs and QEMU release gates pass remotely for the 1.0
-    candidate tree;
-12. an interactive libvirt laboratory opens the current Arch packages in a
-    disposable Plasma guest, with prepared LUKS2/Btrfs disks, versioned files,
-    restore edge cases and controllable target hotplug for manual testing in
-    virt-manager.
+- The public manager API starts at version 1.0 (`apiMajor: 1`, `apiMinor: 0`).
+- Every project-owned public and persisted JSON contract starts at schema
+  version 1. External formats retain their own versions, including LUKS2 and
+  Btrfs send protocol v2.
+- Version 1.0 accepts only schema-v1 profiles created for this release. Earlier
+  development configurations and state files are not migrated; recreate the
+  profile and verify backup and restore before relying on it.
 
 ## 0.3.3 - 2026-08-30
 
