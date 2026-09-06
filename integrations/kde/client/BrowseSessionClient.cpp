@@ -95,13 +95,6 @@ std::optional<QString> BrowseSessionClient::inspectRepository(const QString& ses
     return payload(manager_.inspectBrowseRepository(session_id));
 }
 
-QDBusUnixFileDescriptor BrowseSessionClient::openRoot(const QString& session_id) const {
-    QDBusPendingReply<QDBusUnixFileDescriptor> reply(manager_.openBrowseRoot(session_id));
-    reply.waitForFinished();
-    last_error_name_ = reply.isError() ? reply.error().name() : QString{};
-    return reply.isError() ? QDBusUnixFileDescriptor{} : reply.value();
-}
-
 QDBusUnixFileDescriptor BrowseSessionClient::openEntry(const QString& session_id, const QString& path) const {
     QDBusPendingReply<QDBusUnixFileDescriptor> reply(manager_.openBrowseEntry(session_id, path));
     reply.waitForFinished();

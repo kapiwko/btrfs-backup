@@ -68,9 +68,6 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
     ) override;
-    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
-        const BrowseSessionId& session_id
-    ) override;
     [[nodiscard]] std::string inspect_repository(const BrowseSessionId& session_id) override;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
         const std::filesystem::path& local_path,

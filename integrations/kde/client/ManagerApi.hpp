@@ -158,7 +158,6 @@ class ManagerClient {
     [[nodiscard]] QDBusPendingCall inspectBrowseRepository(const QString& session_id) const;
     [[nodiscard]] QDBusPendingCall openBrowseFile(const QString& session_id, const QString& path) const;
     [[nodiscard]] QDBusPendingCall openBrowseEntry(const QString& session_id, const QString& path) const;
-    [[nodiscard]] QDBusPendingCall openBrowseRoot(const QString& session_id) const;
 
   private:
     [[nodiscard]] QDBusPendingCall call(const QString& method, const QVariantList& arguments = {}) const;
