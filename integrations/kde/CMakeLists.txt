@@ -80,6 +80,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 add_library(kio_btrfsbackup MODULE
+    kio/BrowseRepositoryClient.cpp
+    kio/BrowseRepositoryClient.hpp
     kio/BtrfsBackupWorker.cpp
     kio/BtrfsBackupWorker.hpp
     kio/RepositorySnapshotModel.cpp
