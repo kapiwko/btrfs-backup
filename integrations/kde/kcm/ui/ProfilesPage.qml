@@ -4,7 +4,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
@@ -18,9 +17,6 @@ Item {
 
     signal profileRequested(string profileId)
     signal editProfileRequested(string profileId)
-    signal systemLogRequested()
-    signal supportRequested()
-    signal reminderSettingsRequested()
 
     KI18n.KI18nContext {
         id: translations
@@ -75,42 +71,5 @@ Item {
             }
         }
 
-        QQC2.Label {
-            Layout.fillWidth: true
-            Layout.leftMargin: Kirigami.Units.largeSpacing
-            Layout.rightMargin: Kirigami.Units.largeSpacing
-            Layout.topMargin: Kirigami.Units.largeSpacing
-            text: translations.i18n("Administrative operations are recorded in the system journal.")
-            wrapMode: Text.Wrap
-            opacity: 0.75
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.margins: Kirigami.Units.largeSpacing
-            spacing: Kirigami.Units.smallSpacing
-
-            QQC2.Button {
-                icon.name: "appointment-reminder-symbolic"
-                text: translations.i18n("Reminders")
-                onClicked: root.reminderSettingsRequested()
-            }
-            QQC2.Button {
-                icon.name: "preferences-desktop-notification-symbolic"
-                text: translations.i18n("Notifications")
-                onClicked: root.directory.openNotificationSettings()
-            }
-            QQC2.Button {
-                icon.name: "view-list-text"
-                text: translations.i18n("Open system log")
-                onClicked: root.systemLogRequested()
-            }
-            QQC2.Button {
-                icon.name: "help-contents"
-                text: translations.i18n("Support")
-                onClicked: root.supportRequested()
-            }
-            Item { Layout.fillWidth: true }
-        }
     }
 }

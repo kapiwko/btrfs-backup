@@ -49,11 +49,18 @@ KCMUtils.ScrollViewKCM {
         }
     }
 
-    actions: Kirigami.Action {
-        icon.name: "list-add-symbolic"
-        text: translations.i18n("Add profile")
-        onTriggered: root.openNewProfilePage()
-    }
+    actions: [
+        Kirigami.Action {
+            icon.name: "list-add-symbolic"
+            text: translations.i18n("Add profile")
+            onTriggered: root.openNewProfilePage()
+        },
+        Kirigami.Action {
+            icon.name: "configure-symbolic"
+            text: translations.i18n("Settings")
+            onTriggered: root.openSettings()
+        }
+    ]
 
     view: Flickable {
         contentWidth: width
@@ -66,12 +73,9 @@ KCMUtils.ScrollViewKCM {
             directory: root.directory
             profileStatusOverrides: root.profileStatusOverrides
             profileSummaryFor: (status, profile) => root.profileSummary(status, profile)
-            onReminderSettingsRequested: root.openReminderSettings()
             onProfileRequested: profileId => root.openProfileDetails(profileId, false)
             onEditProfileRequested: profileId => root.openProfileDetails(profileId, true)
-            onSystemLogRequested: if (typeof kcm !== "undefined") kcm.openSystemLog()
-            onSupportRequested: if (typeof kcm !== "undefined") kcm.openSupportPage()
-    }
+        }
 
         Loader {
             id: previewPage
@@ -111,7 +115,7 @@ KCMUtils.ScrollViewKCM {
             kcm.push("NewProfilePage.qml", {"editor": root.editor, "provisioning": root.provisioningModel})
     }
 
-    function openReminderSettings() {
+    function openSettings() {
         const properties = {"settings": root.reminderSettings}
         if (typeof kcm !== "undefined")
             kcm.push("NotificationSettingsPage.qml", properties)

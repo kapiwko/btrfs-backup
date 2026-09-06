@@ -69,21 +69,6 @@ LaunchRequest open_restore_application(QUrl url) {
     return open_application(u"io.github.btrfsbackup.Restore"_s, {std::move(url)});
 }
 
-LaunchRequest open_system_log() {
-    return run_command(
-        u"konsole"_s,
-        {
-            u"--hold"_s,
-            u"-e"_s,
-            u"journalctl"_s,
-            u"-u"_s,
-            u"btrfs-backupd.service"_s,
-            u"--no-pager"_s,
-        },
-        u"org.kde.konsole"_s
-    );
-}
-
 LaunchRequest open_partition_manager() {
     return open_application(u"org.kde.partitionmanager"_s);
 }

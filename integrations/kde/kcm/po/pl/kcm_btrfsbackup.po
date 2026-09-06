@@ -661,22 +661,6 @@ msgstr "Nie skonfigurowano profili kopii zapasowych"
 msgid "Waiting for the system backup service"
 msgstr "Oczekiwanie na systemową usługę kopii zapasowych"
 
-#: integrations/kde/kcm/ui/ProfilesPage.qml:85
-msgid "Administrative operations are recorded in the system journal."
-msgstr "Operacje administracyjne są zapisywane w dzienniku systemowym."
-
-#: integrations/kde/kcm/ui/ProfilesPage.qml:97
-msgid "Notifications"
-msgstr "Powiadomienia"
-
-#: integrations/kde/kcm/ui/ProfilesPage.qml:102
-msgid "Open system log"
-msgstr "Otwórz dziennik systemowy"
-
-#: integrations/kde/kcm/ui/ProfilesPage.qml:107
-msgid "Support"
-msgstr "Pomoc"
-
 #: integrations/kde/kcm/ui/SourceDialog.qml:76
 msgid "Btrfs subvolume:"
 msgstr "Podwolumin Btrfs:"
@@ -756,6 +740,10 @@ msgstr "Profile kopii zapasowych"
 #: integrations/kde/kcm/ui/main.qml:48
 msgid "Add profile"
 msgstr "Dodaj profil"
+
+#: integrations/kde/kcm/ui/main.qml:61
+msgid "Settings"
+msgstr "Ustawienia"
 
 #: integrations/kde/kcm/ProfileConfigurationModel.cpp:239
 msgid "Source %1"
@@ -1228,9 +1216,6 @@ msgstr[2] "%1 dniach"
 
 msgid "The background monitor sends a desktop notification asking you to connect the backup disk."
 msgstr "Monitor działający w tle wysyła powiadomienie z prośbą o podłączenie dysku kopii zapasowej."
-
-msgid "Reminders"
-msgstr "Przypomnienia"
 
 msgid "Backup notifications"
 msgstr "Powiadomienia o kopiach"

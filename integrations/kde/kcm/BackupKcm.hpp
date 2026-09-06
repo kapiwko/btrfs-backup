@@ -26,8 +26,6 @@ class BackupKcm final : public KQuickConfigModule {
   public:
     BackupKcm(QObject* parent, const KPluginMetaData& metadata);
 
-    Q_INVOKABLE void openSystemLog();
-    Q_INVOKABLE void openSupportPage();
     Q_INVOKABLE void openPartitionManager();
     Q_INVOKABLE void openRecoveryGuide();
     Q_INVOKABLE void copyText(const QString& text);
