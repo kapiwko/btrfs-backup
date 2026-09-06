@@ -335,6 +335,8 @@ qt_add_qml_module(btrfsbackup_kde_models
         models/BackupHistoryModel.hpp
         models/BackupStatusModel.cpp
         models/BackupStatusModel.hpp
+        models/ProfileDirectoryModel.cpp
+        models/ProfileDirectoryModel.hpp
         models/ByteFormatting.cpp
         models/ByteFormatting.hpp
         models/RunStatusModel.cpp

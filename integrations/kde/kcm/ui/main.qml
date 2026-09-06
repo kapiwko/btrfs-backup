@@ -40,9 +40,8 @@ KCMUtils.ScrollViewKCM {
         translationDomain: "kcm_btrfsbackup"
     }
 
-    BackupStatusModel {
+    ProfileDirectoryModel {
         id: liveDirectory
-        profile: "default"
         Component.onCompleted: {
             if (root.directoryOverride === null)
                 start()

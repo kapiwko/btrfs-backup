@@ -55,6 +55,7 @@ Item {
             currentIndex: -1
 
             delegate: ProfileDelegate {
+                directory: root.directory
                 statusOverride: root.profileStatusOverrides[modelData.profileId] ?? null
                 profileSummaryFor: root.profileSummaryFor
                 onDetailsRequested: profileId => root.profileRequested(profileId)

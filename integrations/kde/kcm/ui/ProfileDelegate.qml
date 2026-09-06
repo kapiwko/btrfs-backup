@@ -17,6 +17,7 @@ QQC2.ItemDelegate {
 
     required property int index
     required property var modelData
+    required property var directory
     required property var statusOverride
     required property var profileSummaryFor
     readonly property var profileStatus: statusOverride ?? liveProfileStatus
@@ -41,6 +42,7 @@ QQC2.ItemDelegate {
     BackupStatusModel {
         id: liveProfileStatus
         profile: delegate.modelData.profileId
+        directory: delegate.directory
         historyLimit: 5
         Component.onCompleted: {
             if (delegate.statusOverride === null)

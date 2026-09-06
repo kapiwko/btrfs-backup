@@ -10,7 +10,7 @@ import org.btrfsbackup.kde
 QtObject {
     id: root
 
-    required property BackupStatusModel directoryModel
+    required property ProfileDirectoryModel directoryModel
     required property var profiles
     property var historyLimitFor: profileId => 1
     property var statusModels: ({})
@@ -23,7 +23,7 @@ QtObject {
             required property var modelData
 
             profile: modelData.profileId
-            sharedSource: root.directoryModel
+            directory: root.directoryModel
             historyLimit: root.historyLimitFor(profile)
             Component.onCompleted: start()
         }

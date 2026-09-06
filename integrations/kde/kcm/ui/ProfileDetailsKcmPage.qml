@@ -36,6 +36,7 @@ KCMUtils.SimpleKCM {
     BackupStatusModel {
         id: liveProfileStatus
         profile: root.profileId
+        directory: root.directory
         historyLimit: 10
         Component.onCompleted: {
             if (root.statusOverride === null)

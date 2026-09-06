@@ -27,9 +27,8 @@ Kirigami.FormLayout {
         ? root.cfg_profileOrder.split(",")
         : []
 
-    BackupStatusModel {
+    ProfileDirectoryModel {
         id: profileDirectory
-        profile: "default"
         Component.onCompleted: start()
     }
 
