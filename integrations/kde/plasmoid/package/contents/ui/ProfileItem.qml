@@ -59,7 +59,7 @@ PlasmaExtras.ExpandableListItem {
     }
 
     icon: "drive-harddisk-symbolic"
-    iconEmblem: root.targetIndicatorIcon()
+    iconEmblem: BtrfsBackup.ProfilePresentation.statusIcon(profileStatus)
     title: root.profileName || root.profileId
     subtitle: root.subtitleText()
     subtitleCanWrap: true
@@ -126,16 +126,16 @@ PlasmaExtras.ExpandableListItem {
                     running: root.running
                     progress: root.progress
                     showStorageDetails: root.showStorageDetails
-                    activityLabel: root.activityText(root.profileStatus.run.activity, root.profileStatus.run.phase)
-                    sourceLabel: root.sourceText()
-                    statusLabel: root.statusText(root.profileStatus.run.state)
-                    targetStateLabel: root.targetStateText(root.profileStatus.target.state)
-                    lastSuccessLabel: root.lastSuccessText(root.profileStatus.run.lastSuccessAt)
-                    etaLabel: root.formatEta(root.profileStatus.run.etaSeconds)
-                    durationLabel: root.formatDuration(root.profileStatus.run.elapsedSeconds)
-                    operationLabel: root.operationResultText(root.profileStatus.lastOperation)
-                    historySummaryFor: entry => root.historySummary(entry)
-                    relativeTimeFor: value => root.relativeTime(value)
+                    activityLabel: BtrfsBackup.ProfilePresentation.activityText(translations, root.profileStatus.run.activity, root.profileStatus.run.phase)
+                    sourceLabel: BtrfsBackup.ProfilePresentation.sourceText(translations, root.profileStatus.run)
+                    statusLabel: BtrfsBackup.ProfilePresentation.statusText(translations, root.profileStatus.run.state)
+                    targetStateLabel: BtrfsBackup.ProfilePresentation.targetStateText(translations, root.profileStatus.target.state, root.profileStatus.target.safeToRemove)
+                    lastSuccessLabel: BtrfsBackup.ProfilePresentation.lastSuccessText(translations, root.profileStatus.run.lastSuccessAt, root.relativeTimeTick)
+                    etaLabel: BtrfsBackup.ProfilePresentation.formatEta(translations, root.profileStatus.run.etaSeconds)
+                    durationLabel: BtrfsBackup.ProfilePresentation.formatDuration(translations, root.profileStatus.run.elapsedSeconds)
+                    operationLabel: BtrfsBackup.ProfilePresentation.operationResultText(translations, root.profileStatus.lastOperation, root.profileStatus.profileEnabled)
+                    historySummaryFor: entry => BtrfsBackup.ProfilePresentation.historySummary(translations, entry)
+                    relativeTimeFor: value => BtrfsBackup.ProfilePresentation.relativeTime(translations, value, root.relativeTimeTick)
                 }
             }
         }
@@ -158,26 +158,18 @@ PlasmaExtras.ExpandableListItem {
 
     function publishSummary() {
         root.summaryUpdated(root.profileId, root.profileName || root.profileId,
-                           root.summaryPriority(), root.running, root.failed, root.progress,
+                           BtrfsBackup.ProfilePresentation.summaryPriority(profileStatus), root.running, root.failed, root.progress,
                            BtrfsBackup.ProfilePresentation.attentionPriority(profileStatus),
                            BtrfsBackup.ProfilePresentation.attentionIcon(profileStatus), root.subtitleText())
-    }
-
-    function targetIndicatorIcon() {
-        return BtrfsBackup.ProfilePresentation.statusIcon(profileStatus)
-    }
-
-    function summaryPriority() {
-        return BtrfsBackup.ProfilePresentation.summaryPriority(profileStatus)
     }
 
     function subtitleText() {
         if (profileStatus.lastError.length > 0)
             return profileStatus.lastError
         if (!profileStatus.configurationValid)
-            return root.configurationErrorText(profileStatus.configurationErrorCode)
+            return BtrfsBackup.ProfilePresentation.configurationErrorText(translations, profileStatus.configurationErrorCode)
         if (root.running) {
-            let activity = root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+            let activity = BtrfsBackup.ProfilePresentation.activityText(translations, profileStatus.run.activity, profileStatus.run.phase)
             if (root.progress >= 0)
                 activity += translations.i18n(" (%1%)", root.progress)
             if (!root.hideSourceNamesInTooltip && profileStatus.run.sourceName.length > 0)
@@ -185,15 +177,8 @@ PlasmaExtras.ExpandableListItem {
             return activity
         }
         const target = profileStatus.target.name || profileStatus.run.targetName || root.targetNameHint || translations.i18n("Backup target")
-        return target + " - " + root.targetStateText(profileStatus.target.state)
-    }
-
-    function configurationErrorText(code) {
-        switch (code) {
-        case "configuration.source_missing": return translations.i18n("A backup source does not exist")
-        case "configuration.source_not_subvolume": return translations.i18n("A backup source is not a Btrfs subvolume")
-        default: return translations.i18n("A backup source cannot be inspected")
-        }
+        return target + " - " + BtrfsBackup.ProfilePresentation.targetStateText(
+            translations, profileStatus.target.state, profileStatus.target.safeToRemove)
     }
 
     function applyAutomaticExpansion() {
@@ -204,161 +189,4 @@ PlasmaExtras.ExpandableListItem {
         root.previousFailed = root.failed
     }
 
-    function statusText(state) {
-        switch (state) {
-        case "starting":
-        case "running": return translations.i18n("Backup is in progress")
-        case "validating": return translations.i18n("Target validation is in progress")
-        case "validated": return translations.i18n("Validation completed successfully")
-        case "succeeded": return translations.i18n("Backup completed successfully")
-        case "failed": return translations.i18n("Backup failed")
-        case "cancelled": return translations.i18n("Backup cancelled")
-        case "skipped": return translations.i18n("Backup skipped")
-        default: return translations.i18n("No active backup")
-        }
-    }
-
-    function activityText(activity, phase) {
-        switch (activity) {
-        case "sizing": return translations.i18n("Calculating transfer size")
-        case "transferring": return translations.i18n("Transferring backup data")
-        default: return root.phaseText(phase)
-        }
-    }
-
-    function phaseText(phase) {
-        switch (phase) {
-        case "run-started": return translations.i18n("Starting backup")
-        case "source-started": return translations.i18n("Preparing backup source")
-        case "recover-pending": return translations.i18n("Recovering interrupted backup")
-        case "cleanup-incoming": return translations.i18n("Cleaning temporary data")
-        case "before-snapshot-hook": return translations.i18n("Running pre-snapshot hooks")
-        case "create-snapshot": return translations.i18n("Creating local snapshot")
-        case "after-snapshot-hook": return translations.i18n("Running post-snapshot hooks")
-        case "send-receive": return translations.i18n("Preparing data transfer")
-        case "sizing": return translations.i18n("Calculating transfer size")
-        case "transferring": return translations.i18n("Transferring backup data")
-        case "verify-received": return translations.i18n("Verifying received snapshot")
-        case "commit-received": return translations.i18n("Committing received snapshot")
-        case "apply-remote-retention": return translations.i18n("Applying target retention")
-        case "apply-local-retention": return translations.i18n("Applying local retention")
-        case "cleanup-source": return translations.i18n("Cleaning backup source")
-        case "source-completed": return translations.i18n("Finalizing backup")
-        case "validating-target": return translations.i18n("Validating backup target")
-        case "validated": return translations.i18n("Validation completed successfully")
-        default: return translations.i18n("Preparing backup")
-        }
-    }
-
-    function targetStateText(state) {
-        switch (state) {
-        case "mounted": return translations.i18n("Mounted")
-        case "unexpected-mount": return translations.i18n("Unexpected mount")
-        case "unlocked": return translations.i18n("Unlocked")
-        case "connected": return profileStatus.target.safeToRemove
-            ? translations.i18n("Safe to remove")
-            : translations.i18n("Connected")
-        case "disconnected": return translations.i18n("Disconnected")
-        default: return translations.i18n("Unknown")
-        }
-    }
-
-    function operationResultText(operation) {
-        switch (operation) {
-        case "start-backup": return translations.i18n("Backup started")
-        case "cancel-backup": return translations.i18n("Cancellation requested")
-        case "validate-target": return translations.i18n("Validation completed successfully")
-        case "eject-target": return translations.i18n("Target ejected safely")
-        case "profile-activation": return profileStatus.profileEnabled
-            ? translations.i18n("Automatic backups enabled")
-            : translations.i18n("Automatic backups disabled")
-        default: return translations.i18n("Operation completed")
-        }
-    }
-
-    function historyText(state) {
-        return root.statusText(state)
-    }
-
-    function historySummary(entry) {
-        let parts = [root.historyText(entry.state)]
-        if (entry.durationSeconds >= 0)
-            parts.push(root.formatDuration(entry.durationSeconds))
-        if (entry.sourceCount > 0)
-            parts.push(translations.i18np("1 source", "%1 sources", entry.sourceCount))
-        if (entry.errorCode?.length > 0)
-            parts.push(entry.errorCode)
-        return parts.join(" · ")
-    }
-
-    function sourceText() {
-        const name = profileStatus.run.sourceName || translations.i18n("Unknown")
-        if (profileStatus.run.sourceIndex <= 0 || profileStatus.run.sourceCount <= 0)
-            return name
-        return translations.i18n("%1 (%2 of %3)", name,
-                                 profileStatus.run.sourceIndex,
-                                 profileStatus.run.sourceCount)
-    }
-
-    function formatDuration(value) {
-        let seconds = Number(value)
-        if (seconds < 0)
-            return translations.i18n("Unknown")
-        const hours = Math.floor(seconds / 3600)
-        const minutes = Math.floor((seconds % 3600) / 60)
-        if (hours > 0)
-            return translations.i18n("%1 h %2 min", hours, minutes)
-        if (minutes > 0)
-            return translations.i18np("1 minute", "%1 minutes", minutes)
-        return translations.i18np("1 second", "%1 seconds", Math.max(1, Math.floor(seconds)))
-    }
-
-    function formatEta(value) {
-        let seconds = Number(value || -1)
-        if (seconds < 0)
-            return translations.i18n("Unknown")
-        const minutes = Math.floor(seconds / 60)
-        seconds = Math.floor(seconds % 60)
-        if (minutes > 0)
-            return translations.i18n("%1 min %2 sec", minutes, seconds)
-        return translations.i18n("%1 sec", seconds)
-    }
-
-    function relativeTime(value) {
-        root.relativeTimeTick
-        const timestamp = Date.parse(value)
-        if (isNaN(timestamp))
-            return translations.i18n("Unknown")
-        const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
-        if (seconds < 60)
-            return translations.i18n("Just now")
-        const minutes = Math.floor(seconds / 60)
-        if (minutes < 60)
-            return translations.i18np("1 minute ago", "%1 minutes ago", minutes)
-        const hours = Math.floor(minutes / 60)
-        if (hours < 24)
-            return translations.i18np("1 hour ago", "%1 hours ago", hours)
-        const days = Math.floor(hours / 24)
-        if (days < 30)
-            return translations.i18np("1 day ago", "%1 days ago", days)
-        const months = Math.floor(days / 30)
-        if (months < 12)
-            return translations.i18np("1 month ago", "%1 months ago", months)
-        const years = Math.floor(days / 365)
-        return translations.i18np("1 year ago", "%1 years ago", years)
-    }
-
-    function lastSuccessText(value) {
-        const timestamp = Date.parse(value)
-        if (isNaN(timestamp))
-            return translations.i18n("No successful backup")
-        const completed = new Date(timestamp)
-        const now = new Date()
-        if (completed.getFullYear() === now.getFullYear()
-                && completed.getMonth() === now.getMonth()
-                && completed.getDate() === now.getDate()) {
-            return translations.i18n("today, %1", Qt.formatTime(completed, "HH:mm"))
-        }
-        return root.relativeTime(value)
-    }
 }

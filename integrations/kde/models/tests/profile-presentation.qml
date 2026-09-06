@@ -9,6 +9,13 @@ TestCase {
     name: "ProfilePresentation"
     when: true
 
+    QtObject {
+        id: translations
+
+        function i18n(message) { return message }
+        function i18np(singular, plural, count) { return count === 1 ? singular : plural }
+    }
+
     function status(overrides) {
         const result = {
             lastError: "",
@@ -98,5 +105,14 @@ TestCase {
         compare(BtrfsBackup.ProfilePresentation.historyStateIcon("succeeded"), "dialog-positive")
         compare(BtrfsBackup.ProfilePresentation.summaryPriority(status({run: {state: "running"}})), 2)
         compare(BtrfsBackup.ProfilePresentation.summaryPriority(status({target: {spaceBelowMinimum: true}})), 3)
+    }
+
+    function test_sharedTextMappings() {
+        compare(BtrfsBackup.ProfilePresentation.statusText(translations, "failed"), "Backup failed")
+        compare(BtrfsBackup.ProfilePresentation.targetStateText(translations, "connected", true), "Safe to remove")
+        compare(BtrfsBackup.ProfilePresentation.phaseText(translations, "create-snapshot"), "Creating local snapshot")
+        compare(BtrfsBackup.ProfilePresentation.configurationErrorText(
+            translations, "configuration.source_missing"),
+            "A configured source subvolume does not exist.")
     }
 }

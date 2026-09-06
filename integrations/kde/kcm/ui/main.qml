@@ -8,6 +8,7 @@ import org.kde.kcmutils as KCMUtils
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.btrfsbackup.kde
+import org.btrfsbackup.kde as BtrfsBackup
 
 KCMUtils.ScrollViewKCM {
     id: root
@@ -70,7 +71,7 @@ KCMUtils.ScrollViewKCM {
             onEditProfileRequested: profileId => root.openProfileDetails(profileId, true)
             onSystemLogRequested: if (typeof kcm !== "undefined") kcm.openSystemLog()
             onSupportRequested: if (typeof kcm !== "undefined") kcm.openSupportPage()
-        }
+    }
 
         Loader {
             id: previewPage
@@ -118,51 +119,16 @@ KCMUtils.ScrollViewKCM {
             previewPage.setSource("NotificationSettingsPage.qml", properties)
     }
 
-    function statusText(state) {
-        switch (state) {
-        case "starting":
-        case "running": return translations.i18n("Backup is in progress")
-        case "validating": return translations.i18n("Target validation is in progress")
-        case "validated": return translations.i18n("Validation completed successfully")
-        case "succeeded": return translations.i18n("Backup completed successfully")
-        case "failed": return translations.i18n("Backup failed")
-        case "cancelled": return translations.i18n("Backup cancelled")
-        case "skipped": return translations.i18n("Backup skipped")
-        default: return translations.i18n("No active backup")
-        }
-    }
-
     function profileSummary(status, profile) {
         if (status.lastError.length > 0)
             return root.errorText(status)
         if (!status.configurationValid)
-            return root.configurationErrorText(status.configurationErrorCode)
+            return BtrfsBackup.ProfilePresentation.configurationErrorText(translations, status.configurationErrorCode)
         const target = status.target.name || profile.targetName || translations.i18n("Unknown")
-        return root.statusText(status.run.state)
+        return BtrfsBackup.ProfilePresentation.statusText(translations, status.run.state)
             + " - " + target
-            + " - " + root.targetStateText(status.target.state)
-    }
-
-    function configurationErrorText(code) {
-        switch (code) {
-        case "configuration.source_missing":
-            return translations.i18n("A configured source subvolume does not exist.")
-        case "configuration.source_not_subvolume":
-            return translations.i18n("A configured source path is not a Btrfs subvolume.")
-        default:
-            return translations.i18n("A configured source subvolume cannot be inspected.")
-        }
-    }
-
-    function targetStateText(state) {
-        switch (state) {
-        case "mounted": return translations.i18n("Mounted")
-        case "unexpected-mount": return translations.i18n("Unexpected mount")
-        case "unlocked": return translations.i18n("Unlocked")
-        case "connected": return translations.i18n("Connected")
-        case "disconnected": return translations.i18n("Disconnected")
-        default: return translations.i18n("Unknown")
-        }
+            + " - " + BtrfsBackup.ProfilePresentation.targetStateText(
+                translations, status.target.state, status.target.safeToRemove)
     }
 
     function errorText(status) {

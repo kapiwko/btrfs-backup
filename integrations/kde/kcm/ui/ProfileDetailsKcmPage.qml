@@ -81,8 +81,6 @@ KCMUtils.SimpleKCM {
         profileId: root.profileId
         editor: root.editor
         profileStatus: root.profileStatus
-        statusTextFor: state => root.statusText(state)
-        targetStateTextFor: state => root.targetStateText(state)
         credentialModel: root.credentialModel
         onAddSourceRequested: (name, subvolume, localRetention, targetRetention) => {
             root.editor.addSourceConfiguration(name, subvolume, localRetention, targetRetention);
@@ -197,42 +195,4 @@ KCMUtils.SimpleKCM {
             kcm.push("ProfileSettingsPage.qml", {"editor": root.editor});
     }
 
-    function statusText(state) {
-        switch (state) {
-        case "starting":
-        case "running":
-            return translations.i18n("Backup is in progress");
-        case "validating":
-            return translations.i18n("Target validation is in progress");
-        case "validated":
-            return translations.i18n("Validation completed successfully");
-        case "succeeded":
-            return translations.i18n("Backup completed successfully");
-        case "failed":
-            return translations.i18n("Backup failed");
-        case "cancelled":
-            return translations.i18n("Backup cancelled");
-        case "skipped":
-            return translations.i18n("Backup skipped");
-        default:
-            return translations.i18n("No active backup");
-        }
-    }
-
-    function targetStateText(state) {
-        switch (state) {
-        case "mounted":
-            return translations.i18n("Mounted");
-        case "unexpected-mount":
-            return translations.i18n("Unexpected mount");
-        case "unlocked":
-            return translations.i18n("Unlocked");
-        case "connected":
-            return translations.i18n("Connected");
-        case "disconnected":
-            return translations.i18n("Disconnected");
-        default:
-            return translations.i18n("Unknown");
-        }
-    }
 }

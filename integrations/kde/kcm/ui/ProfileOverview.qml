@@ -15,8 +15,6 @@ ColumnLayout {
 
     required property var editor
     required property var profileStatus
-    required property var statusTextFor
-    required property var targetStateTextFor
     readonly property bool authorizationError: root.editor !== null && root.editor.errorCode.endsWith(".NotAuthorized")
 
     spacing: Kirigami.Units.largeSpacing
@@ -37,7 +35,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: root.editor !== null && root.editor.loaded && !root.editor.configurationValid
         type: Kirigami.MessageType.Error
-        text: root.configurationErrorText(root.editor?.configurationErrorCode ?? "")
+        text: BtrfsBackup.ProfilePresentation.configurationErrorText(
+            translations, root.editor?.configurationErrorCode ?? "")
     }
 
     Timer {
@@ -55,8 +54,6 @@ ColumnLayout {
         Layout.fillWidth: true
         profileStatus: root.profileStatus
         targetNameHint: root.editor?.target?.device ?? ""
-        statusTextFor: root.statusTextFor
-        targetStateTextFor: root.targetStateTextFor
     }
 
     RowLayout {
@@ -109,14 +106,4 @@ ColumnLayout {
         return translations.i18nc("error message followed by a stable diagnostic code", "%1 (code: %2)", root.editor.errorMessage, root.editor.errorCode);
     }
 
-    function configurationErrorText(code) {
-        switch (code) {
-        case "configuration.source_missing":
-            return translations.i18n("A configured source subvolume does not exist.");
-        case "configuration.source_not_subvolume":
-            return translations.i18n("A configured source path is not a Btrfs subvolume.");
-        default:
-            return translations.i18n("A configured source subvolume cannot be inspected.");
-        }
-    }
 }

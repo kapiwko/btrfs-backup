@@ -15,8 +15,6 @@ ColumnLayout {
 
     required property var profileStatus
     required property string targetNameHint
-    required property var statusTextFor
-    required property var targetStateTextFor
     readonly property bool running: BtrfsBackup.ProfilePresentation.isRunning(profileStatus.run.state)
 
     spacing: Kirigami.Units.smallSpacing
@@ -52,7 +50,8 @@ ColumnLayout {
         QQC2.Label { text: translations.i18n("Activity:"); opacity: 0.65 }
         QQC2.Label {
             Layout.fillWidth: true
-            text: root.activityText(root.profileStatus.run.activity, root.profileStatus.run.phase)
+            text: BtrfsBackup.ProfilePresentation.activityText(
+                translations, root.profileStatus.run.activity, root.profileStatus.run.phase)
         }
         QQC2.Label { text: translations.i18n("Source:"); opacity: 0.65 }
         QQC2.Label {
@@ -89,9 +88,9 @@ ColumnLayout {
         QQC2.Label { text: translations.i18n("Speed:"); opacity: 0.65 }
         QQC2.Label { text: root.profileStatus.run.speedText || translations.i18n("Unknown") }
         QQC2.Label { text: translations.i18n("Elapsed:"); opacity: 0.65 }
-        QQC2.Label { text: root.formatDuration(root.profileStatus.run.elapsedSeconds) }
+        QQC2.Label { text: BtrfsBackup.ProfilePresentation.formatDuration(translations, root.profileStatus.run.elapsedSeconds) }
         QQC2.Label { text: translations.i18n("Remaining:"); opacity: 0.65 }
-        QQC2.Label { text: root.formatDuration(root.profileStatus.run.etaSeconds) }
+        QQC2.Label { text: BtrfsBackup.ProfilePresentation.formatEta(translations, root.profileStatus.run.etaSeconds) }
     }
 
     SectionHeading { text: translations.i18n("Backup target") }
@@ -105,7 +104,7 @@ ColumnLayout {
         QQC2.Label { text: translations.i18n("Status:"); opacity: 0.65 }
         QQC2.Label {
             Layout.fillWidth: true
-            text: root.statusTextFor(root.profileStatus.run.state)
+            text: BtrfsBackup.ProfilePresentation.statusText(translations, root.profileStatus.run.state)
         }
         QQC2.Label { text: translations.i18n("Name:"); opacity: 0.65 }
         QQC2.Label {
@@ -139,7 +138,10 @@ ColumnLayout {
                 implicitWidth: Kirigami.Units.iconSizes.small
                 implicitHeight: implicitWidth
             }
-            QQC2.Label { text: root.targetStateTextFor(root.profileStatus.target.state) }
+            QQC2.Label {
+                text: BtrfsBackup.ProfilePresentation.targetStateText(
+                    translations, root.profileStatus.target.state, root.profileStatus.target.safeToRemove)
+            }
         }
         QQC2.Label { text: translations.i18n("Automatic backups:"); opacity: 0.65 }
         QQC2.Label {
@@ -186,28 +188,6 @@ ColumnLayout {
             || (root.profileStatus.run.errorCode === "backup.failed"
                 ? translations.i18n("Backup failed")
                 : translations.i18n("Backup failed with code %1", root.profileStatus.run.errorCode))
-    }
-
-    function activityText(activity, phase) {
-        switch (activity) {
-        case "sizing": return translations.i18n("Calculating transfer size")
-        case "transferring": return translations.i18n("Transferring backup data")
-        default: return phase || translations.i18n("Preparing backup")
-        }
-    }
-
-    function formatDuration(value) {
-        const seconds = Number(value)
-        if (seconds < 0)
-            return translations.i18n("Unknown")
-        const hours = Math.floor(seconds / 3600)
-        const minutes = Math.floor((seconds % 3600) / 60)
-        const remainder = Math.floor(seconds % 60)
-        if (hours > 0)
-            return translations.i18n("%1 h %2 min", hours, minutes)
-        if (minutes > 0)
-            return translations.i18n("%1 min %2 sec", minutes, remainder)
-        return translations.i18np("1 second", "%1 seconds", Math.max(1, remainder))
     }
 
     function dateTime(value, fallback) {
