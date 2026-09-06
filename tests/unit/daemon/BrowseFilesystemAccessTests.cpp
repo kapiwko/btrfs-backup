@@ -24,12 +24,29 @@ namespace {
 
 using btrfsbackup::daemon::control::BrowseFilesystemAccess;
 using btrfsbackup::daemon::control::BrowseAccessIdentity;
+using btrfsbackup::daemon::dbus::ManagerErrorCode;
+using btrfsbackup::daemon::dbus::ManagerOperationError;
 
 void expect_rejected(const std::string& name, const std::function<void()>& operation) {
     try {
         operation();
         test_helpers::fail(name, "unsafe or unsupported entry was accepted");
     } catch (const std::exception&) {
+    }
+}
+
+void expect_manager_error(
+    const std::string& name,
+    ManagerErrorCode code,
+    const std::function<void()>& operation
+) {
+    try {
+        operation();
+        test_helpers::fail(name, "operation unexpectedly succeeded");
+    } catch (const ManagerOperationError& error) {
+        test_helpers::expect_true(name, error.code() == code, "operation returned the wrong manager error");
+    } catch (const std::exception&) {
+        test_helpers::fail(name, "operation did not return a stable manager error");
     }
 }
 
@@ -181,11 +198,35 @@ void test_stored_permissions_and_acl_are_enforced() {
     fs::remove_all(root);
 }
 
+void test_missing_entries_do_not_mask_denied_parent_traversal() {
+    const fs::path root = test_helpers::test_root("browse-filesystem", "error-distinction");
+    fs::create_directories(root / "private");
+    fs::permissions(root, fs::perms::owner_all | fs::perms::others_exec);
+    fs::permissions(root / "private", fs::perms::owner_all);
+    const BrowseAccessIdentity reader{
+        .uid = static_cast<std::uint32_t>(getuid()) == 23456U ? 23457U : 23456U,
+        .groups = {static_cast<std::uint32_t>(getgid()) == 23456U ? 23457U : 23456U},
+    };
+    BrowseFilesystemAccess access;
+
+    expect_manager_error("missing accessible entry", ManagerErrorCode::NotFound, [&] {
+        (void)access.inspect_entry(root, "missing.txt", &reader);
+    });
+    expect_manager_error("missing entry below denied parent", ManagerErrorCode::NotAuthorized, [&] {
+        (void)access.inspect_entry(root, "private/missing.txt", &reader);
+    });
+
+    fs::permissions(root / "private", fs::perms::owner_all);
+    fs::permissions(root, fs::perms::owner_all);
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_validated_access_and_types();
     test_listing_filters_and_pages();
     test_stored_permissions_and_acl_are_enforced();
+    test_missing_entries_do_not_mask_denied_parent_traversal();
     return test_helpers::finish("browse filesystem access tests");
 }

@@ -333,7 +333,12 @@ The manager applies the caller's UID and supplementary groups to stored mode and
 POSIX ACL checks before opening repository contents. An owned session may list confined entries
 and receive only already-open, read-only regular-file descriptors. The daemon rejects absolute
 paths, traversal, symlinks, devices and other special files, so repository
-directory permissions never need to be weakened for Dolphin. An authorized
+directory permissions never need to be weakened for Dolphin. A browse
+request below an accessible parent reports `NotFound` when the entry is absent.
+Failure to traverse a parent reports `NotAuthorized` before the final entry is
+looked up, preventing existence checks through a directory the caller cannot
+traverse. KIO preserves this distinction as its native not-found and
+access-denied errors. An authorized
 manual eject closes idle browse sessions for that profile before it acquires the
 target lease. An active browse operation returns `Busy`; other target use also
 blocks eject:
