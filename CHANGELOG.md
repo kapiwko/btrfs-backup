@@ -161,7 +161,9 @@ migration, export and upgrade-preflight commands have been removed.
    directory, preventing callers from probing coverage with arbitrary path
    strings at the privileged boundary;
 19. the browse polkit prompt now describes authorization rather than implying
-   that an active local session must enter an administrator password.
+   that an active local session must enter an administrator password;
+20. restore file copies use checked Linux syscalls through close, preserving
+   the exact `ENOSPC` result even when free space changes after preflight.
 
 ### KDE Desktop Integration
 

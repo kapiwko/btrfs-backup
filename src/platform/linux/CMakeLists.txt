@@ -129,6 +129,7 @@ target_link_libraries(btrfsbackup-platform-linux-restore
         btrfsbackup-restore
     PRIVATE
         btrfsbackup-core
+        btrfsbackup-platform-linux-base
         PkgConfig::BTRFSUTIL
 )
 target_restricted_include_directories(btrfsbackup-platform-linux-storage
