@@ -17,11 +17,13 @@
 #include <vector>
 
 #include <btrfsutil.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
 #include <restore/RestoreError.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace btrfsbackup::platform::linux::restore {
 
@@ -276,43 +278,52 @@ void copy_regular_file(
     btrfsbackup::restore::RestoreStatistics& statistics,
     const btrfsbackup::restore::RestoreProgressSink& progress
 ) {
-    std::ifstream input(source, std::ios::binary);
-    errno = 0;
-    std::ofstream output(destination, std::ios::binary | std::ios::trunc);
-    const int open_error = errno;
-    if (!input) {
-        throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
-            "could not open restore file: " + source.string()
-        );
-    }
-    if (!output)
-        throw_copy_failure("could not create restore file " + destination.string(), open_error);
+    btrfsbackup::platform::linux::OwnedFileDescriptor input{
+        ::open(source.c_str(), O_RDONLY | O_CLOEXEC)
+    };
+    if (!input.valid())
+        throw_copy_failure("could not open restore file " + source.string());
+    btrfsbackup::platform::linux::OwnedFileDescriptor output{
+        ::open(destination.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600)
+    };
+    if (!output.valid())
+        throw_copy_failure("could not create restore file " + destination.string());
+
     std::array<char, 64 * 1024> buffer{};
-    while (input) {
+    while (true) {
         throw_if_cancelled(cancellation);
-        input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-        const std::streamsize count = input.gcount();
-        if (count > 0) {
-            errno = 0;
-            output.write(buffer.data(), count);
-            if (!output)
+        ssize_t count = ::read(input.get(), buffer.data(), buffer.size());
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count < 0)
+            throw_copy_failure("could not read restore file " + source.string());
+        if (count == 0)
+            break;
+
+        ssize_t written = 0;
+        while (written < count) {
+            const ssize_t result = ::write(
+                output.get(),
+                buffer.data() + written,
+                static_cast<std::size_t>(count - written)
+            );
+            if (result < 0 && errno == EINTR)
+                continue;
+            if (result < 0)
                 throw_copy_failure("could not write restore file " + destination.string());
-            statistics.bytes += static_cast<std::uint64_t>(count);
-            if (progress)
-                progress({statistics, source});
+            if (result == 0)
+                throw_copy_failure("could not write restore file " + destination.string(), EIO);
+            written += result;
         }
+        statistics.bytes += static_cast<std::uint64_t>(count);
+        if (progress)
+            progress({statistics, source});
     }
-    errno = 0;
-    output.flush();
-    if (!output)
-        throw_copy_failure("could not flush restore file " + destination.string());
-    if (input.bad()) {
-        throw btrfsbackup::restore::RestoreError(
-            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
-            "restore copy failed: " + source.string()
-        );
-    }
+    if (::fsync(output.get()) != 0)
+        throw_copy_failure("could not synchronize restore file " + destination.string());
+    const int output_descriptor = output.release();
+    if (::close(output_descriptor) != 0)
+        throw_copy_failure("could not close restore file " + destination.string());
     preserve_metadata(source, destination);
     verify_regular_file(source, destination, cancellation);
     ++statistics.files;

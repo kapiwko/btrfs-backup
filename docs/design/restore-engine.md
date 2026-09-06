@@ -40,6 +40,8 @@ ACL attributes) before publishing the staging tree.
 - Existing destination data is preserved unless a narrowly scoped overwrite
   policy is explicitly selected.
 - Ownership, mode, ACL and xattr preservation failures are reported, not hidden.
+- File data is copied with checked `open`, `read`, `write`, `fsync` and `close`
+  calls so a late `ENOSPC` is reported as insufficient space.
 - Restore never applies retention or modifies the source snapshot.
 
 Whole-system recovery remains a guided administrative procedure: the engine
