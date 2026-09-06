@@ -47,6 +47,7 @@ set(approved_special_member_types
     "src/state/cancellation/FileActiveRunRegistration.hpp:FileActiveRunRegistration"
     "src/state/cancellation/PollingCancellationWatch.hpp:PollingCancellationWatch"
     "integrations/kde/kio/BtrfsBackupWorker.hpp:BtrfsBackupWorker"
+    "integrations/kde/kio/BrowseRepositoryClient.hpp:BrowseOperationPin"
     "integrations/kde/kio/SecureBrowsePath.hpp:SecureBrowseFile"
     "integrations/kde/restore/RestoreController.hpp:RestoreController"
     "integrations/kde/restore/RestoreJob.hpp:RestoreJob"
