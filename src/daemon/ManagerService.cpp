@@ -20,6 +20,7 @@ ManagerService::ManagerService(ManagerPaths paths)
 ManagerCapabilities ManagerService::get_capabilities() const {
     return {
         .interface_name = manager_protocol::interface_name,
+        .implementation_version = BTRFS_BACKUP_VERSION,
         .read_only = false,
         .features = {
             manager_protocol::feature::profiles,

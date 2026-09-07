@@ -30,7 +30,7 @@ class ScreenshotManager final : public QObject {
 
   public slots:
     QString GetCapabilities() const {
-        return QStringLiteral(R"({"schemaVersion":1,"interface":"io.github.btrfsbackup.Manager1","apiMajor":1,"apiMinor":0,"profileSchemaVersion":1,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"deviceStateSchemaVersion":1,"readOnly":false,"features":["profiles","status","sanitized-history","device-state","target-storage-usage","start-backup","cancel-backup","validate-target","eject-target","change-signals","browse-backups","profile-administration","profile-details","target-credentials","device-provisioning"]})");
+        return QStringLiteral(R"({"schemaVersion":1,"interface":"io.github.btrfsbackup.Manager1","implementationVersion":"1.0.0","apiMajor":1,"apiMinor":0,"profileSchemaVersion":1,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"deviceStateSchemaVersion":1,"readOnly":false,"features":["profiles","status","sanitized-history","device-state","target-storage-usage","start-backup","cancel-backup","validate-target","eject-target","change-signals","browse-backups","profile-administration","profile-details","target-credentials","device-provisioning"]})");
     }
 
     QString ListProfiles() const {

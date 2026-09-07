@@ -22,7 +22,9 @@ Item {
         anchors.fill: parent
         Component.onCompleted: setSource("../ui/NotificationSettingsPage.qml", {
             "settings": settings,
-            "applicationVersion": "1.0.0"
+            "applicationVersion": "1.0.0",
+            "managerVersion": "1.0.1",
+            "apiVersion": "1.0"
         })
     }
 
@@ -41,7 +43,9 @@ Item {
                 Qt.exit(1)
                 return
             }
-            if (page.item.displayedVersion !== "Btrfs Backup version 1.0.0") {
+            if (page.item.displayedVersion !== "1.0.0"
+                    || page.item.displayedManagerVersion !== "1.0.1"
+                    || page.item.displayedApiVersion !== "1.0") {
                 console.error("Application version was not displayed", page.item.displayedVersion)
                 Qt.exit(1)
                 return

@@ -36,6 +36,8 @@ tests.
 describes the sanitized history rows returned over D-Bus, and
 `deviceStateSchemaVersion` describes `GetDeviceState`. Private persistence
 schema versions are not advertised as public API versions.
+`implementationVersion` reports the installed system service version for
+diagnostics and partial-installation checks.
 
 | Method | Input signature | Output signature | Result |
 |---|---|---|---|

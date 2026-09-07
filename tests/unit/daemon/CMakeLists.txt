@@ -28,6 +28,10 @@ add_btrfsbackup_test(
     btrfsbackup-daemon-query
     btrfsbackup-config-json
 )
+target_compile_definitions(
+    btrfsbackup-manager-service-tests
+    PRIVATE BTRFS_BACKUP_VERSION="${BTRFS_BACKUP_VERSION}"
+)
 
 add_btrfsbackup_test(
     btrfsbackup-device-state-query-service-tests

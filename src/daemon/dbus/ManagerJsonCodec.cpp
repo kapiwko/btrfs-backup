@@ -113,6 +113,7 @@ std::string ManagerJsonCodec::encode(const ManagerCapabilities& capabilities) co
     return config::json::dump_json({
         {"schemaVersion", manager_protocol::capabilities_schema_version},
         {"interface", capabilities.interface_name},
+        {"implementationVersion", capabilities.implementation_version},
         {"apiMajor", capabilities.api_major},
         {"apiMinor", capabilities.api_minor},
         {"profileSchemaVersion", capabilities.profile_schema_version},

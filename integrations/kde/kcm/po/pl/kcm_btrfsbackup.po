@@ -748,8 +748,17 @@ msgstr "Ustawienia"
 msgid "About"
 msgstr "O programie"
 
-msgid "Btrfs Backup version %1"
-msgstr "Btrfs Backup, wersja %1"
+msgid "KDE integration:"
+msgstr "Integracja KDE:"
+
+msgid "System service:"
+msgstr "Usługa systemowa:"
+
+msgid "API:"
+msgstr "API:"
+
+msgid "Unavailable"
+msgstr "Niedostępna"
 
 #: integrations/kde/kcm/ProfileConfigurationModel.cpp:239
 msgid "Source %1"

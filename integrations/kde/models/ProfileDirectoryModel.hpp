@@ -22,6 +22,8 @@ class ProfileDirectoryModel : public QObject {
     Q_PROPERTY(bool managerConnected READ managerConnected NOTIFY managerConnectedChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(QString lastErrorCode READ lastErrorCode NOTIFY errorChanged)
+    Q_PROPERTY(QString managerVersion READ managerVersion NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QString apiVersion READ apiVersion NOTIFY capabilitiesChanged)
 
   public:
     explicit ProfileDirectoryModel(QObject* parent = nullptr);
@@ -30,6 +32,8 @@ class ProfileDirectoryModel : public QObject {
     bool managerConnected() const;
     QString lastError() const;
     QString lastErrorCode() const;
+    QString managerVersion() const;
+    QString apiVersion() const;
     bool supports(const QString& feature) const;
 
     Q_INVOKABLE void start();
@@ -42,6 +46,7 @@ class ProfileDirectoryModel : public QObject {
     void profilesChanged();
     void managerConnectedChanged();
     void errorChanged();
+    void capabilitiesChanged();
     void profileStatusInvalidated(const QString& profile_id);
     void profileHistoryInvalidated(const QString& profile_id);
     void profileDeviceStateInvalidated(const QString& profile_id);
@@ -65,6 +70,8 @@ class ProfileDirectoryModel : public QObject {
     bool manager_connected_ = false;
     quint64 generation_ = 0;
     QSet<QString> features_;
+    QString manager_version_;
+    QString api_version_;
     QVariantList profiles_;
     QString last_error_;
     QString last_error_code_;

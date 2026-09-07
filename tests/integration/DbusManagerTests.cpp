@@ -418,6 +418,7 @@ void Fixture::verify_read_api() {
     const auto capabilities = call("GetCapabilities");
     require(capabilities.status == 0, "GetCapabilities failed");
     require_contains(capabilities.output, "readOnly", "capabilities omit readOnly");
+    require_contains(capabilities.output, "implementationVersion", "capabilities omit implementation version");
     require_contains(capabilities.output, "start-backup", "capabilities omit operational control");
     require_contains(capabilities.output, "change-signals", "capabilities omit change signals");
 

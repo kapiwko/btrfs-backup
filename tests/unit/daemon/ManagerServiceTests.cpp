@@ -110,6 +110,11 @@ void test_capabilities_and_profiles() {
     test_helpers::expect_true("manager API major", capabilities.api_major == 1, "wrong manager API major");
     test_helpers::expect_true("manager API minor", capabilities.api_minor == 0, "wrong manager API minor");
     test_helpers::expect_true(
+        "manager implementation version",
+        capabilities.implementation_version == BTRFS_BACKUP_VERSION,
+        "manager did not advertise its implementation version"
+    );
+    test_helpers::expect_true(
         "profile administration capability",
         std::ranges::find(capabilities.features, "profile-administration") != capabilities.features.end(),
         "manager omits profile administration capability"

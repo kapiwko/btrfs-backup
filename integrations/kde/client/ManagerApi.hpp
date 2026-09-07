@@ -24,7 +24,9 @@ class IoGithubBtrfsbackupManager1Interface;
 namespace btrfsbackup::kde {
 
 struct ManagerCapabilities {
+    QString implementation_version;
     int api_major = -1;
+    int api_minor = -1;
     int public_status_schema_version = -1;
     int history_schema_version = -1;
     QSet<QString> features;

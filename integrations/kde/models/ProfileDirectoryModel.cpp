@@ -51,6 +51,12 @@ QString ProfileDirectoryModel::lastError() const {
 QString ProfileDirectoryModel::lastErrorCode() const {
     return last_error_code_;
 }
+QString ProfileDirectoryModel::managerVersion() const {
+    return manager_version_;
+}
+QString ProfileDirectoryModel::apiVersion() const {
+    return api_version_;
+}
 bool ProfileDirectoryModel::supports(const QString& feature) const {
     return features_.contains(feature);
 }
@@ -70,6 +76,9 @@ void ProfileDirectoryModel::stop() {
     profiles_request_pending_ = false;
     profiles_refresh_queued_ = false;
     features_.clear();
+    manager_version_.clear();
+    api_version_.clear();
+    emit capabilitiesChanged();
     setManagerConnected(false);
 }
 
@@ -129,9 +138,15 @@ void ProfileDirectoryModel::connectToManager() {
             !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
             setLastError(tr("The backup manager API is not compatible with this interface."), QStringLiteral("manager.incompatible-api"));
             managerUnavailable();
+            manager_version_ = capabilities->implementation_version;
+            api_version_ = QStringLiteral("%1.%2").arg(capabilities->api_major).arg(capabilities->api_minor);
+            emit capabilitiesChanged();
             return;
         }
         features_ = capabilities->features;
+        manager_version_ = capabilities->implementation_version;
+        api_version_ = QStringLiteral("%1.%2").arg(capabilities->api_major).arg(capabilities->api_minor);
+        emit capabilitiesChanged();
         capabilities_verified_ = true;
         setManagerConnected(true);
         setLastError({});
@@ -209,6 +224,9 @@ void ProfileDirectoryModel::managerUnavailable() {
     profiles_request_pending_ = false;
     profiles_refresh_queued_ = false;
     features_.clear();
+    manager_version_.clear();
+    api_version_.clear();
+    emit capabilitiesChanged();
     setManagerConnected(false);
     if (last_error_.isEmpty())
         setLastError(tr("The system backup manager is unavailable."), QStringLiteral("manager.unavailable"));

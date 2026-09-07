@@ -23,7 +23,9 @@ std::optional<ManagerCapabilities> parse_capabilities(const QString& payload) {
 
     const QJsonObject object = document.object();
     ManagerCapabilities result{
+        .implementation_version = object.value(QStringLiteral("implementationVersion")).toString(),
         .api_major = object.value(QStringLiteral("apiMajor")).toInt(-1),
+        .api_minor = object.value(QStringLiteral("apiMinor")).toInt(-1),
         .public_status_schema_version = object.value(
                                                   QStringLiteral("publicStatusSchemaVersion")
         )
@@ -31,6 +33,9 @@ std::optional<ManagerCapabilities> parse_capabilities(const QString& payload) {
         .history_schema_version = object.value(QStringLiteral("historySchemaVersion")).toInt(-1),
         .features = {},
     };
+    if (result.implementation_version.isEmpty()) {
+        return std::nullopt;
+    }
     const QJsonValue features = object.value(QStringLiteral("features"));
     if (!features.isArray()) {
         return std::nullopt;

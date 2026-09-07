@@ -174,10 +174,11 @@ void test_stopping_tracking_is_not_a_terminal_result() {
 
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
-        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"features":["cancel-backup","change-signals"]})")
+        QStringLiteral(R"({"implementationVersion":"1.0.0","apiMajor":1,"apiMinor":0,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"features":["cancel-backup","change-signals"]})")
     );
     expect(
         capabilities.has_value() && capabilities->api_major == 1 &&
+            capabilities->api_minor == 0 && capabilities->implementation_version == QStringLiteral("1.0.0") &&
             capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)),
         "shared client decodes manager capabilities"
     );
@@ -220,8 +221,8 @@ void test_shared_manager_protocol() {
     );
     expect(
         !btrfsbackup::kde::parse_operation_result(QStringLiteral(
-                                                     R"({"schemaVersion":1,"accepted":true})"
-                                                 ))
+                                                      R"({"schemaVersion":1,"accepted":true})"
+                                                  ))
              .has_value(),
         "shared client rejects incomplete operation results"
     );

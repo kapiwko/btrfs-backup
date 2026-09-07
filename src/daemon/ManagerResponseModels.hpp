@@ -16,6 +16,7 @@ namespace btrfsbackup::daemon {
 
 struct ManagerCapabilities {
     std::string interface_name;
+    std::string implementation_version;
     int api_major = manager_protocol::api_major;
     int api_minor = manager_protocol::api_minor;
     int profile_schema_version = manager_protocol::profile_schema_version;

@@ -26,11 +26,13 @@ void test_capabilities() {
     const ManagerJsonCodec codec;
     const btrfsbackup::daemon::ManagerCapabilities capabilities{
         .interface_name = "io.github.btrfsbackup.Manager1",
+        .implementation_version = "1.0.0",
         .features = {"profiles", "status"},
     };
     const Json document = Json::parse(codec.encode(capabilities));
     expect_field("capabilities", document, "schemaVersion", 1);
     expect_field("capabilities", document, "interface", capabilities.interface_name);
+    expect_field("capabilities", document, "implementationVersion", "1.0.0");
     expect_field("capabilities", document, "readOnly", true);
     expect_field("capabilities", document, "features", capabilities.features);
 }

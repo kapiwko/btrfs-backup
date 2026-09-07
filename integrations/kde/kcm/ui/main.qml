@@ -118,7 +118,9 @@ KCMUtils.ScrollViewKCM {
     function openSettings() {
         const properties = {
             "settings": root.reminderSettings,
-            "applicationVersion": typeof kcm !== "undefined" ? kcm.applicationVersion : Qt.application.version
+            "applicationVersion": typeof kcm !== "undefined" ? kcm.applicationVersion : Qt.application.version,
+            "managerVersion": root.directory?.managerVersion ?? "",
+            "apiVersion": root.directory?.apiVersion ?? ""
         }
         if (typeof kcm !== "undefined")
             kcm.push("NotificationSettingsPage.qml", properties)

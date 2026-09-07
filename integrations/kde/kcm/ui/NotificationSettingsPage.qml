@@ -13,7 +13,11 @@ KCMUtils.SimpleKCM {
 
     required property var settings
     property string applicationVersion: ""
+    property string managerVersion: ""
+    property string apiVersion: ""
     readonly property string displayedVersion: versionLabel.text
+    readonly property string displayedManagerVersion: managerVersionLabel.text
+    readonly property string displayedApiVersion: apiVersionLabel.text
     title: translations.i18n("Settings")
     enabled: root.settings !== null
 
@@ -121,11 +125,11 @@ KCMUtils.SimpleKCM {
         SettingsSection {
             title: translations.i18n("About")
 
-            RowLayout {
+            Kirigami.FormLayout {
                 Layout.fillWidth: true
-                spacing: Kirigami.Units.smallSpacing
 
                 Kirigami.Icon {
+                    Kirigami.FormData.label: translations.i18n("KDE integration:")
                     source: "backup"
                     implicitWidth: Kirigami.Units.iconSizes.medium
                     implicitHeight: implicitWidth
@@ -133,7 +137,21 @@ KCMUtils.SimpleKCM {
 
                 QQC2.Label {
                     id: versionLabel
-                    text: translations.i18n("Btrfs Backup version %1", root.applicationVersion)
+                    text: root.applicationVersion
+                    textFormat: Text.PlainText
+                }
+
+                QQC2.Label {
+                    id: managerVersionLabel
+                    Kirigami.FormData.label: translations.i18n("System service:")
+                    text: root.managerVersion.length > 0 ? root.managerVersion : translations.i18n("Unavailable")
+                    textFormat: Text.PlainText
+                }
+
+                QQC2.Label {
+                    id: apiVersionLabel
+                    Kirigami.FormData.label: translations.i18n("API:")
+                    text: root.apiVersion.length > 0 ? root.apiVersion : translations.i18n("Unavailable")
                     textFormat: Text.PlainText
                 }
             }

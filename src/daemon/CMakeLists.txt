@@ -31,6 +31,10 @@ add_library(btrfsbackup-daemon-query STATIC
     query/StatusQueryService.cpp
 )
 target_compile_features(btrfsbackup-daemon-query PUBLIC cxx_std_23)
+target_compile_definitions(
+    btrfsbackup-daemon-query
+    PRIVATE BTRFS_BACKUP_VERSION="${BTRFS_BACKUP_VERSION}"
+)
 target_restricted_include_directories(btrfsbackup-daemon-query
     PUBLIC_HEADERS
         daemon/ManagerService.hpp
