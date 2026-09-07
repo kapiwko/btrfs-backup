@@ -21,6 +21,11 @@ using btrfsbackup::daemon::dbus::ManagerOperationError;
 namespace json = btrfsbackup::config::json;
 namespace linux_config = btrfsbackup::platform::linux::config;
 
+std::string read_file(const std::filesystem::path& path) {
+    std::ifstream stream(path);
+    return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
 class FakeBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
   public:
     bool is_subvolume(const std::filesystem::path&) override {
@@ -91,7 +96,15 @@ void test_backend_preserves_secrets_and_hook_boundary() {
     test_helpers::write_file(root / "etc" / "key.secret", "TOP-SECRET-KEY-CONTENTS");
 
     SystemProfileAdministrationBackend backend(
-        {roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root},
+        {
+            .etc_root = roots.etc_root,
+            .udev_root = roots.udev_root,
+            .systemd_root = roots.systemd_root,
+            .public_root = roots.public_root,
+            .state_root = root / "state",
+            .status_root = root / "status",
+            .history_root = root / "history",
+        },
         root / "mounts",
         "/proc/self/mountinfo",
         btrfs,
@@ -188,9 +201,24 @@ void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
     test_helpers::write_file(public_profile, R"({"schemaVersion":4,"profileId":"default","name":"Old"})");
     const auto backup_data = root / "mounts" / "default" / "snapshots" / "preserved";
     test_helpers::write_file(backup_data, "backup-data");
+    const auto profile_state = root / "state" / "profiles" / "default";
+    const auto profile_history = root / "history" / "default";
+    const auto profile_status = root / "status" / "default";
+    test_helpers::write_file(profile_state / "last-success", "timestamp=2026-08-24T18:42:00+0000\n");
+    test_helpers::write_file(profile_state / "checkpoint.json", "old-checkpoint");
+    test_helpers::write_file(profile_history / "old.json", "old-history");
+    test_helpers::write_file(profile_status / "current.json", "old-status");
 
     SystemProfileAdministrationBackend backend(
-        {roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root},
+        {
+            .etc_root = roots.etc_root,
+            .udev_root = roots.udev_root,
+            .systemd_root = roots.systemd_root,
+            .public_root = roots.public_root,
+            .state_root = root / "state",
+            .status_root = root / "status",
+            .history_root = root / "history",
+        },
         root / "mounts",
         "/proc/self/mountinfo",
         btrfs,
@@ -234,6 +262,34 @@ void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
         std::filesystem::is_regular_file(backup_data),
         "unsupported profile retirement removed backup data"
     );
+    for (const auto& directory : {profile_state, profile_history, profile_status}) {
+        test_helpers::expect_true(
+            "retired profile state isolated",
+            !std::filesystem::exists(directory),
+            "retired profile state remains visible: " + directory.string()
+        );
+    }
+    const auto retired_profile = root / "state" / "retired" / "default";
+    std::vector<std::filesystem::path> retirements;
+    for (const auto& entry : std::filesystem::directory_iterator(retired_profile))
+        retirements.push_back(entry.path());
+    test_helpers::expect_true(
+        "single retirement quarantine",
+        retirements.size() == 1,
+        "retirement did not create one quarantine generation"
+    );
+    if (retirements.size() == 1) {
+        test_helpers::expect_true(
+            "state quarantined",
+            read_file(retirements.front() / "state" / "checkpoint.json") == "old-checkpoint",
+            "persistent profile state was not preserved in quarantine"
+        );
+        test_helpers::expect_true(
+            "history quarantined",
+            read_file(retirements.front() / "history" / "old.json") == "old-history",
+            "profile history was not preserved in quarantine"
+        );
+    }
 }
 
 void test_unsupported_profile_retirement_rolls_back_as_one_transaction() {
@@ -260,10 +316,24 @@ void test_unsupported_profile_retirement_rolls_back_as_one_transaction() {
         json::load_json_file(manifest).at("mounts").at(0).at("unit").get<std::string>();
     test_helpers::write_file(private_profile, R"({"schemaVersion":4,"legacy":true})");
     test_helpers::write_file(public_profile, R"({"schemaVersion":4,"profileId":"default"})");
+    const auto profile_state = root / "state" / "profiles" / "default";
+    const auto profile_history = root / "history" / "default";
+    const auto profile_status = root / "status" / "default";
+    test_helpers::write_file(profile_state / "checkpoint.json", "old-checkpoint");
+    test_helpers::write_file(profile_history / "old.json", "old-history");
+    test_helpers::write_file(profile_status / "current.json", "old-status");
 
     FailingActivator activator;
     SystemProfileAdministrationBackend backend(
-        {roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root},
+        {
+            .etc_root = roots.etc_root,
+            .udev_root = roots.udev_root,
+            .systemd_root = roots.systemd_root,
+            .public_root = roots.public_root,
+            .state_root = root / "state",
+            .status_root = root / "status",
+            .history_root = root / "history",
+        },
         root / "mounts",
         "/proc/self/mountinfo",
         btrfs,
@@ -282,6 +352,21 @@ void test_unsupported_profile_retirement_rolls_back_as_one_transaction() {
             "retirement rollback did not restore " + artifact.string()
         );
     }
+    test_helpers::expect_true(
+        "retirement rollback state",
+        read_file(profile_state / "checkpoint.json") == "old-checkpoint",
+        "retirement rollback did not restore profile state"
+    );
+    test_helpers::expect_true(
+        "retirement rollback history",
+        read_file(profile_history / "old.json") == "old-history",
+        "retirement rollback did not restore profile history"
+    );
+    test_helpers::expect_true(
+        "retirement rollback status",
+        read_file(profile_status / "current.json") == "old-status",
+        "retirement rollback did not restore transient status"
+    );
 }
 
 } // namespace

@@ -297,6 +297,7 @@ class Fixture final {
         verify_profile_update_and_signals();
         verify_authorization_and_errors();
         verify_daemon_recovery();
+        verify_unsupported_retirement_and_profile_id_reuse();
         restart_with_policy();
     }
 
@@ -372,6 +373,7 @@ class Fixture final {
     void verify_profile_update_and_signals();
     void verify_authorization_and_errors();
     void verify_daemon_recovery();
+    void verify_unsupported_retirement_and_profile_id_reuse();
     void restart_with_policy();
 
     fs::path root_;
@@ -501,6 +503,7 @@ void Fixture::verify_read_api() {
         "UpdateProfileSource",
         "RemoveProfileSource",
         "DeleteProfile",
+        "RetireUnsupportedProfile",
         "SetProfileEnabled",
         "OpenBrowseSession",
         "RenewBrowseSession",
@@ -692,6 +695,73 @@ void Fixture::verify_daemon_recovery() {
     const auto status = call("GetStatus", {"s", "default"});
     require(status.status == 0, "GetStatus failed after daemon restart");
     require(status.output == status_before_, "daemon crash recovery did not restore visible state");
+}
+
+void Fixture::verify_unsupported_retirement_and_profile_id_reuse() {
+    const fs::path private_profile = root_ / "etc/profiles/default/profile.json";
+    const fs::path public_profile = root_ / "public/default.json";
+    const std::string replacement_private = read_file(private_profile);
+    const std::string replacement_public = read_file(public_profile);
+    write_file(private_profile, R"({"schemaVersion":4,"legacy":{"format":"pre-1.0"}})"
+                                "\n");
+    write_file(public_profile, R"({"schemaVersion":4,"profileId":"default","name":"Legacy backup"})"
+                               "\n",
+               0644);
+    const fs::path backup_data = root_ / "mnt/default/snapshots/preserved/data";
+    write_file(backup_data, "backup-data");
+
+    if (qml_.size() == 3U) {
+        const std::array environment{
+            std::pair<std::string, std::string>{"DBUS_SYSTEM_BUS_ADDRESS", address_},
+            std::pair<std::string, std::string>{"QT_QPA_PLATFORM", "offscreen"},
+            std::pair<std::string, std::string>{"QT_FORCE_STDERR_LOGGING", "1"},
+        };
+        const fs::path unsupported_qml = fs::path(qml_[2]).parent_path() / "backend-unsupported-dbus.qml";
+        ChildProcess qml(
+            {qml_[0], "-I", qml_[1], unsupported_qml.string()},
+            root_ / "unsupported-qml.log",
+            environment
+        );
+        require(qml.wait(6s) == 0, "KDE model requested history for an unsupported profile");
+    }
+
+    write_file(root_ / "polkit.log.allow", "");
+    const auto retired = call("RetireUnsupportedProfile", {"s", "default"});
+    fs::remove(root_ / "polkit.log.allow");
+    require(retired.status == 0, "RetireUnsupportedProfile failed: " + retired.output);
+    require(!fs::exists(root_ / "state/profiles/default"), "retired profile state remained addressable");
+    require(!fs::exists(root_ / "history/default"), "retired profile history remained addressable");
+    require(!fs::exists(root_ / "status/default"), "retired profile status remained addressable");
+    require(fs::is_regular_file(backup_data), "retirement removed repository data");
+
+    const fs::path quarantine = root_ / "state/retired/default";
+    std::vector<fs::path> retirements;
+    for (const auto& entry : fs::directory_iterator(quarantine))
+        retirements.push_back(entry.path());
+    require(retirements.size() == 1U, "retirement did not produce one quarantine generation");
+    require(
+        fs::is_regular_file(retirements.front() / "state/last-success"),
+        "retirement did not quarantine last-success"
+    );
+    require(
+        fs::is_regular_file(retirements.front() / "history/last.json"),
+        "retirement did not quarantine history"
+    );
+
+    write_file(private_profile, replacement_private);
+    write_file(public_profile, replacement_public, 0644);
+    const auto profiles = call("ListProfiles");
+    require(profiles.status == 0, "ListProfiles failed after profile ID reuse");
+    require_contains(profiles.output, "Edited backup", "recreated profile was not listed");
+    require(!profiles.output.contains("configuration.unsupported-schema"), "recreated profile remained unsupported");
+
+    const auto status = call("GetStatus", {"s", "default"});
+    require(status.status == 0, "GetStatus failed after profile ID reuse");
+    require(!status.output.contains("2026-08-24"), "recreated profile inherited last-success");
+    require(!status.output.contains("running"), "recreated profile inherited runtime status");
+    const auto history = call("GetHistorySanitized", {"suu", "default", "0", "10"});
+    require(history.status == 0, "GetHistorySanitized failed after profile ID reuse");
+    require(!history.output.contains("backup.failed"), "recreated profile inherited history");
 }
 
 void Fixture::restart_with_policy() {

@@ -78,6 +78,11 @@ if(BUILD_SYSTEM_MANAGER)
        NOT manager_unit MATCHES "ReadWritePaths=-/var/lib/btrfs-backup/profiles")
         message(FATAL_ERROR "manager unit cannot persist backup cancellation requests")
     endif()
+    if(NOT manager_unit MATCHES "StateDirectory=btrfs-backup/retired" OR
+       NOT manager_unit MATCHES "ReadWritePaths=-/var/lib/btrfs-backup/history" OR
+       NOT manager_unit MATCHES "ReadWritePaths=-/run/btrfs-backup/profiles")
+        message(FATAL_ERROR "manager unit cannot quarantine retired profile state")
+    endif()
     if(NOT preparation_unit MATCHES "ExecStart=${INSTALL_BINDIR_FULL}/btrfs-backup-device-preparation")
         message(FATAL_ERROR "device preparation unit does not use configured bindir")
     endif()
