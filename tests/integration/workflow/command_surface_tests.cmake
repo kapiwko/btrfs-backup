@@ -80,6 +80,22 @@ assert_contains(
     "${SOURCE_DIR}/docs/packaging-scriptlets.md"
     "btrfs-backupctl profile regenerate --all"
 )
+set(stale_texts)
+string(CONCAT stale_text "freshly reviewed " "v4")
+list(APPEND stale_texts "${stale_text}")
+string(CONCAT stale_text "canonical " "v4 profiles")
+list(APPEND stale_texts "${stale_text}")
+string(CONCAT stale_text "installed ALPM " "hook")
+list(APPEND stale_texts "${stale_text}")
+string(CONCAT stale_text "GPL-0" ".3-or-later")
+list(APPEND stale_texts "${stale_text}")
+string(CONCAT stale_text "4.0 release " "validation")
+list(APPEND stale_texts "${stale_text}")
+foreach(stale_text IN LISTS stale_texts)
+    foreach(document IN ITEMS README.md docs/packaging-scriptlets.md docs/testing.md ROADMAP.md)
+        assert_not_contains("${SOURCE_DIR}/${document}" "${stale_text}")
+    endforeach()
+endforeach()
 
 assert_command_rejected(state --help)
 assert_command_rejected(profile sources --help)

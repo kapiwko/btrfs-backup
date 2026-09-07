@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <fstream>
+#include <iterator>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -46,13 +48,17 @@ fs::path RealPackageTest::base_package() const {
             packages.push_back(entry.path());
     }
     if (packages.size() != 1)
-        throw std::runtime_error("expected exactly one Arch base package, found " +
-                                 std::to_string(packages.size()));
+        throw std::runtime_error("expected exactly one Arch base package, found " + std::to_string(packages.size()));
     return packages.front();
 }
 
 void RealPackageTest::install_and_verify() const {
     const auto package = base_package();
+    const fs::path existing_profile = "/etc/btrfs-backup/profiles/pre-1.0/profile.json";
+    const std::string existing_profile_contents =
+        R"({"schemaVersion":4,"profileId":"pre-1.0","name":"Pre-1.0 profile","enabled":true})"
+        "\n";
+    write_test_file(existing_profile, existing_profile_contents);
     const auto metadata = command({"tar", "--zstd", "-xOf", package.string(), ".PKGINFO"});
     if (metadata.status != 0)
         throw std::runtime_error("cannot inspect Arch base package: " + command_diagnostic(metadata));
@@ -63,6 +69,19 @@ void RealPackageTest::install_and_verify() const {
         throw std::runtime_error("base package has a KDE or Qt runtime dependency");
 
     require_success({"pacman", "-U", "--noconfirm", package.string()}, "install Arch base package");
+    std::ifstream profile_input(existing_profile);
+    const std::string preserved_profile{
+        std::istreambuf_iterator<char>(profile_input),
+        std::istreambuf_iterator<char>()
+    };
+    if (preserved_profile != existing_profile_contents)
+        throw std::runtime_error("package installation modified an existing pre-1.0 profile");
+    const auto validation = command(
+        {"/usr/bin/btrfs-backupctl", "profile", "validate", "--file", existing_profile.string()}
+    );
+    if (validation.status == 0 || !command_diagnostic(validation).contains("schemaVersion must be 1"))
+        throw std::runtime_error("installed CLI did not reject the preserved pre-1.0 profile");
+    fs::remove_all(existing_profile.parent_path());
     if (command({"pacman", "-Q", "btrfs-backup-kde"}).status == 0)
         throw std::runtime_error("KDE package was installed with the base package");
 

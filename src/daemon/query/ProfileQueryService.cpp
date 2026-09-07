@@ -45,11 +45,22 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
     result.reserve(files.size());
     for (const fs::path& file : files) {
         btrfsbackup::config::json::Json profile = read_manager_json_document(file);
-        if (!profile.is_object() || profile.value("schemaVersion", 0) != 1) {
-            throw ValidationError("public profile has an unsupported schema: " + file.string());
-        }
+        if (!profile.is_object())
+            throw ValidationError("public profile is not an object: " + file.string());
         const std::string profile_id = profile.value("profileId", "");
         validate_profile_id(profile_id);
+        if (profile.value("schemaVersion", 0) != 1) {
+            result.push_back(ProfileSummary{
+                .profile_id = profile_id,
+                .name = profile.value("name", profile_id),
+                .enabled = false,
+                .target_name = {},
+                .sources = {},
+                .configuration_valid = false,
+                .configuration_error_code = "configuration.unsupported_profile_schema",
+            });
+            continue;
+        }
         if (!profile.contains("sources") || !profile.at("sources").is_array()) {
             throw ValidationError("public profile has invalid sources: " + file.string());
         }

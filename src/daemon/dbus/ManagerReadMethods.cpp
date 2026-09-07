@@ -36,6 +36,8 @@ int ManagerReadMethods::list_profiles(sd_bus_message* message, sd_bus_error* err
         [&] {
             auto profiles = service_.list_profiles();
             for (auto& profile : profiles) {
+                if (!profile.configuration_valid)
+                    continue;
                 const auto health = profile_administration_.configuration_health(profile.profile_id);
                 profile.configuration_valid = health.valid;
                 profile.configuration_error_code = health.error_code;

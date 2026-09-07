@@ -26,8 +26,18 @@ installation therefore cannot silently enable a persistent service.
 Upgrades do not rewrite administrator-owned files under `/etc`, restart an
 active manager, or regenerate profile-specific systemd and udev artifacts.
 Version 1.0 does not support configuration from earlier versions. Its packages
-carry no bridge, converter, or transaction gate. The runtime accepts only
-profile schema v1 and rejects other schemas without modifying them.
+carry no bridge, converter, or transaction gate. The compatibility boundary is:
+
+| Existing artifact | Version 1.0 behavior |
+|---|---|
+| Profile from a pre-1.0 development release | Unsupported; create a new profile |
+| Private state from a pre-1.0 development release | Unsupported; do not migrate it |
+| Existing backup repository | May be adopted only when current validation accepts it |
+| Removed migration commands | Absent |
+| Package transaction gate | Absent; packages do not rewrite administrator configuration |
+
+The runtime accepts only profile schema v1 and rejects other schemas without
+modifying them.
 
 After an upgrade that changes generated artifacts, the administrator performs
 the regeneration explicitly:

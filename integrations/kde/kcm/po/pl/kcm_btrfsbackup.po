@@ -796,6 +796,9 @@ msgstr "Nie udało się wczytać historii kopii zapasowych."
 msgid "A configured source subvolume does not exist."
 msgstr "Skonfigurowany podwolumin źródłowy nie istnieje."
 
+msgid "This profile was created by an unsupported development version. Create a new profile for version 1.0."
+msgstr "Ten profil utworzono w nieobsługiwanej wersji rozwojowej. Utwórz nowy profil dla wersji 1.0."
+
 msgid "A configured source path is not a Btrfs subvolume."
 msgstr "Skonfigurowana ścieżka źródłowa nie jest podwoluminem Btrfs."
 

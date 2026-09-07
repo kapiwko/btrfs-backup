@@ -294,7 +294,7 @@ void test_installed_legacy_profile_is_rejected_without_modification() {
     const fs::path root = test_root();
     const fs::path profile_path = root / "profiles" / "default" / "profile.json";
     Json old = valid_profile();
-    old["schemaVersion"] = 3;
+    old["schemaVersion"] = 4;
     old["configurationGeneration"] = "0123456789abcdef0123456789abcdef";
     const std::string original = btrfsbackup::config::json::dump_json(old);
     btrfsbackup::platform::linux::filesystem::atomic_write(profile_path, original, 0600);

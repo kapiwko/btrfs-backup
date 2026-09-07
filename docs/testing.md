@@ -221,8 +221,8 @@ inside a privileged container. It creates:
 
 Run it through the opt-in CMake target so both non-installed public D-Bus
 clients and the staged C++ real-Btrfs fixture are built and passed read-only to
-the container. Migration ownership and the expected artifacts for every
-scenario are recorded in
+the container. Ownership and the expected artifacts for every scenario are
+recorded in
 [`tests/integration/docker/real-btrfs-scenarios.md`](../tests/integration/docker/real-btrfs-scenarios.md):
 
 ```bash
@@ -233,9 +233,8 @@ cmake --build build --target real-btrfs-integration
 The C++ fixture currently covers full and incremental backup, interrupted
 receive cleanup, retention, target identity rejection, both pending-recovery
 paths, raw and public restore, public cancellation, and an unprivileged
-read-only browse session. The legacy scenario remains enabled until the
-manifest reaches full parity. The fixture refuses to run as root unless the
-Docker runner supplies its disposable-container marker.
+read-only browse session. The fixture refuses to run as root unless the Docker
+runner supplies its disposable-container marker.
 
 The restore engine also has a focused real-Btrfs gate which avoids the systemd
 and encrypted-target lifecycle used by the full scenario:
@@ -264,43 +263,53 @@ configuration. The repository is mounted read-only into the container, the
 package is mounted read-only, and all test filesystems live under `/tmp` inside
 the container.
 
-The test covers:
+Compatibility regression coverage verifies that:
 
-1. schema-v4 profiles are rejected without modification and package installation leaves existing administrator configuration unchanged;
-2. base package build and installation through `pacman -U`, including a check
+1. a schema-v4 profile representative of v0.3.3 is rejected without being
+   modified;
+2. package installation does not rewrite an existing file under
+   `/etc/btrfs-backup`;
+3. the KCM explains that an unsupported profile must be recreated for 1.0;
+4. a new profile can adopt an existing repository only when current validation
+   accepts it;
+5. removed migration commands remain unavailable.
+
+The real-Btrfs test additionally covers:
+
+1. base package build and installation through `pacman -U`, including a check
    that it has no KDE or Qt runtime dependency;
-3. configuration rendering and validation through the installed CLI;
-4. runtime validation of the mounted target;
-5. rejection of a mismatched target Btrfs UUID;
-6. rejection of a source located on the backup target filesystem;
-7. a real full `btrfs send/receive`;
-8. a real incremental `btrfs send -p` after source data changes;
-9. rejection of an incremental run when remote snapshots exist but no local
+2. configuration rendering and validation through the installed CLI;
+3. runtime validation of the mounted target;
+4. rejection of a mismatched target Btrfs UUID;
+5. rejection of a source located on the backup target filesystem;
+6. a real full `btrfs send/receive`;
+7. a real incremental `btrfs send -p` after source data changes;
+8. rejection of an incremental run when remote snapshots exist but no local
    UUID-matching parent is available;
-10. verification that the latest remote snapshot matches the latest local
+9. verification that the latest remote snapshot matches the latest local
    snapshot;
-11. verification that the remote snapshot `Received UUID` matches the local
+10. verification that the remote snapshot `Received UUID` matches the local
    snapshot UUID;
-12. local and remote retention after a third backup;
-13. cleanup of per-source `.incoming` content after successful receives;
-14. per-profile `current.json` and history JSON after a real backup;
-15. recovery of an orphaned local snapshot left before receive;
-16. preservation and marker cleanup for a snapshot committed before an
+11. local and remote retention after a third backup;
+12. cleanup of per-source `.incoming` content after successful receives;
+13. per-profile `current.json` and history JSON after a real backup;
+14. recovery of an orphaned local snapshot left before receive;
+15. preservation and marker cleanup for a snapshot committed before an
     interruption;
-17. a full restore send/receive from the latest repository snapshot followed by
+16. a full restore send/receive from the latest repository snapshot followed by
     content comparison.
-18. rejection of a per-source `.incoming` symlink escape with verification that
+17. rejection of a per-source `.incoming` symlink escape with verification that
     data outside the target repository remains unchanged;
-19. execution of a trusted root-owned hook and rejection after unsafe owner,
+18. execution of a trusted root-owned hook and rejection after unsafe owner,
     file mode, parent mode, or symlink changes;
-20. offline `systemd-analyze security` against the installed unit;
-21. a complete real Btrfs backup started through the sandboxed systemd profile
+19. offline `systemd-analyze security` against the installed unit;
+20. a complete real Btrfs backup started through the sandboxed systemd profile
     service, including the pre-sandbox target mount dependency;
-22. a plain mapper close/reopen lifecycle plus automatic host unmount and LUKS
+21. a plain mapper close/reopen lifecycle plus automatic host unmount and LUKS
     closure through the terminal-state eject unit; auxiliary sandboxed services
     started by the harness are stopped before this check so they cannot retain
     the test mount in a private namespace;
-23. a complete backup requested through the system D-Bus manager by an
+22. a complete backup requested through the system D-Bus manager by an
     unprivileged user and authorized by real polkit from the installed package.
 
 The current Plasma test target validates its full manager-backed control model,

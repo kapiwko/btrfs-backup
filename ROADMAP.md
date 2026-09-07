@@ -54,8 +54,8 @@ Later improvements include:
 
 Improve configuration without weakening the privileged boundary:
 
-- keep extending the media-preparation safety matrix after the 1.0
-  validation without expanding the set of supported destructive layouts;
+- keep extending the media-preparation safety matrix after the 1.0 validation
+  without expanding the set of supported destructive layouts;
 - extend successful media preparation with an explicit trial backup and trial
   restore;
 - evaluate TPM2, FIDO2 and PKCS#11 enrollment after recovery-key workflows and

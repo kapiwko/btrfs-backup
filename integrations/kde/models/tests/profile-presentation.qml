@@ -114,5 +114,8 @@ TestCase {
         compare(BtrfsBackup.ProfilePresentation.configurationErrorText(
             translations, "configuration.source_missing"),
             "A configured source subvolume does not exist.")
+        compare(BtrfsBackup.ProfilePresentation.configurationErrorText(
+            translations, "configuration.unsupported_profile_schema"),
+            "This profile was created by an unsupported development version. Create a new profile for version 1.0.")
     }
 }

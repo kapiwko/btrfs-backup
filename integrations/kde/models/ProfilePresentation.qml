@@ -167,6 +167,8 @@ QtObject {
 
     function configurationErrorText(translations, code) {
         switch (code) {
+        case "configuration.unsupported_profile_schema":
+            return translations.i18n("This profile was created by an unsupported development version. Create a new profile for version 1.0.")
         case "configuration.source_missing":
             return translations.i18n("A configured source subvolume does not exist.")
         case "configuration.source_not_subvolume":

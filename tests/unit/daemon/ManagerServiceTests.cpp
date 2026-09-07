@@ -158,6 +158,28 @@ void test_capabilities_and_profiles() {
     fs::remove_all(root);
 }
 
+void test_unsupported_public_profile_is_reported_for_recreation() {
+    fs::path root = test_helpers::test_root("manager-service", "unsupported-profile");
+    test_helpers::write_file(
+        root / "public" / "old.json",
+        R"({"schemaVersion":4,"profileId":"old","name":"Old backup","target":{"name":"Backup disk"},"sources":[]})"
+    );
+
+    const btrfsbackup::daemon::query::ProfileQueryService service(root / "public");
+    const std::vector<btrfsbackup::daemon::ProfileSummary> profiles = service.list_profiles();
+
+    test_helpers::expect_eq("unsupported profile count", std::to_string(profiles.size()), "1");
+    test_helpers::expect_eq("unsupported profile id", profiles.at(0).profile_id, "old");
+    test_helpers::expect_true("unsupported profile disabled", !profiles.at(0).enabled, "old profile remained enabled");
+    test_helpers::expect_true("unsupported profile invalid", !profiles.at(0).configuration_valid, "old profile was accepted");
+    test_helpers::expect_eq(
+        "unsupported profile code",
+        profiles.at(0).configuration_error_code,
+        "configuration.unsupported_profile_schema"
+    );
+    fs::remove_all(root);
+}
+
 void test_status_and_history_sanitization() {
     fs::path root = test_helpers::test_root("manager-service", "status-history");
     test_helpers::write_file(root / "status" / "default" / "current.json", public_status());
@@ -295,6 +317,7 @@ void test_malformed_and_oversized_documents() {
 
 int main() {
     test_capabilities_and_profiles();
+    test_unsupported_public_profile_is_reported_for_recreation();
     test_status_and_history_sanitization();
     test_last_history_cache_recovers_from_authoritative_record();
     test_malformed_and_oversized_documents();

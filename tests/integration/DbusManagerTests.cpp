@@ -424,6 +424,21 @@ void Fixture::verify_read_api() {
     const auto profiles = call("ListProfiles");
     require(profiles.status == 0, "ListProfiles failed");
     require_contains(profiles.output, "Default backup", "public profile was not returned");
+    const fs::path public_profile = root_ / "public/default.json";
+    const std::string current_public_profile = read_file(public_profile);
+    std::string unsupported_public_profile = current_public_profile;
+    const auto schema_position = unsupported_public_profile.find("\"schemaVersion\":1");
+    require(schema_position != std::string::npos, "public profile fixture has no schema version");
+    unsupported_public_profile.replace(schema_position, std::string("\"schemaVersion\":1").size(), "\"schemaVersion\":4");
+    write_file(public_profile, unsupported_public_profile, 0644);
+    const auto unsupported_profiles = call("ListProfiles");
+    require(unsupported_profiles.status == 0, "unsupported profile prevented profile listing");
+    require_contains(
+        unsupported_profiles.output,
+        "configuration.unsupported_profile_schema",
+        "unsupported profile did not include recreation guidance code"
+    );
+    write_file(public_profile, current_public_profile, 0644);
     const auto status = call("GetStatus", {"s", "default"});
     require(status.status == 0, "GetStatus failed");
     require_contains(status.output, "state", "current status omits state");

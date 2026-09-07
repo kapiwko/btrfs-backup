@@ -33,8 +33,18 @@ if(DEFINED BASE_REF AND NOT BASE_REF STREQUAL "")
         ERROR_VARIABLE error
     )
     if(NOT result EQUAL 0)
-        message(FATAL_ERROR "Invalid formatting base ${BASE_REF}: ${error}")
+        if(DEFINED ENV{GITHUB_ACTIONS} AND "$ENV{GITHUB_ACTIONS}" STREQUAL "true")
+            message(WARNING
+                "Formatting base ${BASE_REF} is unavailable; checking the current commit instead"
+            )
+            unset(BASE_REF)
+        else()
+            message(FATAL_ERROR "Invalid formatting base ${BASE_REF}: ${error}")
+        endif()
     endif()
+endif()
+
+if(DEFINED BASE_REF AND NOT BASE_REF STREQUAL "")
     execute_process(
         COMMAND "${GIT_EXECUTABLE}" merge-base HEAD "${BASE_REF}"
         WORKING_DIRECTORY "${SOURCE_DIR}"
@@ -44,24 +54,36 @@ if(DEFINED BASE_REF AND NOT BASE_REF STREQUAL "")
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     if(NOT result EQUAL 0)
-        message(FATAL_ERROR "Cannot find merge base for ${BASE_REF}: ${error}")
+        if(DEFINED ENV{GITHUB_ACTIONS} AND "$ENV{GITHUB_ACTIONS}" STREQUAL "true")
+            message(WARNING
+                "Formatting base ${BASE_REF} is outside the current history; checking the current commit instead"
+            )
+            unset(BASE_REF)
+        else()
+            message(FATAL_ERROR "Cannot find merge base for ${BASE_REF}: ${error}")
+        endif()
+    else()
+        set(BASE_REF "${merge_base}")
     endif()
-    set(BASE_REF "${merge_base}")
-elseif(DEFINED ENV{GITHUB_ACTIONS} AND "$ENV{GITHUB_ACTIONS}" STREQUAL "true")
-    execute_process(
-        COMMAND "${GIT_EXECUTABLE}" rev-parse --verify HEAD^
-        WORKING_DIRECTORY "${SOURCE_DIR}"
-        RESULT_VARIABLE parent_result
-        OUTPUT_QUIET
-        ERROR_QUIET
-    )
-    if(parent_result EQUAL 0)
-        set(BASE_REF HEAD^)
+endif()
+
+if(NOT DEFINED BASE_REF OR BASE_REF STREQUAL "")
+    if(DEFINED ENV{GITHUB_ACTIONS} AND "$ENV{GITHUB_ACTIONS}" STREQUAL "true")
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" rev-parse --verify HEAD^
+            WORKING_DIRECTORY "${SOURCE_DIR}"
+            RESULT_VARIABLE parent_result
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(parent_result EQUAL 0)
+            set(BASE_REF HEAD^)
+        else()
+            set(BASE_REF HEAD)
+        endif()
     else()
         set(BASE_REF HEAD)
     endif()
-else()
-    set(BASE_REF HEAD)
 endif()
 
 execute_process(
