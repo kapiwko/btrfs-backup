@@ -90,10 +90,7 @@ void BackupStatusModel::setProfile(const QString& profile) {
     supported_schema_version_ = -1;
     run_.reset();
     target_.reset();
-    if (active_)
-        history_.setProfileId(profile_);
-    else
-        history_.reset();
+    history_.setProfileId({});
     operation_message_timer_.stop();
     last_operation_.clear();
     ++generation_;
@@ -202,7 +199,7 @@ void BackupStatusModel::start() {
     if (active_)
         return;
     active_ = true;
-    history_.setProfileId(profile_);
+    history_.setProfileId({});
     setLastError({});
     if (directory_ == &local_directory_)
         local_directory_.start();
@@ -336,10 +333,11 @@ void BackupStatusModel::syncFromDirectory() {
         supported_schema_version = decoded.value(QStringLiteral("supportedSchemaVersion"), -1).toInt();
         break;
     }
-    if (profile_name_ != profile_name || profile_enabled_ != profile_enabled ||
+    const bool configuration_changed = profile_name_ != profile_name || profile_enabled_ != profile_enabled ||
         configuration_valid_ != configuration_valid || configuration_error_code_ != configuration_error_code ||
         detected_schema_version_ != detected_schema_version ||
-        supported_schema_version_ != supported_schema_version) {
+        supported_schema_version_ != supported_schema_version;
+    if (configuration_changed) {
         profile_name_ = profile_name;
         profile_enabled_ = profile_enabled;
         configuration_valid_ = configuration_valid;
@@ -350,7 +348,9 @@ void BackupStatusModel::syncFromDirectory() {
     }
     run_.setCancelSupported(directory_->supports(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)));
     target_.setStorageSupported(directory_->supports(QLatin1String(btrfsbackup::manager_protocol::feature::target_storage_usage)));
-    if (became_connected) {
+    if (configuration_error_code_ == QStringLiteral("configuration.unsupported-schema"))
+        history_.setProfileId({});
+    if (became_connected || configuration_changed) {
         requestStatus();
         requestDeviceState();
         requestHistory();
@@ -386,6 +386,14 @@ void BackupStatusModel::requestDeviceState() {
 }
 
 void BackupStatusModel::requestHistory() {
+    if (configuration_error_code_ == QStringLiteral("configuration.unsupported-schema")) {
+        history_.setProfileId({});
+        return;
+    }
+    if (history_.profileId() != profile_) {
+        history_.setProfileId(profile_);
+        return;
+    }
     history_.loadFirstPage();
 }
 
