@@ -17,15 +17,20 @@ namespace btrfsbackup::daemon::control {
 
 using Json = config::json::Json;
 
-template <typename Document>
-Document ProfileAdministrationService::parse_request(
+ProfileAdministrationService::ProfileAdministrationService(
+    IManagerAuthorizer& authorizer,
+    IProfileAdministrationBackend& backend
+) : authorizer_(authorizer), backend_(backend) {
+}
+
+Json ProfileAdministrationService::parse_request(
     const std::string& payload,
     const std::set<std::string>& allowed_keys
 ) {
     if (payload.size() > 64U * 1024U)
         throw ValidationError("profile administration request is too large");
     try {
-        Document request = Document::parse(payload);
+        Json request = Json::parse(payload);
         if (!request.is_object())
             throw ValidationError("profile administration request must be an object");
         for (const auto& [key, value] : request.items()) {
@@ -34,16 +39,16 @@ Document ProfileAdministrationService::parse_request(
                 throw ValidationError("unsupported profile administration field: " + key);
         }
         return request;
-    } catch (const typename Document::exception& error) {
+    } catch (const Json::exception& error) {
         throw ValidationError("profile administration request is not valid JSON: " + std::string(error.what()));
     }
 }
 
-template <typename T, typename Document>
-T ProfileAdministrationService::request_value(const Document& request, const char* key) {
+template <typename T>
+T ProfileAdministrationService::request_value(const Json& request, const char* key) {
     try {
         return request.at(key).template get<T>();
-    } catch (const typename Document::exception&) {
+    } catch (const Json::exception&) {
         throw ValidationError(std::string("invalid or missing profile administration field: ") + key);
     }
 }
@@ -77,9 +82,8 @@ std::string ProfileAdministrationService::source_id_candidate(const std::string&
     return result.empty() ? "source" : result;
 }
 
-template <typename Sources>
 std::string ProfileAdministrationService::unique_source_id(
-    const Sources& sources,
+    const Json& sources,
     const std::string& name
 ) {
     std::set<std::string> existing;
@@ -96,20 +100,13 @@ std::string ProfileAdministrationService::unique_source_id(
     throw ValidationError("cannot allocate a unique source identifier");
 }
 
-template <typename Sources>
-typename Sources::iterator ProfileAdministrationService::find_source(
-    Sources& sources,
+Json::iterator ProfileAdministrationService::find_source(
+    Json& sources,
     const std::string& source_id
 ) {
     return std::find_if(sources.begin(), sources.end(), [&](const auto& source) {
         return source.value("id", "") == source_id;
     });
-}
-
-ProfileAdministrationService::ProfileAdministrationService(
-    IManagerAuthorizer& authorizer,
-    IProfileAdministrationBackend& backend
-) : authorizer_(authorizer), backend_(backend) {
 }
 
 void ProfileAdministrationService::require_authorized(
@@ -253,7 +250,7 @@ ProfileDetails ProfileAdministrationService::update_profile_settings(
     const auto current = backend_.find_profile(id);
     require_current(current, expected);
     const EditableProfile& existing = require_existing(current);
-    const Json request = parse_request<Json>(request_payload, {"name", "dailyLimit", "autoEject"});
+    const Json request = parse_request(request_payload, {"name", "dailyLimit", "autoEject"});
     Json document = Json::parse(existing.document);
     document["name"] = request_value<std::string>(request, "name");
     document["settings"]["dailyLimit"] = request_value<bool>(request, "dailyLimit");
@@ -273,7 +270,7 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     const auto current = backend_.find_profile(id);
     require_current(current, expected);
     const EditableProfile& existing = require_existing(current);
-    const Json request = parse_request<Json>(request_payload, {"name", "subvolume", "localRetention", "remoteRetention"});
+    const Json request = parse_request(request_payload, {"name", "subvolume", "localRetention", "remoteRetention"});
     Json document = Json::parse(existing.document);
     Json& sources = document["sources"];
     const std::string name = request_value<std::string>(request, "name");
@@ -306,7 +303,7 @@ ProfileDetails ProfileAdministrationService::update_profile_source(
     const auto current = backend_.find_profile(id);
     require_current(current, expected);
     const EditableProfile& existing = require_existing(current);
-    const Json request = parse_request<Json>(request_payload, {"name", "localRetention", "remoteRetention"});
+    const Json request = parse_request(request_payload, {"name", "localRetention", "remoteRetention"});
     Json document = Json::parse(existing.document);
     Json& sources = document["sources"];
     const auto source = find_source(sources, source_id);

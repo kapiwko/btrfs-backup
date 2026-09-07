@@ -8,6 +8,7 @@
 #include <set>
 #include <vector>
 
+#include <config/json/JsonIo.hpp>
 #include <daemon/control/OperationalControlService.hpp>
 
 namespace btrfsbackup::daemon::control {
@@ -128,21 +129,24 @@ class ProfileAdministrationService {
     [[nodiscard]] ProfileConfigurationHealth configuration_health(const std::string& profile_id) const;
 
   private:
-    template <typename Document>
-    [[nodiscard]] static Document parse_request(
+    [[nodiscard]] static config::json::Json parse_request(
         const std::string& payload,
         const std::set<std::string>& allowed_keys
     );
-    template <typename T, typename Document>
-    [[nodiscard]] static T request_value(const Document& request, const char* key);
+    template <typename T>
+    [[nodiscard]] static T request_value(const config::json::Json& request, const char* key);
     [[nodiscard]] static const EditableProfile& require_existing(
         const std::optional<EditableProfile>& profile
     );
     [[nodiscard]] static std::string source_id_candidate(const std::string& name);
-    template <typename Sources>
-    [[nodiscard]] static std::string unique_source_id(const Sources& sources, const std::string& name);
-    template <typename Sources>
-    [[nodiscard]] static typename Sources::iterator find_source(Sources& sources, const std::string& source_id);
+    [[nodiscard]] static std::string unique_source_id(
+        const config::json::Json& sources,
+        const std::string& name
+    );
+    [[nodiscard]] static config::json::Json::iterator find_source(
+        config::json::Json& sources,
+        const std::string& source_id
+    );
     void require_authorized(const std::string& caller, ManagerAuthorizationAction action);
     static EditableProfile expected_profile(
         const ProfileId& profile_id,
