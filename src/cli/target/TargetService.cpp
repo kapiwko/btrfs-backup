@@ -35,31 +35,144 @@
 
 namespace fs = std::filesystem;
 
+namespace btrfsbackup::cli::target {
 namespace {
 
 #ifndef BTRFSBACKUP_SYSTEMD_CRYPTSETUP
 #error "BTRFSBACKUP_SYSTEMD_CRYPTSETUP must be defined by the build system"
 #endif
 
-std::string lower(std::string value) {
+class TargetServiceOperations final {
+  public:
+    [[nodiscard]] static TargetOperationResult activate_target(
+        const ActivateTargetRequest& request,
+        TargetServiceDependencies& dependencies
+    );
+    [[nodiscard]] static TargetOperationResult activate_target(const ActivateTargetRequest& request);
+    [[nodiscard]] static TargetOperationResult deactivate_target(
+        const DeactivateTargetRequest& request,
+        TargetServiceDependencies& dependencies
+    );
+    [[nodiscard]] static TargetOperationResult deactivate_target(const DeactivateTargetRequest& request);
+    [[nodiscard]] static TargetOperationResult mount_target(
+        const MountTargetRequest& request,
+        TargetServiceDependencies& dependencies
+    );
+    [[nodiscard]] static TargetOperationResult mount_target(const MountTargetRequest& request);
+    [[nodiscard]] static TargetOperationResult eject_target(
+        const EjectTargetRequest& request,
+        TargetServiceDependencies& dependencies
+    );
+    [[nodiscard]] static TargetOperationResult eject_target(const EjectTargetRequest& request);
+
+  private:
+    struct ResolvedDependencies {
+        btrfsbackup::backup::ICommandRunner& commands;
+        btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup;
+        std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
+        fs::path lock_root;
+        fs::path mount_point_trust_root;
+        fs::path mapper_root;
+        fs::path activation_state_root;
+        fs::path keyfile_trust_root;
+        std::string systemd_cryptsetup_command;
+        std::function<fs::path(const fs::path&)> canonical_device;
+        std::function<void(const fs::path&)> unmount_filesystem;
+    };
+
+    [[nodiscard]] static std::string lower(std::string value);
+    [[nodiscard]] static bool rootless_tests_allowed();
+    static void require_root();
+    static void run_checked(
+        btrfsbackup::backup::ICommandRunner& commands,
+        const std::vector<std::string>& argv,
+        const std::string& message
+    );
+    static void run_checked_controlled(
+        btrfsbackup::backup::ICommandRunner& commands,
+        const std::vector<std::string>& argv,
+        const std::string& message,
+        std::chrono::milliseconds timeout
+    );
+    static void run_ignored(
+        btrfsbackup::backup::ICommandRunner& commands,
+        const std::vector<std::string>& argv
+    );
+    static void unmount_expected_target(
+        btrfsbackup::backup::ICommandRunner& commands,
+        const std::function<std::vector<btrfsbackup::backup::MountEntry>()>& read_mounts,
+        const std::function<void(const fs::path&)>& unmount_filesystem,
+        const fs::path& mount_point,
+        const fs::path& mapper,
+        const std::string& mount_unit
+    );
+    static void validate_luks_uuid(
+        btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
+        const btrfsbackup::config::Profile& profile
+    );
+    [[nodiscard]] static bool mapper_identity_matches(
+        btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
+        const btrfsbackup::config::Profile& profile,
+        const std::function<fs::path(const fs::path&)>& canonical_device
+    );
+    [[nodiscard]] static bool mapper_has_mounts(
+        const btrfsbackup::config::Profile& profile,
+        const std::vector<btrfsbackup::backup::MountEntry>& mounts,
+        std::vector<TargetEvent>& events,
+        const fs::path& mapper_root = "/dev/mapper"
+    );
+    [[nodiscard]] static ResolvedDependencies resolve_dependencies(TargetServiceDependencies& dependencies);
+    [[nodiscard]] static TargetServiceDependencies production_dependencies(
+        btrfsbackup::backup::ICommandRunner& commands,
+        btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup
+    );
+    [[nodiscard]] static fs::path activation_marker_path(
+        const ResolvedDependencies& resolved,
+        const btrfsbackup::config::Profile& profile
+    );
+    [[nodiscard]] static btrfsbackup::platform::linux::filesystem::FileLock acquire_activation_lock(
+        const ResolvedDependencies& resolved,
+        const btrfsbackup::config::Profile& profile
+    );
+    [[nodiscard]] static bool activation_is_owned(
+        const ResolvedDependencies& resolved,
+        const btrfsbackup::config::Profile& profile
+    );
+    static void write_activation_marker(
+        const ResolvedDependencies& resolved,
+        const btrfsbackup::config::Profile& profile
+    );
+    static void remove_activation_marker(
+        const ResolvedDependencies& resolved,
+        const btrfsbackup::config::Profile& profile
+    );
+    [[nodiscard]] static std::optional<btrfsbackup::platform::linux::filesystem::FileLock> acquire_target_lock(
+        const btrfsbackup::config::Profile& profile,
+        const fs::path& lock_root,
+        const std::string& operation,
+        std::vector<TargetEvent>& events
+    );
+};
+
+std::string TargetServiceOperations::lower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
         return static_cast<char>(std::tolower(ch));
     });
     return value;
 }
 
-bool rootless_tests_allowed() {
+bool TargetServiceOperations::rootless_tests_allowed() {
     const char* value = std::getenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS");
     return value != nullptr && std::string(value) == "true";
 }
 
-void require_root() {
+void TargetServiceOperations::require_root() {
     if (geteuid() != 0 && !rootless_tests_allowed()) {
         throw btrfsbackup::ValidationError("target operations require root privileges");
     }
 }
 
-void run_checked(
+void TargetServiceOperations::run_checked(
     btrfsbackup::backup::ICommandRunner& commands,
     const std::vector<std::string>& argv,
     const std::string& message
@@ -69,7 +182,7 @@ void run_checked(
     }
 }
 
-void run_checked_controlled(
+void TargetServiceOperations::run_checked_controlled(
     btrfsbackup::backup::ICommandRunner& commands,
     const std::vector<std::string>& argv,
     const std::string& message,
@@ -83,11 +196,14 @@ void run_checked_controlled(
     }
 }
 
-void run_ignored(btrfsbackup::backup::ICommandRunner& commands, const std::vector<std::string>& argv) {
+void TargetServiceOperations::run_ignored(
+    btrfsbackup::backup::ICommandRunner& commands,
+    const std::vector<std::string>& argv
+) {
     (void)commands.run(argv);
 }
 
-void unmount_expected_target(
+void TargetServiceOperations::unmount_expected_target(
     btrfsbackup::backup::ICommandRunner& commands,
     const std::function<std::vector<btrfsbackup::backup::MountEntry>()>& read_mounts,
     const std::function<void(const fs::path&)>& unmount_filesystem,
@@ -127,7 +243,7 @@ void unmount_expected_target(
     }
 }
 
-void validate_luks_uuid(
+void TargetServiceOperations::validate_luks_uuid(
     btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
     const btrfsbackup::config::Profile& profile
 ) {
@@ -137,7 +253,7 @@ void validate_luks_uuid(
     }
 }
 
-bool mapper_identity_matches(
+bool TargetServiceOperations::mapper_identity_matches(
     btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
     const btrfsbackup::config::Profile& profile,
     const std::function<fs::path(const fs::path&)>& canonical_device
@@ -151,11 +267,11 @@ bool mapper_identity_matches(
     return true;
 }
 
-bool mapper_has_mounts(
+bool TargetServiceOperations::mapper_has_mounts(
     const btrfsbackup::config::Profile& profile,
     const std::vector<btrfsbackup::backup::MountEntry>& mounts,
     std::vector<btrfsbackup::cli::target::TargetEvent>& events,
-    const fs::path& mapper_root = "/dev/mapper"
+    const fs::path& mapper_root
 ) {
     fs::path mapper = mapper_root / profile.target.mapper_name.value();
     for (const btrfsbackup::backup::MountEntry& mount : mounts) {
@@ -170,21 +286,9 @@ bool mapper_has_mounts(
     return false;
 }
 
-struct ResolvedDependencies {
-    btrfsbackup::backup::ICommandRunner& commands;
-    btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup;
-    std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
-    fs::path lock_root;
-    fs::path mount_point_trust_root;
-    fs::path mapper_root;
-    fs::path activation_state_root;
-    fs::path keyfile_trust_root;
-    std::string systemd_cryptsetup_command;
-    std::function<fs::path(const fs::path&)> canonical_device;
-    std::function<void(const fs::path&)> unmount_filesystem;
-};
-
-ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServiceDependencies& dependencies) {
+TargetServiceOperations::ResolvedDependencies TargetServiceOperations::resolve_dependencies(
+    TargetServiceDependencies& dependencies
+) {
     return {
         .commands = dependencies.commands,
         .cryptsetup = dependencies.cryptsetup,
@@ -218,7 +322,7 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServic
     };
 }
 
-btrfsbackup::cli::target::TargetServiceDependencies production_dependencies(
+TargetServiceDependencies TargetServiceOperations::production_dependencies(
     btrfsbackup::backup::ICommandRunner& commands,
     btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup
 ) {
@@ -237,11 +341,14 @@ btrfsbackup::cli::target::TargetServiceDependencies production_dependencies(
     };
 }
 
-fs::path activation_marker_path(const ResolvedDependencies& resolved, const btrfsbackup::config::Profile& profile) {
+fs::path TargetServiceOperations::activation_marker_path(
+    const ResolvedDependencies& resolved,
+    const btrfsbackup::config::Profile& profile
+) {
     return resolved.activation_state_root / (std::string(profile.id.value()) + ".json");
 }
 
-btrfsbackup::platform::linux::filesystem::FileLock acquire_activation_lock(
+btrfsbackup::platform::linux::filesystem::FileLock TargetServiceOperations::acquire_activation_lock(
     const ResolvedDependencies& resolved,
     const btrfsbackup::config::Profile& profile
 ) {
@@ -257,7 +364,7 @@ btrfsbackup::platform::linux::filesystem::FileLock acquire_activation_lock(
     return lock;
 }
 
-bool activation_is_owned(
+bool TargetServiceOperations::activation_is_owned(
     const ResolvedDependencies& resolved,
     const btrfsbackup::config::Profile& profile
 ) {
@@ -292,7 +399,7 @@ bool activation_is_owned(
     return true;
 }
 
-void write_activation_marker(
+void TargetServiceOperations::write_activation_marker(
     const ResolvedDependencies& resolved,
     const btrfsbackup::config::Profile& profile
 ) {
@@ -309,7 +416,7 @@ void write_activation_marker(
     );
 }
 
-void remove_activation_marker(
+void TargetServiceOperations::remove_activation_marker(
     const ResolvedDependencies& resolved,
     const btrfsbackup::config::Profile& profile
 ) {
@@ -322,7 +429,7 @@ void remove_activation_marker(
     btrfsbackup::platform::linux::filesystem::fsync_dir(marker_path.parent_path());
 }
 
-std::optional<btrfsbackup::platform::linux::filesystem::FileLock> acquire_target_lock(
+std::optional<btrfsbackup::platform::linux::filesystem::FileLock> TargetServiceOperations::acquire_target_lock(
     const btrfsbackup::config::Profile& profile,
     const fs::path& lock_root,
     const std::string& operation,
@@ -342,13 +449,13 @@ std::optional<btrfsbackup::platform::linux::filesystem::FileLock> acquire_target
 
 } // namespace
 
-namespace btrfsbackup::cli::target {
-
 const std::vector<TargetEvent>& target_operation_events(const TargetOperationResult& result) noexcept {
     return std::visit([](const auto& outcome) -> const std::vector<TargetEvent>& { return outcome.events; }, result);
 }
 
-TargetOperationResult activate_target(
+namespace {
+
+TargetOperationResult TargetServiceOperations::activate_target(
     const ActivateTargetRequest& request,
     TargetServiceDependencies& dependencies
 ) {
@@ -471,7 +578,7 @@ TargetOperationResult activate_target(
     return TargetOperationCompleted{std::move(events)};
 }
 
-TargetOperationResult deactivate_target(
+TargetOperationResult TargetServiceOperations::deactivate_target(
     const DeactivateTargetRequest& request,
     TargetServiceDependencies& dependencies
 ) {
@@ -517,7 +624,7 @@ TargetOperationResult deactivate_target(
     return TargetOperationCompleted{std::move(events)};
 }
 
-TargetOperationResult mount_target(
+TargetOperationResult TargetServiceOperations::mount_target(
     const MountTargetRequest& request,
     TargetServiceDependencies& dependencies
 ) {
@@ -553,7 +660,7 @@ TargetOperationResult mount_target(
     return TargetOperationCompleted{std::move(events)};
 }
 
-TargetOperationResult eject_target(
+TargetOperationResult TargetServiceOperations::eject_target(
     const EjectTargetRequest& request,
     TargetServiceDependencies& dependencies
 ) {
@@ -666,32 +773,78 @@ TargetOperationResult eject_target(
     return TargetOperationCompleted{std::move(events)};
 }
 
-TargetOperationResult activate_target(const ActivateTargetRequest& request) {
+TargetOperationResult TargetServiceOperations::activate_target(const ActivateTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
     TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return activate_target(request, dependencies);
 }
 
-TargetOperationResult deactivate_target(const DeactivateTargetRequest& request) {
+TargetOperationResult TargetServiceOperations::deactivate_target(const DeactivateTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
     TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return deactivate_target(request, dependencies);
 }
 
-TargetOperationResult mount_target(const MountTargetRequest& request) {
+TargetOperationResult TargetServiceOperations::mount_target(const MountTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
     TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return mount_target(request, dependencies);
 }
 
-TargetOperationResult eject_target(const EjectTargetRequest& request) {
+TargetOperationResult TargetServiceOperations::eject_target(const EjectTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
     TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return eject_target(request, dependencies);
+}
+
+} // namespace
+
+TargetOperationResult activate_target(
+    const ActivateTargetRequest& request,
+    TargetServiceDependencies& dependencies
+) {
+    return TargetServiceOperations::activate_target(request, dependencies);
+}
+
+TargetOperationResult activate_target(const ActivateTargetRequest& request) {
+    return TargetServiceOperations::activate_target(request);
+}
+
+TargetOperationResult deactivate_target(
+    const DeactivateTargetRequest& request,
+    TargetServiceDependencies& dependencies
+) {
+    return TargetServiceOperations::deactivate_target(request, dependencies);
+}
+
+TargetOperationResult deactivate_target(const DeactivateTargetRequest& request) {
+    return TargetServiceOperations::deactivate_target(request);
+}
+
+TargetOperationResult mount_target(
+    const MountTargetRequest& request,
+    TargetServiceDependencies& dependencies
+) {
+    return TargetServiceOperations::mount_target(request, dependencies);
+}
+
+TargetOperationResult mount_target(const MountTargetRequest& request) {
+    return TargetServiceOperations::mount_target(request);
+}
+
+TargetOperationResult eject_target(
+    const EjectTargetRequest& request,
+    TargetServiceDependencies& dependencies
+) {
+    return TargetServiceOperations::eject_target(request, dependencies);
+}
+
+TargetOperationResult eject_target(const EjectTargetRequest& request) {
+    return TargetServiceOperations::eject_target(request);
 }
 
 } // namespace btrfsbackup::cli::target
