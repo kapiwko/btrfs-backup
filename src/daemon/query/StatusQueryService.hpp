@@ -24,6 +24,8 @@ class StatusQueryService {
     [[nodiscard]] PublicStatusResponse get_status(const std::string& profile_id) const;
 
   private:
+    static void set_history_state(PublicRunStatus& result, const std::string& state);
+
     std::filesystem::path status_root_;
     std::filesystem::path state_root_;
     const HistoryQueryService& history_;

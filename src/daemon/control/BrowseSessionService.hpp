@@ -10,6 +10,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <core/Identifiers.hpp>
@@ -213,6 +214,52 @@ class BrowseSessionService final {
     );
 
   private:
+    static constexpr std::size_t maximum_browse_page_entries = 512;
+    static constexpr std::size_t maximum_browse_token_size = 32768;
+    static constexpr std::chrono::seconds browse_reopen_delay{2};
+
+    [[nodiscard]] static char hex_digit(unsigned int value);
+    [[nodiscard]] static std::string hex_encode(std::string_view value);
+    [[nodiscard]] static int hex_value(char value);
+    [[nodiscard]] static std::string page_binding(
+        const BrowseSessionId& session_id,
+        const std::string& relative_path
+    );
+    [[nodiscard]] static std::string previous_versions_binding(
+        const BrowseSessionId& session_id,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::string& relative_path
+    );
+    [[nodiscard]] static std::string encode_bound_token(
+        std::string_view binding,
+        std::string_view cursor
+    );
+    [[nodiscard]] static std::string decode_bound_token(
+        std::string_view binding,
+        const std::string& token
+    );
+    [[nodiscard]] static std::string make_continuation_token(
+        const BrowseSessionId& session_id,
+        const std::string& relative_path,
+        const std::string& last_name
+    );
+    [[nodiscard]] static std::string continuation_name(
+        const BrowseSessionId& session_id,
+        const std::string& relative_path,
+        const std::string& token
+    );
+    [[nodiscard]] static std::size_t previous_versions_offset(
+        const BrowseSessionId& session_id,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::string& relative_path,
+        const std::string& token
+    );
+    [[nodiscard]] static BrowseSessionId random_session_id();
+    [[nodiscard]] static std::string random_operation_lease_id();
+    [[nodiscard]] static std::string iso8601(std::chrono::system_clock::time_point value);
+
     struct Session {
         BrowseSessionId id;
         ProfileId profile_id;

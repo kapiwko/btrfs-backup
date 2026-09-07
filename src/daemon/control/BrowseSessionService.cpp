@@ -19,17 +19,12 @@
 #include <daemon/dbus/ManagerErrors.hpp>
 
 namespace btrfsbackup::daemon::control {
-namespace {
 
-constexpr std::size_t maximum_browse_page_entries = 512;
-constexpr std::size_t maximum_browse_token_size = 32768;
-constexpr std::chrono::seconds browse_reopen_delay{2};
-
-char hex_digit(unsigned int value) {
+char BrowseSessionService::hex_digit(unsigned int value) {
     return value < 10 ? static_cast<char>('0' + value) : static_cast<char>('a' + value - 10);
 }
 
-std::string hex_encode(std::string_view value) {
+std::string BrowseSessionService::hex_encode(std::string_view value) {
     std::string result;
     result.reserve(value.size() * 2);
     for (const char character : value) {
@@ -40,7 +35,7 @@ std::string hex_encode(std::string_view value) {
     return result;
 }
 
-int hex_value(char value) {
+int BrowseSessionService::hex_value(char value) {
     if (value >= '0' && value <= '9')
         return value - '0';
     if (value >= 'a' && value <= 'f')
@@ -48,12 +43,15 @@ int hex_value(char value) {
     return -1;
 }
 
-std::string page_binding(const BrowseSessionId& session_id, const std::string& relative_path) {
+std::string BrowseSessionService::page_binding(
+    const BrowseSessionId& session_id,
+    const std::string& relative_path
+) {
     return std::string(session_id.value()) + '\0' +
         std::filesystem::path(relative_path).lexically_normal().generic_string() + '\0';
 }
 
-std::string previous_versions_binding(
+std::string BrowseSessionService::previous_versions_binding(
     const BrowseSessionId& session_id,
     const std::string& profile_id,
     const std::string& source_id,
@@ -66,11 +64,14 @@ std::string previous_versions_binding(
         normalized_path + '\0';
 }
 
-std::string encode_bound_token(std::string_view binding, std::string_view cursor) {
+std::string BrowseSessionService::encode_bound_token(std::string_view binding, std::string_view cursor) {
     return "v1:" + hex_encode(std::string(binding) + std::string(cursor));
 }
 
-std::string decode_bound_token(std::string_view binding, const std::string& token) {
+std::string BrowseSessionService::decode_bound_token(
+    std::string_view binding,
+    const std::string& token
+) {
     if (token.empty())
         return {};
     if (!token.starts_with("v1:") || token.size() > maximum_browse_token_size || (token.size() - 3) % 2 != 0)
@@ -89,7 +90,7 @@ std::string decode_bound_token(std::string_view binding, const std::string& toke
     return decoded.substr(binding.size());
 }
 
-std::string make_continuation_token(
+std::string BrowseSessionService::make_continuation_token(
     const BrowseSessionId& session_id,
     const std::string& relative_path,
     const std::string& last_name
@@ -97,7 +98,7 @@ std::string make_continuation_token(
     return encode_bound_token(page_binding(session_id, relative_path), last_name);
 }
 
-std::string continuation_name(
+std::string BrowseSessionService::continuation_name(
     const BrowseSessionId& session_id,
     const std::string& relative_path,
     const std::string& token
@@ -112,7 +113,7 @@ std::string continuation_name(
     return name;
 }
 
-std::size_t previous_versions_offset(
+std::size_t BrowseSessionService::previous_versions_offset(
     const BrowseSessionId& session_id,
     const std::string& profile_id,
     const std::string& source_id,
@@ -132,7 +133,7 @@ std::size_t previous_versions_offset(
     return result;
 }
 
-BrowseSessionId random_session_id() {
+BrowseSessionId BrowseSessionService::random_session_id() {
     std::array<unsigned char, 16> bytes{};
     std::size_t offset = 0;
     while (offset < bytes.size()) {
@@ -152,13 +153,13 @@ BrowseSessionId random_session_id() {
     return BrowseSessionId{value.str()};
 }
 
-std::string random_operation_lease_id() {
+std::string BrowseSessionService::random_operation_lease_id() {
     std::string value{random_session_id().value()};
     value.replace(0, std::string_view{"browse"}.size(), "lease");
     return value;
 }
 
-std::string iso8601(std::chrono::system_clock::time_point value) {
+std::string BrowseSessionService::iso8601(std::chrono::system_clock::time_point value) {
     const std::time_t seconds = std::chrono::system_clock::to_time_t(value);
     std::tm utc{};
     gmtime_r(&seconds, &utc);
@@ -166,8 +167,6 @@ std::string iso8601(std::chrono::system_clock::time_point value) {
     output << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
     return output.str();
 }
-
-} // namespace
 
 BrowseSessionService::BrowseSessionService(
     IManagerAuthorizer& authorizer,

@@ -102,6 +102,12 @@ class DeviceProvisioningService final {
     void cancel(const std::string& caller, std::uint32_t caller_uid, const std::string& operation_id);
 
   private:
+    [[nodiscard]] static std::string random_candidate_id();
+    [[nodiscard]] static DevicePreparationTarget planned_target(
+        const provisioning::StorageTopology& topology,
+        const provisioning::DevicePreparationPlan& plan
+    );
+
     struct TopologySnapshot {
         provisioning::StorageTopology topology;
         std::string caller;

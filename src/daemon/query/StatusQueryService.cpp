@@ -16,9 +16,9 @@
 
 namespace fs = std::filesystem;
 
-namespace {
+namespace btrfsbackup::daemon::query {
 
-void set_history_state(btrfsbackup::daemon::PublicRunStatus& result, const std::string& state) {
+void StatusQueryService::set_history_state(PublicRunStatus& result, const std::string& state) {
     using btrfsbackup::state::document::PublicRunState;
     if (state == "succeeded")
         result.state = PublicRunState::Succeeded;
@@ -35,10 +35,6 @@ void set_history_state(btrfsbackup::daemon::PublicRunStatus& result, const std::
         result.unknown_state = state;
     }
 }
-
-} // namespace
-
-namespace btrfsbackup::daemon::query {
 
 StatusQueryService::StatusQueryService(
     fs::path status_root,

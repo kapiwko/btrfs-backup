@@ -23,9 +23,8 @@
 #include <daemon/dbus/ManagerErrors.hpp>
 
 namespace btrfsbackup::daemon::control {
-namespace {
 
-std::string random_candidate_id() {
+std::string DeviceProvisioningService::random_candidate_id() {
     std::array<unsigned char, 16> bytes{};
     std::size_t offset = 0;
     while (offset < bytes.size()) {
@@ -45,7 +44,7 @@ std::string random_candidate_id() {
     return value.str();
 }
 
-DevicePreparationTarget planned_target(
+DevicePreparationTarget DeviceProvisioningService::planned_target(
     const provisioning::StorageTopology& topology,
     const provisioning::DevicePreparationPlan& plan
 ) {
@@ -100,8 +99,6 @@ DevicePreparationTarget planned_target(
         );
     return result;
 }
-
-} // namespace
 
 DeviceProvisioningService::DeviceProvisioningService(
     IManagerAuthorizer& authorizer,
