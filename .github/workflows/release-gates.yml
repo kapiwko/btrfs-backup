@@ -2,12 +2,59 @@ name: release gates
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-gates-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  release-context:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Validate signed annotated release tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="$(cat VERSION)"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must use vMAJOR.MINOR.PATCH: ${tag}" >&2
+            exit 1
+          fi
+          if [[ "${tag}" != "v${version}" ]]; then
+            echo "Release tag ${tag} does not match VERSION ${version}" >&2
+            exit 1
+          fi
+          tag_object="$(git rev-parse "refs/tags/${tag}")"
+          if [[ "$(git cat-file -t "${tag_object}")" != "tag" ]]; then
+            echo "Release tag ${tag} is lightweight; a signed annotated tag is required" >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse "refs/tags/${tag}^{}")" != "$(git rev-parse HEAD)" ]]; then
+            echo "Checked-out commit does not match ${tag}" >&2
+            exit 1
+          fi
+          verified="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}" \
+            --jq '.verification.verified')"
+          if [[ "${verified}" != "true" ]]; then
+            echo "GitHub did not verify the signature on ${tag}" >&2
+            exit 1
+          fi
+
   packaging:
+    needs: release-context
     runs-on: ubuntu-24.04
     container: archlinux:base-devel
     timeout-minutes: 30
@@ -52,8 +99,17 @@ jobs:
             --dist-dir build/release-artifacts
       - name: Verify release checksums
         run: cd build/release-artifacts && sha256sum --check SHA256SUMS
+      - name: Preserve verified release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-artifacts-${{ github.sha }}
+          path: build/release-artifacts/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
 
   real-btrfs:
+    needs: release-context
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -86,6 +142,7 @@ jobs:
               --parallel "$(nproc)"
 
   qemu:
+    needs: release-context
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -116,3 +173,67 @@ jobs:
             cmake --build --preset gcc-debug \
               --target qemu-hotplug-integration \
               --parallel "$(nproc)"
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs:
+      - release-context
+      - packaging
+      - real-btrfs
+      - qemu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Download gated release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifacts-${{ github.sha }}
+          path: build/release-artifacts
+      - name: Verify downloaded release artifacts
+        run: cd build/release-artifacts && sha256sum --check SHA256SUMS
+      - name: Attest gated release artifacts
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: build/release-artifacts/*
+      - name: Render release notes
+        run: |
+          version="$(cat VERSION)"
+          notes="build/release-notes-${version}.md"
+          if [[ "${version}" == "1.0.0" ]]; then
+            python3 tools/render_release_notes.py "${version}" > "${notes}"
+          else
+            previous="$(git describe --tags --abbrev=0 \
+              --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^)"
+            python3 tools/render_release_notes.py \
+              "${version}" "${previous}" > "${notes}"
+          fi
+      - name: Create draft GitHub release from gated artifacts
+        run: |
+          gh release create "${GITHUB_REF_NAME}" build/release-artifacts/* \
+            --draft \
+            --notes-file "build/release-notes-$(cat VERSION).md" \
+            --title "btrfs-backup $(cat VERSION)" \
+            --verify-tag
+      - name: Verify published release assets
+        run: |
+          mkdir -p build/published-release-artifacts
+          gh release download "${GITHUB_REF_NAME}" \
+            --dir build/published-release-artifacts
+          find build/release-artifacts -maxdepth 1 -type f -printf '%f\n' \
+            | LC_ALL=C sort > build/expected-release-assets.txt
+          find build/published-release-artifacts -maxdepth 1 -type f -printf '%f\n' \
+            | LC_ALL=C sort > build/published-release-assets.txt
+          diff -u build/expected-release-assets.txt build/published-release-assets.txt
+          cd build/published-release-artifacts
+          sha256sum --check ../release-artifacts/SHA256SUMS
+      - name: Publish verified GitHub release
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false

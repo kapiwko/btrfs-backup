@@ -121,6 +121,14 @@ add_test(
 )
 
 add_test(
+    NAME release-workflow-contract-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/release_workflow_tests.cmake
+)
+
+add_test(
     NAME local-install-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -194,6 +202,7 @@ set_tests_properties(
     command-surface-tests
     release-notes-tests
     release-notes-unit-tests
+    release-workflow-contract-tests
     local-install-tests
     release-builder-source-tests
     release-builder-definition-tests

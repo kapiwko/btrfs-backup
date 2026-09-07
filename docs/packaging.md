@@ -64,8 +64,10 @@ btrfs-backup-1.0.0-nix-packaging.tar.gz
 btrfs-backup-1.0.0-ebuild.tar.gz
 btrfs-backup-1.0.0-pkgbuild.tar.gz
 btrfs-backup-1.0.0-source.zip
+SBOM.spdx.json
 SHA256SUMS
 BUILD-REPORT.txt
+BUILD-REPORT.json
 ```
 
 The `source` target uses the source archive toolchain. Arch package construction

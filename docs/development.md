@@ -105,7 +105,10 @@ The release path stages installation with CMake/CPack, then uses native package
 definitions where a format needs them. Package lifecycle behavior is kept
 declarative and audited as described in
 [Packaging Scriptlets](packaging-scriptlets.md). Follow the complete
-[release checklist](releasing.md) before tagging or publishing.
+[release checklist](releasing.md) before tagging. The tag-triggered workflow
+uploads the checksum-verified package directory and publishes exactly that
+artifact after the real-Btrfs and QEMU gates pass; do not rebuild the files
+between validation and publication.
 
 ## Deliberate Shell Boundaries
 

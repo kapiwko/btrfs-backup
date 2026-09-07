@@ -148,10 +148,13 @@ Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
 images, and root-equivalent control inside the guest, so it should not run from
 `make` or the default local test script.
 
-The manually dispatched `release gates` GitHub Actions workflow runs this QEMU
-scenario, the real-Btrfs suite and a complete package build for the exact
-candidate commit. Keep it manual because both integration jobs receive
-root-equivalent Docker access and create disposable block devices.
+The `release gates` GitHub Actions workflow runs this QEMU scenario, the
+real-Btrfs suite and a complete package build for the exact candidate commit.
+A manual dispatch preserves the checksum-verified package directory as a
+workflow artifact for review. A pushed release tag runs the same gates and,
+after all three jobs pass, publishes those exact preserved files. Both
+integration jobs receive root-equivalent Docker access and create disposable
+block devices.
 
 The current boundary smoke test is an opt-in CMake target. It builds the
 non-installed public D-Bus provisioning client before starting the harness:
@@ -321,6 +324,13 @@ profile generation/fingerprint races, and run mismatch handling.
 ## Release Checks
 
 `tools/release.py --target all` creates the source tarball, builds all supported release targets, and writes SHA-256 reports. It does not repeat the repository test suite by default; use `--static-tests` or `--full-tests` for an explicit combined test-and-package run. Package targets that produce installable archives are also smoke-tested where practical.
+
+The release workflow uploads the complete `build/release-artifacts` directory
+only after `sha256sum --check SHA256SUMS` succeeds. Tag-triggered publication
+downloads that workflow artifact, verifies the checksums again, creates GitHub
+artifact attestations, and checks the downloaded draft release assets before
+making the release public. A local rebuild is never substituted for the gated
+artifact.
 
 The offline release matrix builds the complete artifact set twice in the release
 container and requires identical checksums for a fixed `SOURCE_DATE_EPOCH`:

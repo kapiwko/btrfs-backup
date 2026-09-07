@@ -84,22 +84,31 @@ changelog.
 
 1. Update `VERSION`, `CHANGELOG.md`, supported versions and versioned examples.
 2. Commit the release metadata and run the required quality and test gates.
-3. Build the complete artifact set with `tools/release.py --target all`.
-4. Verify `SHA256SUMS` from inside the artifact directory.
-5. Create and push the annotated version tag.
-6. Render notes from the tagged changelog section.
-7. Create the GitHub Release with `--notes-file`, attaching packages,
-   `SHA256SUMS` and `BUILD-REPORT.txt`.
-8. Read the published body back with `gh release view` and verify every asset.
+3. Create a signed, annotated version tag and push it.
+4. Let the tag-triggered `release gates` workflow build the complete artifact
+   set, verify `SHA256SUMS`, and preserve `release-artifacts-GITHUB_SHA`.
+5. Confirm that the packaging, real-Btrfs and QEMU jobs passed.
+6. Confirm that the publication job attested the preserved files, created a
+   draft release from that artifact, downloaded every release asset, verified
+   its name and checksum, and published the draft.
+7. Read the published body back with `gh release view` and inspect the assets
+   and artifact attestations.
+
+The release workflow is the publication boundary. Do not rebuild packages
+locally after the gates pass: a new build is a different set of bytes. Manual
+workflow dispatches preserve a reviewed artifact for inspection but never
+publish a release. Only a pushed `vMAJOR.MINOR.PATCH` tag starts publication,
+and the job rejects lightweight tags, versions that differ from `VERSION`, and
+signatures that GitHub does not verify.
 
 Example publication commands:
 
 ```bash
-git tag -a vX.Y.Z -m "btrfs-backup X.Y.Z"
+git tag -s -a vX.Y.Z -m "btrfs-backup X.Y.Z"
 git push origin vX.Y.Z
-python3 tools/render_release_notes.py X.Y.Z vPREVIOUS > build/release-notes-X.Y.Z.md
-gh release create vX.Y.Z dist/* \
-    --verify-tag \
-    --title "btrfs-backup X.Y.Z" \
-    --notes-file build/release-notes-X.Y.Z.md
+gh run list --workflow release-gates.yml --limit 1
+gh release view vX.Y.Z
+gh release download vX.Y.Z --pattern btrfs-backup-X.Y.Z.tar.gz
+gh attestation verify btrfs-backup-X.Y.Z.tar.gz \
+    --repo kapiwko/btrfs-backup
 ```
