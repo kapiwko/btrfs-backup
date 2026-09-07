@@ -227,9 +227,30 @@ void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
     const auto expected = backend.inspect_unsupported_profile(ProfileId{"default"});
     test_helpers::expect_true(
         "unsupported schema detected",
-        expected.detected_schema_version == 4 && !expected.fingerprint.empty(),
+        expected.detected_schema_version == 4 && !expected.fingerprint.empty() &&
+            expected.managed_artifact_manifest_fingerprint.has_value(),
         "unsupported profile identity was incomplete"
     );
+
+    const std::string original_manifest = read_file(manifest);
+    const auto saved_manifest = manifest.string() + ".saved";
+    std::filesystem::rename(manifest, saved_manifest);
+    std::filesystem::create_symlink(saved_manifest, manifest);
+    try {
+        static_cast<void>(backend.inspect_unsupported_profile(ProfileId{"default"}));
+        test_helpers::fail("retirement manifest symlink", "symlink manifest was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+    std::filesystem::remove(manifest);
+    std::filesystem::rename(saved_manifest, manifest);
+
+    test_helpers::write_file(manifest, std::string(64U * 1024U + 1U, 'x'));
+    try {
+        static_cast<void>(backend.inspect_unsupported_profile(ProfileId{"default"}));
+        test_helpers::fail("retirement manifest bound", "oversized manifest was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+    test_helpers::write_file(manifest, original_manifest);
 
     test_helpers::write_file(private_profile, R"({"schemaVersion":5})");
     try {
@@ -249,6 +270,24 @@ void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
     );
 
     test_helpers::write_file(private_profile, unsupported);
+    const auto manifest_expected = backend.inspect_unsupported_profile(ProfileId{"default"});
+    test_helpers::write_file(manifest, original_manifest + " ");
+    try {
+        backend.retire_unsupported_profile(manifest_expected);
+        test_helpers::fail("retirement manifest race", "changed manifest was accepted");
+    } catch (const btrfsbackup::CodedValidationError& error) {
+        test_helpers::expect_true(
+            "retirement manifest conflict",
+            error.error_code == btrfsbackup::ErrorCode::ConfigurationChanged,
+            "changed manifest returned the wrong error"
+        );
+    }
+    test_helpers::expect_true(
+        "manifest conflict restored state",
+        std::filesystem::is_regular_file(profile_state / "checkpoint.json"),
+        "manifest conflict did not restore quarantined state"
+    );
+    test_helpers::write_file(manifest, original_manifest);
     backend.retire_unsupported_profile(backend.inspect_unsupported_profile(ProfileId{"default"}));
     for (const auto& artifact : {private_profile, public_profile, udev_rule, systemd_dropin, manifest, mount_unit}) {
         test_helpers::expect_true(

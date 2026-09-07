@@ -5,6 +5,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -53,8 +54,13 @@ void delete_profile(
 void retire_unsupported_profile(
     const ProfileId& profile_id,
     const std::string& expected_fingerprint,
+    const std::optional<std::string>& expected_manifest_fingerprint,
     const ProfileInstallationRoots& roots,
     btrfsbackup::config::IConfigurationActivator& activator
+);
+std::optional<std::string> managed_artifact_manifest_fingerprint(
+    const ProfileId& profile_id,
+    const ProfileInstallationRoots& roots
 );
 btrfsbackup::config::Profile get_profile(const std::filesystem::path& etc_root, const std::string& profile_id);
 btrfsbackup::config::Profile export_profile(

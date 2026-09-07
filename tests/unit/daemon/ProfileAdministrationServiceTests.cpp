@@ -306,6 +306,19 @@ void test_unsupported_retirement_revalidates_after_strong_authorization() {
         "changed unsupported profile was retired"
     );
 
+    backend.unsupported.fingerprint = "legacy-fingerprint";
+    authorizer.during = [&](ManagerAuthorizationAction) {
+        backend.unsupported.managed_artifact_manifest_fingerprint = "changed-manifest";
+    };
+    expect_error("unsupported manifest authorization race", ManagerErrorCode::Conflict, [&] {
+        service.retire_unsupported_profile(":1.14", "legacy");
+    });
+    test_helpers::expect_true(
+        "unsupported manifest race no retirement",
+        backend.unsupported_retirements == 1,
+        "changed retirement manifest was accepted after authorization"
+    );
+
     authorizer.during = {};
     authorizer.allowed = false;
     expect_error("unsupported retirement denied", ManagerErrorCode::NotAuthorized, [&] {

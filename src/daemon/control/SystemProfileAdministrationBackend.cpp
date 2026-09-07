@@ -138,6 +138,11 @@ UnsupportedProfileIdentity SystemProfileAdministrationBackend::inspect_unsupport
             path,
             bytes
         ),
+        .managed_artifact_manifest_fingerprint =
+            platform::linux::config::managed_artifact_manifest_fingerprint(
+                profile_id,
+                {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root}
+            ),
     };
 }
 
@@ -250,6 +255,7 @@ void SystemProfileAdministrationBackend::retire_unsupported_profile(
         platform::linux::config::retire_unsupported_profile(
             id,
             expected.fingerprint,
+            expected.managed_artifact_manifest_fingerprint,
             {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
             activator_
         );

@@ -30,6 +30,13 @@ namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
+constexpr std::size_t maximum_managed_artifact_manifest_size = 64U * 1024U;
+
+struct ManagedArtifactManifest {
+    std::optional<std::string> fingerprint;
+    std::optional<btrfsbackup::config::json::Json> document;
+};
+
 fs::path configuration_lock_path(const fs::path& etc_root, const ProfileId& profile_id) {
     if (fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup")) {
         return filesystem::profile_lock_path(filesystem::default_lock_root(), profile_id);
@@ -60,31 +67,55 @@ void record_rollback_error(
     }
 }
 
-void append_managed_systemd_units(
-    std::vector<btrfsbackup::config::ProfileArtifact>& artifacts,
+ManagedArtifactManifest read_managed_artifact_manifest(
     const btrfsbackup::config::ProfileArtifactRoots& roots,
-    const ProfileId& profile_id,
-    const std::set<std::string>& retained_units
+    const ProfileId& profile_id
 ) {
     const std::string id{profile_id.value()};
     const fs::path manifest_path = roots.etc_root / "profiles" / id / "managed-artifacts.json";
     std::error_code error;
     const fs::file_status status = fs::symlink_status(manifest_path, error);
-    if (error || status.type() == fs::file_type::not_found) {
-        return;
-    }
-    if (fs::is_symlink(status) || !fs::is_regular_file(status)) {
-        throw ValidationError("managed artifact manifest is not a regular file: " + manifest_path.string());
-    }
+    if (error == std::errc::no_such_file_or_directory || status.type() == fs::file_type::not_found)
+        return {};
+    if (error)
+        throw ValidationError("cannot inspect managed artifact manifest: " + manifest_path.string());
 
-    const btrfsbackup::config::json::Json manifest = btrfsbackup::config::json::load_json_file(manifest_path);
+    const filesystem::TrustedFilePolicy policy{
+        .allow_current_user_owner = fs::absolute(roots.etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
+    };
+    const std::string bytes = filesystem::read_trusted_config_file(
+        manifest_path,
+        policy,
+        maximum_managed_artifact_manifest_size
+    );
+    const btrfsbackup::config::json::Json manifest = btrfsbackup::config::json::Json::parse(bytes);
     if (!manifest.is_object() || manifest.size() != 3 || manifest.value("schemaVersion", 0) != 1 ||
         manifest.value("profileId", "") != id || !manifest.contains("mounts") ||
         !manifest.at("mounts").is_array()) {
         throw ValidationError("invalid managed artifact manifest: " + manifest_path.string());
     }
+    return {
+        .fingerprint = btrfsbackup::config::compute_config_fingerprint_from_bytes(
+            btrfsbackup::config::current_configuration_fingerprint_version,
+            manifest_path,
+            bytes
+        ),
+        .document = manifest,
+    };
+}
 
-    for (const btrfsbackup::config::json::Json& value : manifest.at("mounts")) {
+void append_managed_systemd_units(
+    std::vector<btrfsbackup::config::ProfileArtifact>& artifacts,
+    const btrfsbackup::config::ProfileArtifactRoots& roots,
+    const ProfileId& profile_id,
+    const std::set<std::string>& retained_units,
+    const ManagedArtifactManifest& manifest
+) {
+    if (!manifest.document.has_value())
+        return;
+    const std::string id{profile_id.value()};
+
+    for (const btrfsbackup::config::json::Json& value : manifest.document->at("mounts")) {
         if (!value.is_object() || value.size() != 2 || !value.contains("unit") ||
             !value.at("unit").is_string() || !value.contains("mountPoint") ||
             !value.at("mountPoint").is_string()) {
@@ -118,7 +149,13 @@ void append_obsolete_systemd_units(
         if (artifact.kind == btrfsbackup::config::ProfileArtifactKind::NativeTargetMount)
             current_units.insert(artifact.destination.filename().string());
     }
-    append_managed_systemd_units(rendered.artifacts, roots, rendered.profile.id, current_units);
+    append_managed_systemd_units(
+        rendered.artifacts,
+        roots,
+        rendered.profile.id,
+        current_units,
+        read_managed_artifact_manifest(roots, rendered.profile.id)
+    );
 }
 
 void require_expected_profile_identity(
@@ -165,7 +202,8 @@ std::string unsupported_profile_fingerprint(
 
 std::vector<btrfsbackup::config::ProfileArtifact> unsupported_profile_artifacts(
     const btrfsbackup::config::ProfileArtifactRoots& roots,
-    const ProfileId& profile_id
+    const ProfileId& profile_id,
+    const ManagedArtifactManifest& manifest
 ) {
     const std::string id{profile_id.value()};
     const auto removal = [](btrfsbackup::config::ProfileArtifactKind kind, fs::path destination) {
@@ -199,11 +237,18 @@ std::vector<btrfsbackup::config::ProfileArtifact> unsupported_profile_artifacts(
             roots.public_root / (id + ".json")
         ),
     };
-    append_managed_systemd_units(artifacts, roots, profile_id, {});
+    append_managed_systemd_units(artifacts, roots, profile_id, {}, manifest);
     return artifacts;
 }
 
 } // namespace
+
+std::optional<std::string> read_managed_artifact_manifest_fingerprint(
+    const ProfileId& profile_id,
+    const btrfsbackup::config::ProfileArtifactRoots& roots
+) {
+    return read_managed_artifact_manifest(roots, profile_id).fingerprint;
+}
 
 ProfileInstaller::ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer& renderer, btrfsbackup::config::IConfigurationActivator& activator)
     : renderer_(renderer), activator_(activator) {
@@ -333,11 +378,19 @@ void ProfileInstaller::delete_profile_transactionally(
 void ProfileInstaller::retire_unsupported_profile_transactionally(
     const ProfileId& profile_id,
     const std::string& expected_fingerprint,
+    const std::optional<std::string>& expected_manifest_fingerprint,
     const btrfsbackup::config::ProfileArtifactRoots& roots
 ) {
+    const ManagedArtifactManifest manifest = read_managed_artifact_manifest(roots, profile_id);
+    if (manifest.fingerprint != expected_manifest_fingerprint) {
+        throw CodedValidationError(
+            ErrorCode::ConfigurationChanged,
+            "managed artifact manifest changed before retirement"
+        );
+    }
     ProfileConfigurationTransaction transaction(
         generate_configuration_generation(),
-        unsupported_profile_artifacts(roots, profile_id)
+        unsupported_profile_artifacts(roots, profile_id, manifest)
     );
     try {
         transaction.stage();
@@ -352,6 +405,12 @@ void ProfileInstaller::retire_unsupported_profile_transactionally(
             throw CodedValidationError(
                 ErrorCode::ConfigurationChanged,
                 "unsupported profile fingerprint changed before commit"
+            );
+        }
+        if (read_managed_artifact_manifest(roots, profile_id).fingerprint != expected_manifest_fingerprint) {
+            throw CodedValidationError(
+                ErrorCode::ConfigurationChanged,
+                "managed artifact manifest changed before retirement commit"
             );
         }
         bool activation_attempted = false;

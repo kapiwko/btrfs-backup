@@ -23,6 +23,7 @@ struct UnsupportedProfileIdentity {
     std::string profile_id;
     int detected_schema_version = 0;
     std::string fingerprint;
+    std::optional<std::string> managed_artifact_manifest_fingerprint;
 
     bool operator==(const UnsupportedProfileIdentity&) const = default;
 };

@@ -112,10 +112,13 @@ descriptors pinned to authorized entries, and local coverage lookup accepts an
 mutation. It reads only the private document's integer `schemaVersion`, requires
 that it differs from the supported version, fingerprints the pinned raw file,
 uses the non-retained profile-deletion authorization, and repeats the pinned
-read before and during the locked commit. The transaction removes the private
-and public profile documents, the profile-specific udev rule, systemd drop-in,
-the managed-artifact manifest, and mount units named safely by that independent
-manifest. Before committing those removals, it atomically moves the profile's
+read before and during the locked commit. Its managed-artifact manifest is also
+opened without following symlinks, read from the pinned descriptor with a 64
+KiB limit, fingerprinted before authorization, and revalidated under the same
+configuration lock. The transaction removes the private and public profile
+documents, the profile-specific udev rule, systemd drop-in, the manifest, and
+mount units named safely by that independent manifest. Before committing those
+removals, it moves the profile's
 persistent state and history below
 `/var/lib/btrfs-backup/retired/<profile-id>/<fingerprint-and-generation>/` and
 isolates its runtime status below `/run` for deletion after the commit. A failed

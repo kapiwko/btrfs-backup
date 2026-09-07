@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include <config/domain/Profile.hpp>
@@ -37,6 +38,7 @@ class ProfileInstaller {
     void retire_unsupported_profile_transactionally(
         const ProfileId& profile_id,
         const std::string& expected_fingerprint,
+        const std::optional<std::string>& expected_manifest_fingerprint,
         const btrfsbackup::config::ProfileArtifactRoots& roots
     );
 
@@ -44,5 +46,10 @@ class ProfileInstaller {
     btrfsbackup::config::ProfileArtifactRenderer& renderer_;
     btrfsbackup::config::IConfigurationActivator& activator_;
 };
+
+std::optional<std::string> read_managed_artifact_manifest_fingerprint(
+    const ProfileId& profile_id,
+    const btrfsbackup::config::ProfileArtifactRoots& roots
+);
 
 } // namespace btrfsbackup::platform::linux::config
