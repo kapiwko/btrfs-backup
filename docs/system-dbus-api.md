@@ -257,13 +257,14 @@ traverse. KIO preserves this distinction as its native not-found and
 access-denied errors. An authorized
 manual eject closes idle browse sessions for that profile before it acquires the
 target lease. An active browse operation returns `Busy`; other target use also
-blocks eject:
+blocks eject. The installed `io.github.btrfsbackup.eject-target` policy allows
+the active local session to perform this safe operation without a password:
 
 ```xml
 <defaults>
   <allow_any>no</allow_any>
   <allow_inactive>auth_admin</allow_inactive>
-  <allow_active>auth_admin</allow_active>
+  <allow_active>yes</allow_active>
 </defaults>
 ```
 
