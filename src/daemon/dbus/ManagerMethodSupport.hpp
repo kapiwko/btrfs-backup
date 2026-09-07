@@ -33,7 +33,8 @@ class ManagerMethodSupport final {
         const std::string& profile_id,
         const JsonOperation& operation
     );
-    static std::uint32_t caller_uid(sd_bus_message* message);
+    static std::uint32_t caller_real_uid(sd_bus_message* message);
+    static std::uint32_t caller_effective_uid(sd_bus_message* message);
     static control::BrowseAccessIdentity caller_access_identity(sd_bus_message* message);
     static std::string caller_bus_name(sd_bus_message* message);
     static void emit_device_state_changed(sd_bus_message* message, const std::string& profile_id) noexcept;

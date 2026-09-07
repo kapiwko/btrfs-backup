@@ -157,6 +157,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
 )
 
 add_library(btrfsbackup-daemon-dbus STATIC
+    dbus/CallerCredentials.cpp
     dbus/ManagerBrowseMethods.cpp
     dbus/ManagerChangeMonitor.cpp
     dbus/ManagerCredentialMethods.cpp
@@ -179,6 +180,7 @@ target_restricted_include_directories(btrfsbackup-daemon-dbus
         daemon/dbus/ManagerErrorMapper.hpp
         daemon/dbus/ManagerJsonCodec.hpp
     PRIVATE_HEADERS
+        daemon/dbus/CallerCredentials.hpp
         daemon/dbus/ManagerChangeMonitor.hpp
         daemon/dbus/ManagerBrowseMethods.hpp
         daemon/dbus/ManagerCredentialMethods.hpp

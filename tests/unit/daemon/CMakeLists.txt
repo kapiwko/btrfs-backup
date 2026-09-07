@@ -55,6 +55,18 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-caller-credentials-tests
+    CallerCredentialsTests.cpp
+    caller-credentials-tests
+    btrfsbackup-daemon-dbus
+    PkgConfig::SYSTEMD
+)
+target_include_directories(
+    btrfsbackup-caller-credentials-tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+add_btrfsbackup_test(
     btrfsbackup-operational-control-service-tests
     OperationalControlServiceTests.cpp
     operational-control-service-tests

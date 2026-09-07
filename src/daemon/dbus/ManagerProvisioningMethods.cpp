@@ -149,7 +149,7 @@ int ManagerProvisioningMethods::start_device_preparation(sd_bus_message* message
                 [&] {
                     return support_.codec().encode(device_provisioning_.start(
                         ManagerMethodSupport::caller_bus_name(message),
-                        ManagerMethodSupport::caller_uid(message),
+                        ManagerMethodSupport::caller_effective_uid(message),
                         parsed,
                         passphrase_fd
                     ));
@@ -171,7 +171,7 @@ int ManagerProvisioningMethods::get_device_preparation(sd_bus_message* message, 
             return support_.reply_operational_json(message, error, "get-device-preparation", "", [&] {
                 return support_.codec().encode(device_provisioning_.status(
                     ManagerMethodSupport::caller_bus_name(message),
-                    ManagerMethodSupport::caller_uid(message),
+                    ManagerMethodSupport::caller_effective_uid(message),
                     operation
                 ));
             });
@@ -191,7 +191,7 @@ int ManagerProvisioningMethods::cancel_device_preparation(sd_bus_message* messag
             return support_.reply_operational_json(message, error, "cancel-device-preparation", "", [&] {
                 device_provisioning_.cancel(
                     ManagerMethodSupport::caller_bus_name(message),
-                    ManagerMethodSupport::caller_uid(message),
+                    ManagerMethodSupport::caller_effective_uid(message),
                     operation
                 );
                 return config::json::dump_json({
