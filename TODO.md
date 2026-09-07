@@ -34,11 +34,10 @@ The following are evidence, not active tasks:
 
 ### Required Before 1.0
 
-Push the final candidate and require the compiler, sanitizer, fuzz, static
-analysis, CodeQL, D-Bus, KDE and systemd-security checks. Then run the manual
-release gates for packaging, reproducibility, QEMU and real Btrfs against that
-same commit. Record the resulting commit and workflow links in the release
-notes.
+Push the final candidate. The release workflow requires the compiler,
+sanitizer, fuzz, static analysis, CodeQL, D-Bus, KDE and systemd-security checks
+for that exact commit before packaging, QEMU and real Btrfs gates can run.
+Record the resulting commit and workflow links in the release notes.
 
 ### Accepted Non-Blocking 1.0 Residual Risk
 

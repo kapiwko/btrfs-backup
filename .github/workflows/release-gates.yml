@@ -53,8 +53,79 @@ jobs:
             exit 1
           fi
 
-  packaging:
+  required-ci:
     needs: release-context
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      checks: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require successful commit checks
+        run: |
+          required_checks=(
+            "clang-format"
+            "clang-tidy"
+            "GCC tests"
+            "Clang tests"
+            "GCC (manager disabled) tests"
+            "Clang (manager disabled) tests"
+            "architecture-tests"
+            "kde-dbus-contract"
+            "sanitizers"
+            "fuzz-smoke"
+            "strict-warnings"
+            "Analyze C++"
+            "analyze-service"
+          )
+          deadline=$((SECONDS + 2400))
+          while (( SECONDS < deadline )); do
+            checks="$(gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
+              -f filter=latest \
+              -f per_page=100)"
+            waiting=()
+            failed=()
+            for required_check in "${required_checks[@]}"; do
+              read -r status conclusion <<< "$(
+                jq -r --arg name "${required_check}" '
+                  [.check_runs[] | select(.name == $name)]
+                  | max_by(.id)
+                  | if . == null then
+                      "missing missing"
+                    else
+                      "\(.status) \(.conclusion // "pending")"
+                    end
+                ' <<< "${checks}"
+              )"
+              if [[ "${status}" == "completed" && "${conclusion}" == "success" ]]; then
+                continue
+              fi
+              if [[ "${status}" == "completed" ]]; then
+                failed+=("${required_check}: ${conclusion}")
+              else
+                waiting+=("${required_check}: ${status}")
+              fi
+            done
+            if (( ${#failed[@]} )); then
+              printf 'Required commit checks failed for %s:\n' "${GITHUB_SHA}" >&2
+              printf '  %s\n' "${failed[@]}" >&2
+              exit 1
+            fi
+            if (( ! ${#waiting[@]} )); then
+              echo "All required commit checks succeeded for ${GITHUB_SHA}"
+              exit 0
+            fi
+            printf 'Waiting for required commit checks on %s:\n' "${GITHUB_SHA}"
+            printf '  %s\n' "${waiting[@]}"
+            sleep 30
+          done
+          echo "Timed out waiting for required commit checks on ${GITHUB_SHA}" >&2
+          exit 1
+
+  packaging:
+    needs: required-ci
     runs-on: ubuntu-24.04
     container: archlinux:base-devel
     timeout-minutes: 30
