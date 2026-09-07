@@ -15,23 +15,21 @@
 
 namespace btrfsbackup::backup {
 
-namespace {
-
-ErrorCode failure_code(const std::exception& error) {
+ErrorCode BackupService::failure_code(const std::exception& error) {
     if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
         return coded_error->error_code;
     }
     return ErrorCode::BackupFailed;
 }
 
-BackupExecutionFailed emit_run_failed(
+BackupExecutionFailed BackupService::emit_run_failed(
     IBackupRunEventSink& events,
     const ProfileId& profile_id,
     const RunId& run_id,
     ErrorCode error_code,
     const std::string& message,
-    std::size_t actions_completed = 0,
-    OperationKind operation_kind = OperationKind::Backup
+    std::size_t actions_completed,
+    OperationKind operation_kind
 ) {
     events.on_backup_run_event(RunFailed{
         .profile_id = profile_id,
@@ -49,7 +47,7 @@ BackupExecutionFailed emit_run_failed(
     };
 }
 
-std::optional<BackupExecutionFailed> close_target_or_fail(
+std::optional<BackupExecutionFailed> BackupService::close_target_or_fail(
     execution::RunExecutionContext& context,
     IBackupRunEventSink& events,
     const ProfileId& profile_id,
@@ -72,13 +70,13 @@ std::optional<BackupExecutionFailed> close_target_or_fail(
     );
 }
 
-void close_standalone_target_or_throw(IMountedTargetSession& target_session) {
+void BackupService::close_standalone_target_or_throw(IMountedTargetSession& target_session) {
     if (std::optional<TargetCleanupError> cleanup_error = target_session.close()) {
         throw CodedOperationError(ErrorCode::BackupFailed, cleanup_error->message);
     }
 }
 
-[[noreturn]] void rethrow_planning_failure_after_target_cleanup(
+[[noreturn]] void BackupService::rethrow_planning_failure_after_target_cleanup(
     IMountedTargetSession& target_session,
     const std::exception_ptr& original_error
 ) {
@@ -103,8 +101,6 @@ void close_standalone_target_or_throw(IMountedTargetSession& target_session) {
         throw;
     }
 }
-
-} // namespace
 
 BackupService::BackupService(
     btrfsbackup::config::IProfileRepository& profiles,

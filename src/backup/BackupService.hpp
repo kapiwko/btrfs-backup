@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <exception>
 #include <memory>
 #include <optional>
 #include <string>
@@ -51,6 +52,29 @@ class BackupService {
   private:
     using RunLeaseResult = std::variant<std::unique_ptr<IBackupRunLease>, BackupExecutionBusy>;
 
+    [[nodiscard]] static ErrorCode failure_code(const std::exception& error);
+    [[nodiscard]] static BackupExecutionFailed emit_run_failed(
+        IBackupRunEventSink& events,
+        const ProfileId& profile_id,
+        const RunId& run_id,
+        ErrorCode error_code,
+        const std::string& message,
+        std::size_t actions_completed = 0,
+        OperationKind operation_kind = OperationKind::Backup
+    );
+    [[nodiscard]] static std::optional<BackupExecutionFailed> close_target_or_fail(
+        execution::RunExecutionContext& context,
+        IBackupRunEventSink& events,
+        const ProfileId& profile_id,
+        const RunId& run_id,
+        std::size_t actions_completed,
+        OperationKind operation_kind
+    );
+    static void close_standalone_target_or_throw(IMountedTargetSession& target_session);
+    [[noreturn]] static void rethrow_planning_failure_after_target_cleanup(
+        IMountedTargetSession& target_session,
+        const std::exception_ptr& original_error
+    );
     [[nodiscard]] BackupExecutionResult start_loaded_profile(
         const BackupRequest& request,
         const execution::RunIdentity& identity,
