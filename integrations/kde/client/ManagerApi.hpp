@@ -49,6 +49,8 @@ struct ProfileSummary {
     QList<ProfileSourceSummary> sources;
     bool configuration_valid = true;
     QString configuration_error_code;
+    int detected_schema_version = -1;
+    int supported_schema_version = -1;
 };
 
 struct RunStatus {

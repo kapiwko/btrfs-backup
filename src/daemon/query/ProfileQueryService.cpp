@@ -11,6 +11,7 @@
 
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
+#include <core/ManagerProtocol.hpp>
 #include <daemon/query/ManagerDocumentReader.hpp>
 
 namespace fs = std::filesystem;
@@ -49,7 +50,8 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
             throw ValidationError("public profile is not an object: " + file.string());
         const std::string profile_id = profile.value("profileId", "");
         validate_profile_id(profile_id);
-        if (profile.value("schemaVersion", 0) != 1) {
+        const int detected_schema_version = profile.value("schemaVersion", 0);
+        if (detected_schema_version != manager_protocol::profile_schema_version) {
             result.push_back(ProfileSummary{
                 .profile_id = profile_id,
                 .name = profile.value("name", profile_id),
@@ -57,7 +59,9 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
                 .target_name = {},
                 .sources = {},
                 .configuration_valid = false,
-                .configuration_error_code = "configuration.unsupported_profile_schema",
+                .configuration_error_code = "configuration.unsupported-schema",
+                .detected_schema_version = detected_schema_version,
+                .supported_schema_version = manager_protocol::profile_schema_version,
             });
             continue;
         }

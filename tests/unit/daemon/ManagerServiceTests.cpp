@@ -180,7 +180,17 @@ void test_unsupported_public_profile_is_reported_for_recreation() {
     test_helpers::expect_eq(
         "unsupported profile code",
         profiles.at(0).configuration_error_code,
-        "configuration.unsupported_profile_schema"
+        "configuration.unsupported-schema"
+    );
+    test_helpers::expect_true(
+        "detected profile schema",
+        profiles.at(0).detected_schema_version == 4,
+        "detected profile schema was not reported"
+    );
+    test_helpers::expect_true(
+        "supported profile schema",
+        profiles.at(0).supported_schema_version == 1,
+        "supported profile schema was not reported"
     );
     fs::remove_all(root);
 }

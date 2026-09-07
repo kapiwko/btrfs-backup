@@ -12,6 +12,8 @@ import org.btrfsbackup.kde as BtrfsBackup
 
 ColumnLayout {
     id: root
+    readonly property bool unsupportedSchema: root.profileStatus.configurationErrorCode
+        === "configuration.unsupported-schema"
 
     required property var editor
     required property var profileStatus
@@ -27,16 +29,20 @@ ColumnLayout {
     Kirigami.InlineMessage {
         Layout.fillWidth: true
         visible: root.editor !== null && root.editor.errorMessage.length > 0
+            && !root.unsupportedSchema
         type: root.authorizationError ? Kirigami.MessageType.Warning : Kirigami.MessageType.Error
         text: root.errorText()
     }
 
     Kirigami.InlineMessage {
         Layout.fillWidth: true
-        visible: root.editor !== null && root.editor.loaded && !root.editor.configurationValid
+        visible: root.unsupportedSchema
         type: Kirigami.MessageType.Error
-        text: BtrfsBackup.ProfilePresentation.configurationErrorText(
-            translations, root.editor?.configurationErrorCode ?? "")
+        text: BtrfsBackup.ProfilePresentation.configurationErrorDetails(
+            translations,
+            root.profileStatus.configurationErrorCode,
+            root.profileStatus.detectedSchemaVersion ?? -1,
+            root.profileStatus.supportedSchemaVersion ?? -1)
     }
 
     Timer {

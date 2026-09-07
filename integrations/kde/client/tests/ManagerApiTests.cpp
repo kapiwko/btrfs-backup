@@ -137,6 +137,16 @@ void test_profile_configuration_health_is_decoded() {
         profiles.has_value() && profiles->front().configuration_error_code == QStringLiteral("configuration.source_missing"),
         "configuration health code was ignored"
     );
+    const auto unsupported = btrfsbackup::kde::parse_profiles(QStringLiteral(R"([{
+        "schemaVersion":1,"profileId":"old","sources":[],"configurationValid":false,
+        "configurationErrorCode":"configuration.unsupported-schema",
+        "detectedSchemaVersion":4,"supportedSchemaVersion":1
+    }])"));
+    expect(
+        unsupported && unsupported->front().detected_schema_version == 4 &&
+            unsupported->front().supported_schema_version == 1,
+        "unsupported profile schema versions were not decoded"
+    );
     expect(
         !btrfsbackup::kde::parse_profiles(QStringLiteral(R"([{
             "schemaVersion":2,"profileId":"default","sources":[]

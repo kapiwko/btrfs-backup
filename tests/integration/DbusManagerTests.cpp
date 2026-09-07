@@ -436,9 +436,11 @@ void Fixture::verify_read_api() {
     require(unsupported_profiles.status == 0, "unsupported profile prevented profile listing");
     require_contains(
         unsupported_profiles.output,
-        "configuration.unsupported_profile_schema",
+        "configuration.unsupported-schema",
         "unsupported profile did not include recreation guidance code"
     );
+    require_contains(unsupported_profiles.output, "\\\"detectedSchemaVersion\\\": 4", "detected schema was omitted");
+    require_contains(unsupported_profiles.output, "\\\"supportedSchemaVersion\\\": 1", "supported schema was omitted");
     write_file(public_profile, current_public_profile, 0644);
     const auto status = call("GetStatus", {"s", "default"});
     require(status.status == 0, "GetStatus failed");

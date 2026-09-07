@@ -56,6 +56,18 @@ void test_profiles() {
     expect_field("profile", document.at(0), "configurationErrorCode", "configuration.source_missing");
     expect_field("profile source", document.at(0).at("sources").at(0), "name", "Home");
     test_helpers::expect_true("profile privacy", !document.at(0).contains("device"), "private device field was encoded");
+
+    const Json unsupported = Json::parse(codec.encode({btrfsbackup::daemon::ProfileSummary{
+        .profile_id = "old",
+        .name = "Old backup",
+        .enabled = false,
+        .configuration_valid = false,
+        .configuration_error_code = "configuration.unsupported-schema",
+        .detected_schema_version = 4,
+        .supported_schema_version = 1,
+    }}));
+    expect_field("unsupported profile", unsupported.at(0), "detectedSchemaVersion", 4);
+    expect_field("unsupported profile", unsupported.at(0), "supportedSchemaVersion", 1);
 }
 
 void test_status_history_and_device() {

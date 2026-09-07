@@ -237,8 +237,15 @@ void validate_root(const Json& raw) {
         throw ValidationError("schemaVersion must be an integer");
     }
     const int input_schema_version = raw.at("schemaVersion").get<int>();
-    if (input_schema_version != current_profile_schema_version)
-        throw ValidationError("schemaVersion must be 1");
+    if (input_schema_version != current_profile_schema_version) {
+        throw ValidationError(
+            "configuration.unsupported-schema: profile was created by an unsupported development version; "
+            "btrfs-backup 1.0 does not migrate earlier configurations; create a new profile and adopt the "
+            "existing backup device only if repository validation succeeds; detectedSchemaVersion=" +
+            std::to_string(input_schema_version) + "; supportedSchemaVersion=" +
+            std::to_string(current_profile_schema_version)
+        );
+    }
 }
 
 Json normalize_profile_header(const Json& raw) {

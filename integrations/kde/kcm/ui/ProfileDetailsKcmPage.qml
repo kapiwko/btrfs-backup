@@ -187,7 +187,8 @@ KCMUtils.SimpleKCM {
     Component.onCompleted: {
         if (root.historyModel !== null)
             root.historyModel.profileId = root.profileId;
-        root.editor.loadDetails(root.profileId);
+        if (root.profileStatus.configurationErrorCode !== "configuration.unsupported-schema")
+            root.editor.loadDetails(root.profileId);
     }
 
     function openProfileSettings() {

@@ -86,6 +86,8 @@ void BackupStatusModel::setProfile(const QString& profile) {
     profile_enabled_ = true;
     configuration_valid_ = true;
     configuration_error_code_.clear();
+    detected_schema_version_ = -1;
+    supported_schema_version_ = -1;
     run_.reset();
     target_.reset();
     if (active_)
@@ -129,6 +131,12 @@ bool BackupStatusModel::configurationValid() const {
 }
 QString BackupStatusModel::configurationErrorCode() const {
     return configuration_error_code_;
+}
+int BackupStatusModel::detectedSchemaVersion() const {
+    return detected_schema_version_;
+}
+int BackupStatusModel::supportedSchemaVersion() const {
+    return supported_schema_version_;
 }
 RunStatusModel* BackupStatusModel::run() {
     return &run_;
@@ -312,6 +320,8 @@ void BackupStatusModel::syncFromDirectory() {
     bool profile_enabled = true;
     bool configuration_valid = true;
     QString configuration_error_code;
+    int detected_schema_version = -1;
+    int supported_schema_version = -1;
     for (const QVariant& value : directory_->profiles()) {
         const QVariantMap decoded = value.toMap();
         if (decoded.value(QStringLiteral("profileId")).toString() != profile_)
@@ -320,13 +330,20 @@ void BackupStatusModel::syncFromDirectory() {
         profile_enabled = decoded.value(QStringLiteral("enabled")).toBool();
         configuration_valid = decoded.value(QStringLiteral("configurationValid"), true).toBool();
         configuration_error_code = decoded.value(QStringLiteral("configurationErrorCode")).toString();
+        detected_schema_version = decoded.value(QStringLiteral("detectedSchemaVersion"), -1).toInt();
+        supported_schema_version = decoded.value(QStringLiteral("supportedSchemaVersion"), -1).toInt();
         break;
     }
-    if (profile_name_ != profile_name || profile_enabled_ != profile_enabled || configuration_valid_ != configuration_valid || configuration_error_code_ != configuration_error_code) {
+    if (profile_name_ != profile_name || profile_enabled_ != profile_enabled ||
+        configuration_valid_ != configuration_valid || configuration_error_code_ != configuration_error_code ||
+        detected_schema_version_ != detected_schema_version ||
+        supported_schema_version_ != supported_schema_version) {
         profile_name_ = profile_name;
         profile_enabled_ = profile_enabled;
         configuration_valid_ = configuration_valid;
         configuration_error_code_ = configuration_error_code;
+        detected_schema_version_ = detected_schema_version;
+        supported_schema_version_ = supported_schema_version;
         emit statusChanged();
     }
     run_.setCancelSupported(directory_->supports(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)));
@@ -339,7 +356,8 @@ void BackupStatusModel::syncFromDirectory() {
 }
 
 void BackupStatusModel::requestDeviceState() {
-    if (directory_ == nullptr || !directory_->supports(QLatin1String(btrfsbackup::manager_protocol::feature::device_state)))
+    if (configuration_error_code_ == QStringLiteral("configuration.unsupported-schema") || directory_ == nullptr ||
+        !directory_->supports(QLatin1String(btrfsbackup::manager_protocol::feature::device_state)))
         return;
     if (device_request_pending_) {
         device_refresh_queued_ = true;
@@ -370,6 +388,8 @@ void BackupStatusModel::requestHistory() {
 }
 
 void BackupStatusModel::requestStatus() {
+    if (configuration_error_code_ == QStringLiteral("configuration.unsupported-schema"))
+        return;
     if (status_request_pending_) {
         status_refresh_queued_ = true;
         return;

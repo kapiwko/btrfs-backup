@@ -12,7 +12,11 @@ TestCase {
     QtObject {
         id: translations
 
-        function i18n(message) { return message }
+        function i18n(message, first, second, third) {
+            return message.replace("%1", first ?? "%1")
+                          .replace("%2", second ?? "%2")
+                          .replace("%3", third ?? "%3")
+        }
         function i18np(singular, plural, count) { return count === 1 ? singular : plural }
     }
 
@@ -115,7 +119,13 @@ TestCase {
             translations, "configuration.source_missing"),
             "A configured source subvolume does not exist.")
         compare(BtrfsBackup.ProfilePresentation.configurationErrorText(
-            translations, "configuration.unsupported_profile_schema"),
+            translations, "configuration.unsupported-schema"),
             "This profile was created by an unsupported development version. Create a new profile for version 1.0.")
+        compare(BtrfsBackup.ProfilePresentation.configurationErrorDetails(
+            translations, "configuration.unsupported-schema", 4, 1),
+            "This profile was created by an unsupported development version.\n\n"
+            + "btrfs-backup 1.0 does not migrate earlier configurations. Create a new profile. "
+            + "You can then adopt the existing backup device as a compatible repository if it passes validation.\n\n"
+            + "Code: configuration.unsupported-schema\nDetected version: 4\nSupported version: 1")
     }
 }

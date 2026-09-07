@@ -95,9 +95,13 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
             .sources = {},
             .configuration_valid = object.value(QStringLiteral("configurationValid")).toBool(true),
             .configuration_error_code = object.value(QStringLiteral("configurationErrorCode")).toString(),
+            .detected_schema_version = object.value(QStringLiteral("detectedSchemaVersion")).toInt(-1),
+            .supported_schema_version = object.value(QStringLiteral("supportedSchemaVersion")).toInt(-1),
         };
         const QJsonValue sources = object.value(QStringLiteral("sources"));
-        if (profile.id.isEmpty() || !sources.isArray()) {
+        if (profile.id.isEmpty() || !sources.isArray() ||
+            (profile.configuration_error_code == QStringLiteral("configuration.unsupported-schema") &&
+             (profile.detected_schema_version < 0 || profile.supported_schema_version < 0))) {
             return std::nullopt;
         }
         for (const QJsonValue& source_value : sources.toArray()) {

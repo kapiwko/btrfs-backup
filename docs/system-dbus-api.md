@@ -42,7 +42,7 @@ diagnostics and partial-installation checks.
 | Method | Input signature | Output signature | Result |
 |---|---|---|---|
 | `GetCapabilities` | `()` | `(s)` | API/schema versions, features and `readOnly: false` |
-| `ListProfiles` | `()` | `(s)` | sanitized public profile array |
+| `ListProfiles` | `()` | `(s)` | sanitized public profile array; unsupported profiles include `configuration.unsupported-schema`, `detectedSchemaVersion`, and `supportedSchemaVersion` |
 | `GetStatus` | `(s profileId)` | `(s)` | public status schema 1, including operation kind, run state, source position, timing and backup freshness timestamps |
 | `GetHistorySanitized` | `(s profileId, u offset, u limit)` | `(s)` | sanitized history array |
 | `GetDeviceState` | `(s profileId)` | `(s)` | labels, lifecycle booleans and optional filesystem usage without storage identifiers |

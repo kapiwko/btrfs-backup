@@ -285,7 +285,7 @@ void test_profile_rejects_unsupported_schema_versions() {
         expect_validation_error(
             "unsupported profile schema",
             [&] { (void)btrfsbackup::config::json::normalize_profile(old); },
-            "schemaVersion must be 1"
+            "configuration.unsupported-schema"
         );
     }
 }
@@ -306,7 +306,7 @@ void test_installed_legacy_profile_is_rejected_without_modification() {
     expect_validation_error(
         "installed legacy profile",
         [&] { (void)repository.get(btrfsbackup::ProfileId{"default"}); },
-        "schemaVersion must be 1"
+        "configuration.unsupported-schema"
     );
     expect_true(
         "installed legacy profile preserved",

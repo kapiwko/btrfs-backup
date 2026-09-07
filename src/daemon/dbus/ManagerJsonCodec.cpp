@@ -131,7 +131,7 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
         config::json::Json sources = config::json::Json::array();
         for (const auto& source : profile.sources)
             sources.push_back({{"id", source.id}, {"name", source.name}});
-        result.push_back({
+        config::json::Json document{
             {"schemaVersion", manager_protocol::profile_summary_schema_version},
             {"profileId", profile.profile_id},
             {"name", profile.name},
@@ -140,7 +140,12 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
             {"sources", std::move(sources)},
             {"configurationValid", profile.configuration_valid},
             {"configurationErrorCode", profile.configuration_error_code},
-        });
+        };
+        if (profile.detected_schema_version.has_value())
+            document["detectedSchemaVersion"] = *profile.detected_schema_version;
+        if (profile.supported_schema_version.has_value())
+            document["supportedSchemaVersion"] = *profile.supported_schema_version;
+        result.push_back(std::move(document));
     }
     return config::json::dump_json(result);
 }

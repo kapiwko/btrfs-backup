@@ -79,7 +79,7 @@ void RealPackageTest::install_and_verify() const {
     const auto validation = command(
         {"/usr/bin/btrfs-backupctl", "profile", "validate", "--file", existing_profile.string()}
     );
-    if (validation.status == 0 || !command_diagnostic(validation).contains("schemaVersion must be 1"))
+    if (validation.status == 0 || !command_diagnostic(validation).contains("configuration.unsupported-schema"))
         throw std::runtime_error("installed CLI did not reject the preserved pre-1.0 profile");
     fs::remove_all(existing_profile.parent_path());
     if (command({"pacman", "-Q", "btrfs-backup-kde"}).status == 0)

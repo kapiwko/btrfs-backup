@@ -26,6 +26,8 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(bool profileEnabled READ profileEnabled NOTIFY statusChanged)
     Q_PROPERTY(bool configurationValid READ configurationValid NOTIFY statusChanged)
     Q_PROPERTY(QString configurationErrorCode READ configurationErrorCode NOTIFY statusChanged)
+    Q_PROPERTY(int detectedSchemaVersion READ detectedSchemaVersion NOTIFY statusChanged)
+    Q_PROPERTY(int supportedSchemaVersion READ supportedSchemaVersion NOTIFY statusChanged)
     Q_PROPERTY(bool managerConnected READ managerConnected NOTIFY managerConnectedChanged)
     Q_PROPERTY(RunStatusModel* run READ run CONSTANT)
     Q_PROPERTY(TargetStatusModel* target READ target CONSTANT)
@@ -48,6 +50,8 @@ class BackupStatusModel : public QObject {
     bool profileEnabled() const;
     bool configurationValid() const;
     QString configurationErrorCode() const;
+    int detectedSchemaVersion() const;
+    int supportedSchemaVersion() const;
     RunStatusModel* run();
     TargetStatusModel* target();
     BackupHistoryModel* history();
@@ -115,6 +119,8 @@ class BackupStatusModel : public QObject {
     bool profile_enabled_ = true;
     bool configuration_valid_ = true;
     QString configuration_error_code_;
+    int detected_schema_version_ = -1;
+    int supported_schema_version_ = -1;
     QString last_operation_;
     QString last_error_;
     QString last_error_code_;

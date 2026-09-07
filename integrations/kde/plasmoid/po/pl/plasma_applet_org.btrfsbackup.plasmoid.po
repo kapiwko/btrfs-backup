@@ -99,6 +99,9 @@ msgstr "Brak aktywnej kopii"
 msgid "This profile was created by an unsupported development version. Create a new profile for version 1.0."
 msgstr "Ten profil utworzono w nieobsługiwanej wersji rozwojowej. Utwórz nowy profil dla wersji 1.0."
 
+msgid "This profile was created by an unsupported development version.\n\nbtrfs-backup 1.0 does not migrate earlier configurations. Create a new profile. You can then adopt the existing backup device as a compatible repository if it passes validation.\n\nCode: %1\nDetected version: %2\nSupported version: %3"
+msgstr "Ten profil pochodzi z nieobsługiwanej wersji rozwojowej.\n\nbtrfs-backup 1.0 nie migruje wcześniejszych konfiguracji. Utwórz nowy profil. Istniejący nośnik backupu możesz następnie przyjąć jako zgodne repozytorium, jeżeli przejdzie weryfikację.\n\nKod: %1\nWykryta wersja: %2\nObsługiwana wersja: %3"
+
 msgid "Unknown"
 msgstr "Nieznane"
 

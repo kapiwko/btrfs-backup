@@ -28,7 +28,11 @@ QQC2.ItemDelegate {
     width: ListView.view?.width ?? implicitWidth
     highlighted: pressed
     Kirigami.Theme.useAlternateBackgroundColor: true
+    readonly property bool unsupportedSchema: delegate.profileStatus.configurationErrorCode
+        === "configuration.unsupported-schema"
     onClicked: {
+        if (delegate.unsupportedSchema)
+            return
         if (ListView.view)
             ListView.view.currentIndex = index
         detailsRequested(modelData.profileId)
@@ -91,7 +95,7 @@ QQC2.ItemDelegate {
                         icon.name: "document-edit-symbolic"
                         text: translations.i18n("Edit profile")
                         tooltip: text
-                        enabled: !delegate.profileStatus.operationPending
+                        enabled: !delegate.unsupportedSchema && !delegate.profileStatus.operationPending
                         onTriggered: delegate.editRequested(delegate.modelData.profileId)
                     },
                     Kirigami.Action {
@@ -181,6 +185,17 @@ QQC2.ItemDelegate {
             }
         }
 
+        Kirigami.InlineMessage {
+            Layout.fillWidth: true
+            visible: delegate.unsupportedSchema
+            type: Kirigami.MessageType.Error
+            text: BtrfsBackup.ProfilePresentation.configurationErrorDetails(
+                translations,
+                delegate.profileStatus.configurationErrorCode,
+                delegate.profileStatus.detectedSchemaVersion ?? -1,
+                delegate.profileStatus.supportedSchemaVersion ?? -1)
+        }
+
     }
 
     function targetIndicatorIcon() {
@@ -189,7 +204,8 @@ QQC2.ItemDelegate {
 
     function targetIndicatorText() {
         if (!delegate.profileStatus.configurationValid)
-            return translations.i18n("Backup failed")
+            return BtrfsBackup.ProfilePresentation.configurationErrorText(
+                translations, delegate.profileStatus.configurationErrorCode)
         switch (delegate.profileStatus.target.state) {
         case "mounted": return translations.i18n("Mounted")
         case "unexpected-mount": return translations.i18n("Unexpected mount")

@@ -166,9 +166,9 @@ QtObject {
     }
 
     function configurationErrorText(translations, code) {
-        switch (code) {
-        case "configuration.unsupported_profile_schema":
+        if (code === "configuration.unsupported-schema")
             return translations.i18n("This profile was created by an unsupported development version. Create a new profile for version 1.0.")
+        switch (code) {
         case "configuration.source_missing":
             return translations.i18n("A configured source subvolume does not exist.")
         case "configuration.source_not_subvolume":
@@ -176,6 +176,13 @@ QtObject {
         default:
             return translations.i18n("A configured source subvolume cannot be inspected.")
         }
+    }
+
+    function configurationErrorDetails(translations, code, detectedVersion, supportedVersion) {
+        if (code !== "configuration.unsupported-schema")
+            return configurationErrorText(translations, code)
+        return translations.i18n("This profile was created by an unsupported development version.\n\nbtrfs-backup 1.0 does not migrate earlier configurations. Create a new profile. You can then adopt the existing backup device as a compatible repository if it passes validation.\n\nCode: %1\nDetected version: %2\nSupported version: %3",
+                                 code, detectedVersion, supportedVersion)
     }
 
     function targetStateText(translations, state, safeToRemove) {

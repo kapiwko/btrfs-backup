@@ -192,6 +192,8 @@ void ProfileDirectoryModel::applyProfiles(const QString& payload) {
         profile.insert(QStringLiteral("targetName"), decoded.target_name);
         profile.insert(QStringLiteral("configurationValid"), decoded.configuration_valid);
         profile.insert(QStringLiteral("configurationErrorCode"), decoded.configuration_error_code);
+        profile.insert(QStringLiteral("detectedSchemaVersion"), decoded.detected_schema_version);
+        profile.insert(QStringLiteral("supportedSchemaVersion"), decoded.supported_schema_version);
         profiles.push_back(profile);
     }
     if (profiles_ != profiles) {

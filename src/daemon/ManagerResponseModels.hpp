@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,8 @@ struct ProfileSummary {
     std::vector<ProfileSourceSummary> sources;
     bool configuration_valid = true;
     std::string configuration_error_code;
+    std::optional<int> detected_schema_version = std::nullopt;
+    std::optional<int> supported_schema_version = std::nullopt;
 };
 
 using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV1;
