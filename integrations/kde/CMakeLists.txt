@@ -38,6 +38,7 @@ add_library(
     client/BrowseSessionClient.hpp
     client/ManagerApi.cpp
     client/ManagerApi.hpp
+    client/ManagerResponseParser.cpp
     client/TargetStatusParser.cpp
     client/TargetStatusParser.hpp
 )
