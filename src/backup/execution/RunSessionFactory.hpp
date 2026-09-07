@@ -59,6 +59,11 @@ class RunSessionFactory {
     );
 
   private:
+    [[nodiscard]] static BackupRunStatusDescription status_description(
+        const btrfsbackup::config::Profile& profile,
+        RuntimeTimePoint started_at
+    );
+
     IBackupRunLeaseProvider& leases_;
     IRunEventSinkFactory& event_sinks_;
     ICheckpointStoreFactory& checkpoints_;

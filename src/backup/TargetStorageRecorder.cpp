@@ -10,16 +10,12 @@
 
 namespace btrfsbackup::backup {
 
-namespace {
-
-ErrorCode warning_code(const std::exception& error) {
+ErrorCode TargetStorageRecorder::warning_code(const std::exception& error) {
     if (const auto* coded = dynamic_cast<const CodedError*>(&error)) {
         return coded->error_code;
     }
     return ErrorCode::BackupFailed;
 }
-
-} // namespace
 
 TargetStorageRecorder::TargetStorageRecorder(
     IFilesystemSpaceProbe& probe,

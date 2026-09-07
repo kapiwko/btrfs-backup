@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <exception>
 #include <optional>
 
 #include <backup/model/BackupExecution.hpp>
@@ -29,6 +30,8 @@ class TargetStorageRecorder {
     );
 
   private:
+    [[nodiscard]] static ErrorCode warning_code(const std::exception& error);
+
     IFilesystemSpaceProbe& probe_;
     ITargetStorageMeasurementStore& store_;
     IClock& clock_;

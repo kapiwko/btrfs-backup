@@ -12,16 +12,14 @@
 
 namespace btrfsbackup::backup::execution {
 
-namespace {
-
-ErrorCode run_error_code(const std::exception& error) {
+ErrorCode BackupRunExecutor::run_error_code(const std::exception& error) {
     if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
         return coded_error->error_code;
     }
     return ErrorCode::BackupFailed;
 }
 
-void emit_action_failure(
+void BackupRunExecutor::emit_action_failure(
     IBackupRunEventSink& events,
     const BackupRunPlan& plan,
     const BackupSourceRunPlan& source,
@@ -40,7 +38,7 @@ void emit_action_failure(
     });
 }
 
-int source_index_for_event(const BackupRunPlan& plan, const BackupSourceRunPlan& source) {
+int BackupRunExecutor::source_index_for_event(const BackupRunPlan& plan, const BackupSourceRunPlan& source) {
     for (std::size_t i = 0; i < plan.sources.size(); ++i) {
         if (plan.sources.at(i).source_id == source.source_id) {
             return static_cast<int>(i + 1);
@@ -49,13 +47,13 @@ int source_index_for_event(const BackupRunPlan& plan, const BackupSourceRunPlan&
     return 0;
 }
 
-void emit_cancelled(
+void BackupRunExecutor::emit_cancelled(
     IBackupRunEventSink& events,
     const BackupRunPlan& plan,
     const BackupSourceRunPlan* source,
     std::optional<BackupRunActionKind> action_kind,
-    std::optional<ErrorCode> error_code = std::nullopt,
-    const std::string& message = ""
+    std::optional<ErrorCode> error_code,
+    const std::string& message
 ) {
     events.on_backup_run_event(RunCancelled{
         .profile_id = plan.profile_id,
@@ -67,8 +65,6 @@ void emit_cancelled(
         .message = message,
     });
 }
-
-} // namespace
 
 BackupRunExecutor::BackupRunExecutor(
     IBackupActionExecutor& action_executor,

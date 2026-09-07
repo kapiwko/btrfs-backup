@@ -11,9 +11,8 @@
 #include <variant>
 
 namespace btrfsbackup::backup::execution {
-namespace {
 
-BackupRunStatusDescription status_description(
+BackupRunStatusDescription RunSessionFactory::status_description(
     const btrfsbackup::config::Profile& profile,
     RuntimeTimePoint started_at
 ) {
@@ -33,8 +32,6 @@ BackupRunStatusDescription status_description(
         .target_name = profile.target.mapper_name.value(),
     };
 }
-
-} // namespace
 
 RunSessionFactory::RunSessionFactory(
     IBackupRunLeaseProvider& leases,
