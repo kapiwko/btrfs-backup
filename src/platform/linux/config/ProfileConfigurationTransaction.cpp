@@ -144,9 +144,15 @@ ConfigurationSaveError::ConfigurationSaveError(std::string message, RollbackResu
 }
 
 ProfileConfigurationTransaction::ProfileConfigurationTransaction(const btrfsbackup::config::RenderedProfileArtifacts& rendered)
-    : generation_(rendered.profile.configuration_generation) {
-    artifacts_.reserve(rendered.artifacts.size());
-    for (const btrfsbackup::config::ProfileArtifact& artifact : rendered.artifacts) {
+    : ProfileConfigurationTransaction(rendered.profile.configuration_generation, rendered.artifacts) {
+}
+
+ProfileConfigurationTransaction::ProfileConfigurationTransaction(
+    btrfsbackup::config::ConfigurationGeneration generation,
+    const std::vector<btrfsbackup::config::ProfileArtifact>& artifacts
+) : generation_(std::move(generation)) {
+    artifacts_.reserve(artifacts.size());
+    for (const btrfsbackup::config::ProfileArtifact& artifact : artifacts) {
         artifacts_.push_back({
             .kind = artifact.kind,
             .destination = artifact.destination,
@@ -215,7 +221,8 @@ void ProfileConfigurationTransaction::publish(TransactionArtifact& item) {
     }
     if (item.operation == btrfsbackup::config::ProfileArtifactOperation::Remove) {
         item.published = item.had_previous;
-        filesystem::fsync_dir(item.destination.parent_path());
+        if (item.had_previous)
+            filesystem::fsync_dir(item.destination.parent_path());
         return;
     }
     try {

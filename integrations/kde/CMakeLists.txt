@@ -886,6 +886,16 @@ if(BUILD_TESTING)
                 -o -,txt
         )
         add_test(
+            NAME kde-kcm-unsupported-profile-retirement
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_TEST_RUNNER_EXECUTABLE}
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/unsupported-profile-retirement.qml
+                -import ${CMAKE_BINARY_DIR}
+                -o -,txt
+        )
+        add_test(
             NAME kde-profile-presentation
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -900,6 +910,7 @@ if(BUILD_TESTING)
             kde-kcm-profile-unlocking-layout
             kde-kcm-profile-device-connection
             kde-kcm-profile-sources-actions
+            kde-kcm-unsupported-profile-retirement
             kde-profile-presentation
             PROPERTIES
                 LABELS kde

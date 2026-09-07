@@ -43,6 +43,7 @@ Item {
         function removeSourceConfiguration(index) {}
         function updateProfileSettings(name, dailyLimit, autoEject) {}
         function deleteProfile() {}
+        function retireUnsupportedProfile(profileId) {}
     }
 
     Timer {

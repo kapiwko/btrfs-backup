@@ -78,8 +78,11 @@ defines when a backup is overdue.
 The system KCM is a QML Kirigami module usable from System Settings and through
 `kcmshell6 kcm_btrfsbackup`. It validates drafts and performs profile save or
 delete only through authorized manager APIs with generation and fingerprint
-preconditions. Hook changes require their own high-risk authorization. The
-plasmoid and its settings remain useful without opening the KCM.
+preconditions. For a profile whose schema cannot be opened, it instead offers a
+confirmation-gated retirement operation that uses the same strong deletion
+authorization and explicitly preserves backup data. Hook changes require their
+own high-risk authorization. The plasmoid and its settings remain useful
+without opening the KCM.
 
 Device preparation first obtains a caller-bound storage topology and then asks
 the manager to build a short-lived plan for the selected opaque candidate. The

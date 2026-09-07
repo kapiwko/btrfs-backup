@@ -34,6 +34,11 @@ class ProfileInstaller {
         const btrfsbackup::config::ProfileArtifactRoots& roots,
         const ExpectedProfileIdentity* expected = nullptr
     );
+    void retire_unsupported_profile_transactionally(
+        const ProfileId& profile_id,
+        const std::string& expected_fingerprint,
+        const btrfsbackup::config::ProfileArtifactRoots& roots
+    );
 
   private:
     btrfsbackup::config::ProfileArtifactRenderer& renderer_;

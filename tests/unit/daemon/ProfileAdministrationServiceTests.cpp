@@ -24,6 +24,7 @@ using btrfsbackup::daemon::control::ManagerAuthorizationAction;
 using btrfsbackup::daemon::control::ProfileAdministrationService;
 using btrfsbackup::daemon::control::ProfileDraftResult;
 using btrfsbackup::daemon::control::SourceSubvolumeState;
+using btrfsbackup::daemon::control::UnsupportedProfileIdentity;
 using btrfsbackup::daemon::control::manager_authorization_action_id;
 using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
@@ -64,6 +65,8 @@ class Backend final : public IProfileAdministrationBackend {
     int validations = 0;
     int saves = 0;
     int deletes = 0;
+    int unsupported_inspections = 0;
+    int unsupported_retirements = 0;
     bool hooks_allowed = false;
     SourceSubvolumeState source_state = SourceSubvolumeState::Available;
 
@@ -86,6 +89,17 @@ class Backend final : public IProfileAdministrationBackend {
         ++deletes;
         current.reset();
     }
+    UnsupportedProfileIdentity inspect_unsupported_profile(const ProfileId& id) const override {
+        ++const_cast<Backend*>(this)->unsupported_inspections;
+        if (id != ProfileId{"legacy"})
+            throw ManagerOperationError(ManagerErrorCode::NotFound, "profile does not exist");
+        return unsupported;
+    }
+    void retire_unsupported_profile(const UnsupportedProfileIdentity& expected) override {
+        ++unsupported_retirements;
+        if (expected != unsupported)
+            throw ManagerOperationError(ManagerErrorCode::Conflict, "profile configuration changed");
+    }
     void set_profile_enabled(const EditableProfile&, bool enabled) override {
         ++saves;
         Json document = Json::parse(current->document);
@@ -98,6 +112,8 @@ class Backend final : public IProfileAdministrationBackend {
     std::vector<std::filesystem::path> source_candidates() const override {
         return {"/srv/work", "/home"};
     }
+
+    UnsupportedProfileIdentity unsupported{"legacy", 4, "legacy-fingerprint"};
 };
 
 void expect_error(const std::string& name, ManagerErrorCode code, const std::function<void()>& operation) {
@@ -130,7 +146,10 @@ void test_invalid_existing_and_new_sources_are_reported() {
     test_helpers::expect_eq("missing source code", details.configuration_error_code, "configuration.source_missing");
     try {
         static_cast<void>(service.add_profile_source(
-            ":1.12", "default", "g1", "f1",
+            ":1.12",
+            "default",
+            "g1",
+            "f1",
             R"({"name":"Missing","subvolume":"/missing","localRetention":7,"remoteRetention":14})"
         ));
         test_helpers::fail("missing new source", "missing source was saved");
@@ -247,6 +266,56 @@ void test_delete_and_activation_keep_dedicated_actions() {
         manager_authorization_action_id(ManagerAuthorizationAction::ManageProfileConfiguration),
         "io.github.btrfsbackup.manage-profile-configuration"
     );
+    test_helpers::expect_eq(
+        "delete action id",
+        manager_authorization_action_id(ManagerAuthorizationAction::DeleteProfileConfiguration),
+        "io.github.btrfsbackup.delete-profile-configuration"
+    );
+}
+
+void test_unsupported_retirement_revalidates_after_strong_authorization() {
+    Authorizer authorizer;
+    Backend backend;
+    ProfileAdministrationService service(authorizer, backend);
+    service.retire_unsupported_profile(":1.14", "legacy");
+    test_helpers::expect_true(
+        "unsupported inspected twice",
+        backend.unsupported_inspections == 2,
+        "unsupported profile was not re-inspected after authorization"
+    );
+    test_helpers::expect_true(
+        "unsupported retired",
+        backend.unsupported_retirements == 1,
+        "unsupported retirement did not reach the backend"
+    );
+    test_helpers::expect_true(
+        "unsupported delete authorization",
+        authorizer.actions == std::vector{ManagerAuthorizationAction::DeleteProfileConfiguration},
+        "unsupported retirement used the wrong authorization"
+    );
+
+    authorizer.during = [&](ManagerAuthorizationAction) {
+        backend.unsupported.fingerprint = "changed-fingerprint";
+    };
+    expect_error("unsupported authorization race", ManagerErrorCode::Conflict, [&] {
+        service.retire_unsupported_profile(":1.14", "legacy");
+    });
+    test_helpers::expect_true(
+        "unsupported race no retirement",
+        backend.unsupported_retirements == 1,
+        "changed unsupported profile was retired"
+    );
+
+    authorizer.during = {};
+    authorizer.allowed = false;
+    expect_error("unsupported retirement denied", ManagerErrorCode::NotAuthorized, [&] {
+        service.retire_unsupported_profile(":1.14", "legacy");
+    });
+    test_helpers::expect_true(
+        "unsupported denial no retirement",
+        backend.unsupported_retirements == 1,
+        "denied unsupported retirement reached the backend"
+    );
 }
 
 } // namespace
@@ -258,5 +327,6 @@ int main() {
     test_denial_and_authorization_race_have_no_effect();
     test_source_operations_use_stable_identity();
     test_delete_and_activation_keep_dedicated_actions();
+    test_unsupported_retirement_revalidates_after_strong_authorization();
     return test_helpers::finish("profile administration service tests");
 }

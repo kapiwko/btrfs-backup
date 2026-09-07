@@ -22,10 +22,13 @@ not import, convert, or update profiles from earlier versions. Back up any data
 you need independently, create a new profile, and verify both backup and restore
 before relying on the new configuration.
 
-An unsupported profile is left unchanged and reported with the stable code
+An unsupported profile is reported with the stable code
 `configuration.unsupported-schema`, together with its detected schema version
-and the supported version. The KDE interface directs the user to create a new
-profile and then offers the normal validated repository-adoption path for an
+and the supported version. The KDE interface offers a separately authorized
+removal of its managed system configuration. This operation fingerprints and
+revalidates the root-owned legacy file without interpreting its old fields and
+never removes backup data. The user can then create a new profile with the same
+identifier and use the normal validated repository-adoption path for an
 existing backup device.
 
 `save` writes:

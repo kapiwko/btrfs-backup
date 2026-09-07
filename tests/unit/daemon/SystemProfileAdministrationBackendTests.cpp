@@ -4,9 +4,11 @@
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 
+#include <core/Errors.hpp>
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
+#include <platform/linux/config/ProfileConfigurationTransaction.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 
 #include "support/TestHelpers.hpp"
@@ -21,12 +23,26 @@ namespace linux_config = btrfsbackup::platform::linux::config;
 
 class FakeBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
   public:
-    bool is_subvolume(const std::filesystem::path&) override { return true; }
+    bool is_subvolume(const std::filesystem::path&) override {
+        return true;
+    }
     std::optional<btrfsbackup::backup::SnapshotMetadata> read_snapshot_metadata(const std::filesystem::path&) override {
         return std::nullopt;
     }
-    void create_readonly_snapshot(const std::filesystem::path&, const std::filesystem::path&) override {}
-    void delete_subvolume(const std::filesystem::path&) override {}
+    void create_readonly_snapshot(const std::filesystem::path&, const std::filesystem::path&) override {
+    }
+    void delete_subvolume(const std::filesystem::path&) override {
+    }
+};
+
+class FailingActivator final : public btrfsbackup::config::IConfigurationActivator {
+  public:
+    void activate() override {
+        if (++calls == 1)
+            throw btrfsbackup::ValidationError("injected retirement activation failure");
+    }
+
+    int calls = 0;
 };
 
 json::Json profile_document() {
@@ -63,7 +79,10 @@ json::Json profile_document() {
 void test_backend_preserves_secrets_and_hook_boundary() {
     const auto root = test_helpers::test_root("profile-administration", "backend");
     const linux_config::ProfileInstallationRoots roots{
-        root / "etc", root / "udev", root / "systemd", root / "public"
+        root / "etc",
+        root / "udev",
+        root / "systemd",
+        root / "public"
     };
     btrfsbackup::config::NullConfigurationActivator activator;
     FakeBtrfsOperations btrfs;
@@ -85,11 +104,23 @@ void test_backend_preserves_secrets_and_hook_boundary() {
         current->document.find("TOP-SECRET-KEY-CONTENTS") == std::string::npos,
         "key contents escaped through the editing API"
     );
+    try {
+        static_cast<void>(backend.inspect_unsupported_profile(ProfileId{"default"}));
+        test_helpers::fail("supported retirement", "supported profile was accepted for retirement");
+    } catch (const ManagerOperationError& error) {
+        test_helpers::expect_true(
+            "supported retirement error",
+            error.code() == btrfsbackup::daemon::dbus::ManagerErrorCode::InvalidRequest,
+            "supported profile returned the wrong retirement error"
+        );
+    }
 
     auto changed = json::Json::parse(current->document);
     changed["hooks"]["beforeSnapshot"] = json::Json::array({{
-        {"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/test"},
-        {"arguments", json::Json::array()}, {"timeoutSeconds", 30},
+        {"type", "program"},
+        {"program", "/etc/btrfs-backup/hooks.d/test"},
+        {"arguments", json::Json::array()},
+        {"timeoutSeconds", 30},
     }});
     const auto draft = backend.validate_draft(ProfileId{"default"}, changed.dump());
     try {
@@ -134,9 +165,130 @@ void test_backend_preserves_secrets_and_hook_boundary() {
     test_helpers::expect_true("public profile removed", !std::filesystem::exists(root / "public" / "default.json"), "public marker remains");
 }
 
+void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
+    const auto root = test_helpers::test_root("profile-administration", "unsupported-retirement");
+    const linux_config::ProfileInstallationRoots roots{
+        root / "etc",
+        root / "udev",
+        root / "systemd",
+        root / "public"
+    };
+    btrfsbackup::config::NullConfigurationActivator activator;
+    FakeBtrfsOperations btrfs;
+    linux_config::install_profile(json::profile_from_json(profile_document(), root / "mounts"), roots, activator);
+    const auto private_profile = root / "etc" / "profiles" / "default" / "profile.json";
+    const auto public_profile = root / "public" / "default.json";
+    const auto udev_rule = root / "udev" / "99-btrfs-backup-default.rules";
+    const auto systemd_dropin = root / "systemd" / "btrfs-backup@default.service.d" / "target-mount.conf";
+    const auto manifest = root / "etc" / "profiles" / "default" / "managed-artifacts.json";
+    const auto mount_unit = root / "systemd" /
+        json::load_json_file(manifest).at("mounts").at(0).at("unit").get<std::string>();
+    const std::string unsupported = R"({"schemaVersion":4,"arbitrary":{"old":"fields"}})";
+    test_helpers::write_file(private_profile, unsupported);
+    test_helpers::write_file(public_profile, R"({"schemaVersion":4,"profileId":"default","name":"Old"})");
+    const auto backup_data = root / "mounts" / "default" / "snapshots" / "preserved";
+    test_helpers::write_file(backup_data, "backup-data");
+
+    SystemProfileAdministrationBackend backend(
+        {roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root},
+        root / "mounts",
+        "/proc/self/mountinfo",
+        btrfs,
+        activator
+    );
+    const auto expected = backend.inspect_unsupported_profile(ProfileId{"default"});
+    test_helpers::expect_true(
+        "unsupported schema detected",
+        expected.detected_schema_version == 4 && !expected.fingerprint.empty(),
+        "unsupported profile identity was incomplete"
+    );
+
+    test_helpers::write_file(private_profile, R"({"schemaVersion":5})");
+    try {
+        backend.retire_unsupported_profile(expected);
+        test_helpers::fail("retirement fingerprint race", "changed profile was retired");
+    } catch (const btrfsbackup::CodedValidationError& error) {
+        test_helpers::expect_true(
+            "retirement fingerprint conflict",
+            error.error_code == btrfsbackup::ErrorCode::ConfigurationChanged,
+            "changed profile returned the wrong error"
+        );
+    }
+    test_helpers::expect_true(
+        "fingerprint conflict preserved profile",
+        std::filesystem::is_regular_file(private_profile),
+        "changed profile disappeared"
+    );
+
+    test_helpers::write_file(private_profile, unsupported);
+    backend.retire_unsupported_profile(backend.inspect_unsupported_profile(ProfileId{"default"}));
+    for (const auto& artifact : {private_profile, public_profile, udev_rule, systemd_dropin, manifest, mount_unit}) {
+        test_helpers::expect_true(
+            "unsupported artifact removed",
+            !std::filesystem::exists(artifact),
+            "unsupported configuration artifact remains: " + artifact.string()
+        );
+    }
+    test_helpers::expect_true(
+        "backup data preserved",
+        std::filesystem::is_regular_file(backup_data),
+        "unsupported profile retirement removed backup data"
+    );
+}
+
+void test_unsupported_profile_retirement_rolls_back_as_one_transaction() {
+    const auto root = test_helpers::test_root("profile-administration", "unsupported-rollback");
+    const linux_config::ProfileInstallationRoots roots{
+        root / "etc",
+        root / "udev",
+        root / "systemd",
+        root / "public"
+    };
+    btrfsbackup::config::NullConfigurationActivator installer_activator;
+    FakeBtrfsOperations btrfs;
+    linux_config::install_profile(
+        json::profile_from_json(profile_document(), root / "mounts"),
+        roots,
+        installer_activator
+    );
+    const auto private_profile = root / "etc" / "profiles" / "default" / "profile.json";
+    const auto public_profile = root / "public" / "default.json";
+    const auto udev_rule = root / "udev" / "99-btrfs-backup-default.rules";
+    const auto systemd_dropin = root / "systemd" / "btrfs-backup@default.service.d" / "target-mount.conf";
+    const auto manifest = root / "etc" / "profiles" / "default" / "managed-artifacts.json";
+    const auto mount_unit = root / "systemd" /
+        json::load_json_file(manifest).at("mounts").at(0).at("unit").get<std::string>();
+    test_helpers::write_file(private_profile, R"({"schemaVersion":4,"legacy":true})");
+    test_helpers::write_file(public_profile, R"({"schemaVersion":4,"profileId":"default"})");
+
+    FailingActivator activator;
+    SystemProfileAdministrationBackend backend(
+        {roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root},
+        root / "mounts",
+        "/proc/self/mountinfo",
+        btrfs,
+        activator
+    );
+    try {
+        backend.retire_unsupported_profile(backend.inspect_unsupported_profile(ProfileId{"default"}));
+        test_helpers::fail("retirement rollback", "activation failure was ignored");
+    } catch (const linux_config::ConfigurationSaveError&) {
+    }
+    test_helpers::expect_true("retirement reactivated", activator.calls == 2, "rollback was not reactivated");
+    for (const auto& artifact : {private_profile, public_profile, udev_rule, systemd_dropin, manifest, mount_unit}) {
+        test_helpers::expect_true(
+            "retirement rollback artifact",
+            std::filesystem::is_regular_file(artifact),
+            "retirement rollback did not restore " + artifact.string()
+        );
+    }
+}
+
 } // namespace
 
 int main() {
     test_backend_preserves_secrets_and_hook_boundary();
+    test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned();
+    test_unsupported_profile_retirement_rolls_back_as_one_transaction();
     return test_helpers::finish("system profile administration backend tests");
 }

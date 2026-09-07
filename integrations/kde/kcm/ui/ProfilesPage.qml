@@ -12,6 +12,7 @@ Item {
     id: root
 
     required property var directory
+    required property var editor
     required property var profileStatusOverrides
     required property var profileSummaryFor
 
@@ -31,9 +32,13 @@ Item {
             Layout.fillWidth: true
             Layout.margins: Kirigami.Units.largeSpacing
             Layout.bottomMargin: Kirigami.Units.smallSpacing
-            visible: !root.directory.managerConnected || root.directory.lastError.length > 0
+            visible: root.editor.errorMessage.length > 0
+                || !root.directory.managerConnected
+                || root.directory.lastError.length > 0
             type: Kirigami.MessageType.Error
-            text: root.directory.lastError.length > 0
+            text: root.editor.errorMessage.length > 0
+                ? root.editor.errorMessage
+                : root.directory.lastError.length > 0
                 ? root.directory.lastError
                 : translations.i18n("Backup service unavailable")
         }
@@ -52,6 +57,7 @@ Item {
 
             delegate: ProfileDelegate {
                 directory: root.directory
+                editor: root.editor
                 statusOverride: root.profileStatusOverrides[modelData.profileId] ?? null
                 profileSummaryFor: root.profileSummaryFor
                 onDetailsRequested: profileId => root.profileRequested(profileId)

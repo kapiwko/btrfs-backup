@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <string>
 
@@ -16,5 +17,10 @@ struct TrustedFilePolicy {
 
 void assert_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy = {});
 std::string read_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy = {});
+std::string read_trusted_config_file(
+    const std::filesystem::path& path,
+    const TrustedFilePolicy& policy,
+    std::size_t maximum_size
+);
 
 } // namespace btrfsbackup::platform::linux::filesystem

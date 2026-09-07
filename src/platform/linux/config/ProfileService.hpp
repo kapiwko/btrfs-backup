@@ -50,6 +50,12 @@ void delete_profile(
     btrfsbackup::config::IConfigurationActivator& activator,
     const ExpectedProfileIdentity* expected = nullptr
 );
+void retire_unsupported_profile(
+    const ProfileId& profile_id,
+    const std::string& expected_fingerprint,
+    const ProfileInstallationRoots& roots,
+    btrfsbackup::config::IConfigurationActivator& activator
+);
 btrfsbackup::config::Profile get_profile(const std::filesystem::path& etc_root, const std::string& profile_id);
 btrfsbackup::config::Profile export_profile(
     const std::filesystem::path& etc_root,

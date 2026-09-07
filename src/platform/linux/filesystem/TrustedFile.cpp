@@ -10,6 +10,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <limits>
 
 #include <core/Errors.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
@@ -50,13 +51,16 @@ void assert_trusted_config_fd(int fd, const std::filesystem::path& path, const T
     }
 }
 
-std::string read_all(int fd, const std::filesystem::path& path) {
+std::string read_all(int fd, const std::filesystem::path& path, std::size_t maximum_size) {
     std::string content;
     char buffer[8192];
     while (true) {
         ssize_t count = read(fd, buffer, sizeof(buffer));
         if (count > 0) {
-            content.append(buffer, static_cast<std::size_t>(count));
+            const std::size_t chunk_size = static_cast<std::size_t>(count);
+            if (chunk_size > maximum_size - content.size())
+                throw ValidationError("Configuration file exceeds the size limit: " + path.string());
+            content.append(buffer, chunk_size);
             continue;
         }
         if (count == 0) {
@@ -77,9 +81,17 @@ void assert_trusted_config_file(const std::filesystem::path& path, const Trusted
 }
 
 std::string read_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy) {
+    return read_trusted_config_file(path, policy, std::numeric_limits<std::size_t>::max());
+}
+
+std::string read_trusted_config_file(
+    const std::filesystem::path& path,
+    const TrustedFilePolicy& policy,
+    std::size_t maximum_size
+) {
     OwnedFileDescriptor fd(open_trusted_config_file(path));
     assert_trusted_config_fd(fd.get(), path, policy);
-    return read_all(fd.get(), path);
+    return read_all(fd.get(), path, maximum_size);
 }
 
 } // namespace btrfsbackup::platform::linux::filesystem

@@ -343,6 +343,19 @@ void ProfileAdministrationService::delete_profile(
     backend_.delete_profile(expected);
 }
 
+void ProfileAdministrationService::retire_unsupported_profile(
+    const std::string& caller,
+    const std::string& profile_id
+) {
+    const ProfileId id(profile_id);
+    const UnsupportedProfileIdentity expected = backend_.inspect_unsupported_profile(id);
+    require_authorized(caller, ManagerAuthorizationAction::DeleteProfileConfiguration);
+    if (backend_.inspect_unsupported_profile(id) != expected) {
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "profile configuration changed");
+    }
+    backend_.retire_unsupported_profile(expected);
+}
+
 void ProfileAdministrationService::set_profile_enabled(
     const std::string& caller,
     const std::string& profile_id,

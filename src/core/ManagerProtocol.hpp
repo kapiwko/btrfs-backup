@@ -72,6 +72,7 @@ inline constexpr char add_profile_source[] = "AddProfileSource";
 inline constexpr char update_profile_source[] = "UpdateProfileSource";
 inline constexpr char remove_profile_source[] = "RemoveProfileSource";
 inline constexpr char delete_profile[] = "DeleteProfile";
+inline constexpr char retire_unsupported_profile[] = "RetireUnsupportedProfile";
 inline constexpr char set_profile_enabled[] = "SetProfileEnabled";
 inline constexpr char open_browse_session[] = "OpenBrowseSession";
 inline constexpr char renew_browse_session[] = "RenewBrowseSession";

@@ -5,10 +5,13 @@
 
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
+#include <config/ProfileFingerprint.hpp>
+#include <core/ManagerProtocol.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileService.hpp>
+#include <platform/linux/filesystem/TrustedFile.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 
 namespace btrfsbackup::daemon::control {
@@ -86,6 +89,57 @@ std::optional<EditableProfile> SystemProfileAdministrationBackend::find_profile(
     };
 }
 
+UnsupportedProfileIdentity SystemProfileAdministrationBackend::inspect_unsupported_profile(
+    const ProfileId& profile_id
+) const {
+    const auto path = platform::linux::config::profile_json_path(
+        roots_.etc_root,
+        std::string(profile_id.value())
+    );
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (error == std::errc::no_such_file_or_directory || status.type() == std::filesystem::file_type::not_found) {
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "profile does not exist");
+    }
+    if (error)
+        throw ValidationError("cannot inspect profile configuration");
+    const platform::linux::filesystem::TrustedFilePolicy policy{
+        .allow_current_user_owner = std::filesystem::absolute(roots_.etc_root).lexically_normal() !=
+            std::filesystem::path("/etc/btrfs-backup"),
+    };
+    const std::string bytes = platform::linux::filesystem::read_trusted_config_file(
+        path,
+        policy,
+        1024U * 1024U
+    );
+    int detected_schema_version = 0;
+    try {
+        const config::json::Json document = config::json::Json::parse(bytes);
+        if (!document.is_object() || !document.contains("schemaVersion") ||
+            !document.at("schemaVersion").is_number_integer()) {
+            throw ValidationError("profile configuration has no integer schema version");
+        }
+        detected_schema_version = document.at("schemaVersion").get<int>();
+    } catch (const config::json::Json::exception& error) {
+        throw ValidationError("cannot inspect profile schema: " + std::string(error.what()));
+    }
+    if (detected_schema_version == manager_protocol::profile_schema_version) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::InvalidRequest,
+            "profile configuration uses the supported schema"
+        );
+    }
+    return {
+        .profile_id = std::string(profile_id.value()),
+        .detected_schema_version = detected_schema_version,
+        .fingerprint = config::compute_config_fingerprint_from_bytes(
+            config::current_configuration_fingerprint_version,
+            path,
+            bytes
+        ),
+    };
+}
+
 EditableProfile SystemProfileAdministrationBackend::require_profile(const ProfileId& profile_id) const {
     auto profile = find_profile(profile_id);
     if (!profile.has_value())
@@ -155,11 +209,11 @@ ProfileDraftResult SystemProfileAdministrationBackend::save_profile(
         );
     }
     const platform::linux::config::ExpectedProfileIdentity expected_identity{
-        current.has_value(), expected.generation, expected.fingerprint
+        current.has_value(),
+        expected.generation,
+        expected.fingerprint
     };
-    platform::linux::config::install_profile(profile, {
-        roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root
-    }, activator_, &expected_identity);
+    platform::linux::config::install_profile(profile, {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root}, activator_, &expected_identity);
     const EditableProfile saved = require_profile(id);
     return {
         .profile_id = saved.profile_id,
@@ -174,11 +228,23 @@ void SystemProfileAdministrationBackend::delete_profile(const EditableProfile& e
     const ProfileId id(expected.profile_id);
     const config::Profile profile = platform::linux::config::FileProfileRepository(roots_.etc_root).get(id).profile;
     const platform::linux::config::ExpectedProfileIdentity expected_identity{
-        true, expected.generation, expected.fingerprint
+        true,
+        expected.generation,
+        expected.fingerprint
     };
-    platform::linux::config::delete_profile(profile, {
-        roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root
-    }, activator_, &expected_identity);
+    platform::linux::config::delete_profile(profile, {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root}, activator_, &expected_identity);
+}
+
+void SystemProfileAdministrationBackend::retire_unsupported_profile(
+    const UnsupportedProfileIdentity& expected
+) {
+    const ProfileId id(expected.profile_id);
+    platform::linux::config::retire_unsupported_profile(
+        id,
+        expected.fingerprint,
+        {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
+        activator_
+    );
 }
 
 void SystemProfileAdministrationBackend::set_profile_enabled(const EditableProfile& expected, bool enabled) {

@@ -175,6 +175,31 @@ int ManagerProfileMethods::delete_profile(sd_bus_message* message, sd_bus_error*
     );
 }
 
+int ManagerProfileMethods::retire_unsupported_profile(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return support_.reply_operational_json(message, error, "retire-unsupported-profile", profile, [&] {
+                profile_administration_.retire_unsupported_profile(
+                    ManagerMethodSupport::caller_bus_name(message),
+                    profile
+                );
+                return config::json::dump_json({
+                    {"schemaVersion", manager_protocol::operation_result_schema_version},
+                    {"operation", "retire-unsupported-profile"},
+                    {"profileId", profile},
+                    {"accepted", true},
+                });
+            });
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerProfileMethods::set_profile_enabled(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {

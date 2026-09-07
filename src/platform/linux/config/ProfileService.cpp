@@ -103,6 +103,23 @@ void delete_profile(
     installer.delete_profile_transactionally(profile, artifact_roots, expected);
 }
 
+void retire_unsupported_profile(
+    const ProfileId& profile_id,
+    const std::string& expected_fingerprint,
+    const ProfileInstallationRoots& roots,
+    btrfsbackup::config::IConfigurationActivator& activator
+) {
+    btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
+    const btrfsbackup::config::ProfileArtifactRoots artifact_roots{
+        .etc_root = roots.etc_root,
+        .udev_root = roots.udev_root,
+        .systemd_root = roots.systemd_root,
+        .public_root = roots.public_root,
+    };
+    ProfileInstaller installer(renderer, activator);
+    installer.retire_unsupported_profile_transactionally(profile_id, expected_fingerprint, artifact_roots);
+}
+
 btrfsbackup::config::Profile get_profile(const fs::path& etc_root, const std::string& profile_id) {
     return load_profile_by_id(etc_root, profile_id);
 }

@@ -57,6 +57,9 @@ int remove_profile_source(sd_bus_message* message, void* userdata, sd_bus_error*
 int delete_profile(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->profile_methods().delete_profile(message, error);
 }
+int retire_unsupported_profile(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->profile_methods().retire_unsupported_profile(message, error);
+}
 int set_profile_enabled(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->profile_methods().set_profile_enabled(message, error);
 }
@@ -153,6 +156,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::update_profile_source, "sssss", "s", update_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::remove_profile_source, "ssss", "s", remove_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::retire_unsupported_profile, "s", "s", retire_unsupported_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::set_profile_enabled, "sb", "s", set_profile_enabled, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::renew_browse_session, "s", "s", renew_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),

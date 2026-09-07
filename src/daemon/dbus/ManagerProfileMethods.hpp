@@ -26,6 +26,7 @@ class ManagerProfileMethods final {
     int update_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;
     int remove_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;
     int delete_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int retire_unsupported_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
     int set_profile_enabled(sd_bus_message* message, sd_bus_error* error) noexcept;
 
   private:

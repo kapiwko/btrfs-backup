@@ -71,6 +71,7 @@ KCMUtils.ScrollViewKCM {
         ProfilesPage {
             anchors.fill: parent
             directory: root.directory
+            editor: root.editor
             profileStatusOverrides: root.profileStatusOverrides
             profileSummaryFor: (status, profile) => root.profileSummary(status, profile)
             onProfileRequested: profileId => root.openProfileDetails(profileId, false)

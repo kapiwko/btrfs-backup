@@ -35,6 +35,10 @@ struct ConfigurationSaveError : CodedValidationError {
 class ProfileConfigurationTransaction {
   public:
     explicit ProfileConfigurationTransaction(const btrfsbackup::config::RenderedProfileArtifacts& rendered);
+    ProfileConfigurationTransaction(
+        btrfsbackup::config::ConfigurationGeneration generation,
+        const std::vector<btrfsbackup::config::ProfileArtifact>& artifacts
+    );
 
     void stage();
     [[nodiscard]] std::filesystem::path staged_path(btrfsbackup::config::ProfileArtifactKind kind) const;

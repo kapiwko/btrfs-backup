@@ -166,7 +166,7 @@ assert_delegated_methods(
 assert_delegated_methods(
     profile_methods
     get_profile_details update_profile_settings add_profile_source update_profile_source
-    remove_profile_source delete_profile set_profile_enabled
+    remove_profile_source delete_profile retire_unsupported_profile set_profile_enabled
 )
 assert_delegated_methods(
     browse_methods
@@ -258,6 +258,11 @@ assert_authorized_method(
 assert_authorized_method(
     delete_profile DeleteProfile sss s
     "<methodname=\"DeleteProfile\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    DeleteProfileConfiguration io.github.btrfsbackup.delete-profile-configuration
+)
+assert_authorized_method(
+    retire_unsupported_profile RetireUnsupportedProfile s s
+    "<methodname=\"RetireUnsupportedProfile\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
     DeleteProfileConfiguration io.github.btrfsbackup.delete-profile-configuration
 )
 assert_authorized_method(

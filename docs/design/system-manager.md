@@ -49,6 +49,7 @@ AddProfileSource
 UpdateProfileSource
 RemoveProfileSource
 DeleteProfile
+RetireUnsupportedProfile
 SetProfileEnabled
 OpenBrowseSession
 RenewBrowseSession

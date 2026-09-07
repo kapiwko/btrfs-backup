@@ -57,6 +57,7 @@ diagnostics and partial-installation checks.
 | `UpdateProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint, s request)` | `(s)` | changes a source name and retention policy |
 | `RemoveProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint)` | `(s)` | removes a source definition without deleting backup data |
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
+| `RetireUnsupportedProfile` | `(s profileId)` | `(s)` | removes only an unsupported profile's managed configuration artifacts without parsing its legacy fields or deleting backup data |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
 | `BeginBrowseOperation` | `(s sessionId)` | `(s)` | acquires an identified, caller-owned operation lease |
@@ -106,6 +107,16 @@ expiring. Paged directory and previous-version queries return at most 512
 entries and use tokens bound to the original query. Restore clients receive
 descriptors pinned to authorized entries, and local coverage lookup accepts an
 `O_PATH` descriptor rather than a path string.
+
+`RetireUnsupportedProfile` is deliberately separate from ordinary profile
+mutation. It reads only the private document's integer `schemaVersion`, requires
+that it differs from the supported version, fingerprints the pinned raw file,
+uses the non-retained profile-deletion authorization, and repeats the pinned
+read before and during the locked commit. The transaction removes the private
+and public profile documents, the profile-specific udev rule, systemd drop-in,
+the managed-artifact manifest, and mount units named safely by that independent
+manifest. It does not inspect legacy profile fields and does not touch status,
+history, credentials, snapshots, or repository data.
 
 A previous-versions page has this shape:
 
@@ -213,6 +224,7 @@ currently open profile, including changes published by the CLI.
 | `UpdateProfileSource` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
 | `RemoveProfileSource` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
 | `DeleteProfile` | administrative | `io.github.btrfsbackup.delete-profile-configuration` |
+| `RetireUnsupportedProfile` | administrative | `io.github.btrfsbackup.delete-profile-configuration` |
 | `OpenBrowseSession` | repository access | `io.github.btrfsbackup.open-browse-session` |
 | `RenewBrowseSession` | session ownership | none |
 | `BeginBrowseOperation` | session ownership and per-session lease limit | none |
@@ -306,6 +318,10 @@ These rules describe the implemented API unless explicitly marked otherwise.
   managed artifacts transactionally, changing only automatic activation.
 - Profile saves and deletes compare the submitted generation and fingerprint
   before authorization and immediately before commit.
+- Unsupported-profile retirement derives its expected fingerprint from the
+  pinned private file, checks the unsupported schema before and after
+  authorization, and verifies the same fingerprint again under the profile
+  lock. It accepts no client-supplied artifact paths.
 - Browse sessions are bound to the unique caller bus name and UID. Their
   root-owned paths are never returned to clients; they expose only brokered
   operations and pinned descriptors, and close on request, disconnect, expiry

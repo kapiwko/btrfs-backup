@@ -18,6 +18,14 @@ struct EditableProfile {
     std::string document;
 };
 
+struct UnsupportedProfileIdentity {
+    std::string profile_id;
+    int detected_schema_version = 0;
+    std::string fingerprint;
+
+    bool operator==(const UnsupportedProfileIdentity&) const = default;
+};
+
 struct ProfileDetails {
     std::string profile_id;
     std::string generation;
@@ -28,7 +36,10 @@ struct ProfileDetails {
     std::vector<std::string> source_candidates;
 };
 
-enum class SourceSubvolumeState { Available, Missing, NotSubvolume, Unavailable };
+enum class SourceSubvolumeState { Available,
+                                  Missing,
+                                  NotSubvolume,
+                                  Unavailable };
 
 struct ProfileConfigurationHealth {
     bool valid = true;
@@ -57,11 +68,17 @@ class IProfileAdministrationBackend {
         bool allow_hook_changes
     ) = 0;
     virtual void delete_profile(const EditableProfile& expected) = 0;
+    [[nodiscard]] virtual UnsupportedProfileIdentity inspect_unsupported_profile(
+        const ProfileId& profile_id
+    ) const = 0;
+    virtual void retire_unsupported_profile(const UnsupportedProfileIdentity& expected) = 0;
     virtual void set_profile_enabled(const EditableProfile& expected, bool enabled) = 0;
     [[nodiscard]] virtual SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path&) const {
         return SourceSubvolumeState::Available;
     }
-    [[nodiscard]] virtual std::vector<std::filesystem::path> source_candidates() const { return {}; }
+    [[nodiscard]] virtual std::vector<std::filesystem::path> source_candidates() const {
+        return {};
+    }
 };
 
 class ProfileAdministrationService {
@@ -104,6 +121,7 @@ class ProfileAdministrationService {
         const std::string& expected_generation,
         const std::string& expected_fingerprint
     );
+    void retire_unsupported_profile(const std::string& caller, const std::string& profile_id);
     void set_profile_enabled(const std::string& caller, const std::string& profile_id, bool enabled);
     [[nodiscard]] ProfileConfigurationHealth configuration_health(const std::string& profile_id) const;
 

@@ -39,6 +39,10 @@ class SystemProfileAdministrationBackend final : public IProfileAdministrationBa
         bool allow_hook_changes
     ) override;
     void delete_profile(const EditableProfile& expected) override;
+    [[nodiscard]] UnsupportedProfileIdentity inspect_unsupported_profile(
+        const ProfileId& profile_id
+    ) const override;
+    void retire_unsupported_profile(const UnsupportedProfileIdentity& expected) override;
     void set_profile_enabled(const EditableProfile& expected, bool enabled) override;
     [[nodiscard]] SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path& path) const override;
     [[nodiscard]] std::vector<std::filesystem::path> source_candidates() const override;

@@ -78,6 +78,29 @@ void test_rejects_symbolic_link() {
     fs::remove_all(root);
 }
 
+void test_bounded_read_rejects_oversized_file() {
+    fs::path root = test_helpers::test_root("trusted-file", "size-limit");
+    fs::path config = root / "profile.json";
+    test_helpers::write_file(config, "12345");
+    chmod(config.c_str(), 0600);
+
+    test_helpers::expect_validation_error(
+        "trusted size limit",
+        [&] {
+            static_cast<void>(
+                btrfsbackup::platform::linux::filesystem::read_trusted_config_file(
+                    config,
+                    {.allow_current_user_owner = true},
+                    4
+                )
+            );
+        },
+        "size limit"
+    );
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -86,6 +109,7 @@ int main() {
     test_rejects_public_permissions();
     test_rejects_missing_or_directory();
     test_rejects_symbolic_link();
+    test_bounded_read_rejects_oversized_file();
 
     return test_helpers::finish("trusted file tests");
 }

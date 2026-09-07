@@ -64,6 +64,7 @@ class ProfileConfigurationModel final : public QObject {
     Q_INVOKABLE void removeSourceConfiguration(int index);
     Q_INVOKABLE void updateProfileSettings(const QString& name, bool dailyLimit, bool autoEject);
     Q_INVOKABLE void deleteProfile();
+    Q_INVOKABLE void retireUnsupportedProfile(const QString& profileId);
 
   signals:
     void profileChanged();
@@ -78,7 +79,8 @@ class ProfileConfigurationModel final : public QObject {
                              AddSource,
                              UpdateSource,
                              RemoveSource,
-                             Delete };
+                             Delete,
+                             RetireUnsupported };
     void request(RequestKind kind, const QString& method, const QVariantList& arguments);
     bool applyEnvelope(const QString& payload);
     void setError(const QString& code, const QString& message);

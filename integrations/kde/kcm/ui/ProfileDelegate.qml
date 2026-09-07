@@ -18,6 +18,7 @@ QQC2.ItemDelegate {
     required property int index
     required property var modelData
     required property var directory
+    required property var editor
     required property var statusOverride
     required property var profileSummaryFor
     readonly property var profileStatus: statusOverride ?? liveProfileStatus
@@ -97,6 +98,15 @@ QQC2.ItemDelegate {
                         tooltip: text
                         enabled: !delegate.unsupportedSchema && !delegate.profileStatus.operationPending
                         onTriggered: delegate.editRequested(delegate.modelData.profileId)
+                    },
+                    Kirigami.Action {
+                        objectName: "retireUnsupportedProfileAction"
+                        icon.name: "edit-delete-symbolic"
+                        text: translations.i18n("Remove unsupported profile")
+                        tooltip: text
+                        visible: delegate.unsupportedSchema
+                        enabled: !delegate.profileStatus.operationPending && !delegate.editor.busy
+                        onTriggered: retireUnsupportedDialog.open()
                     },
                     Kirigami.Action {
                         icon.name: "folder-open-symbolic"
@@ -196,6 +206,22 @@ QQC2.ItemDelegate {
                 delegate.profileStatus.supportedSchemaVersion ?? -1)
         }
 
+    }
+
+    QQC2.Dialog {
+        id: retireUnsupportedDialog
+        objectName: "retireUnsupportedProfileDialog"
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        title: translations.i18n("Remove unsupported profile")
+        standardButtons: QQC2.Dialog.Yes | QQC2.Dialog.Cancel
+        onAccepted: delegate.editor.retireUnsupportedProfile(delegate.modelData.profileId)
+
+        QQC2.Label {
+            text: translations.i18n("Remove this unsupported profile and its managed system configuration? Backup data is not removed.")
+            wrapMode: Text.Wrap
+        }
     }
 
     function targetIndicatorIcon() {

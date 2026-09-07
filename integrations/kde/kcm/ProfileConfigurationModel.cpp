@@ -184,12 +184,23 @@ void ProfileConfigurationModel::deleteProfile() {
         request(RequestKind::Delete, QLatin1String(manager_protocol::method::delete_profile), {profileId(), generation_, fingerprint_});
 }
 
+void ProfileConfigurationModel::retireUnsupportedProfile(const QString& profile_id) {
+    if (!busy_ && !profile_id.isEmpty()) {
+        request(
+            RequestKind::RetireUnsupported,
+            QLatin1String(manager_protocol::method::retire_unsupported_profile),
+            {profile_id}
+        );
+    }
+}
+
 void ProfileConfigurationModel::request(RequestKind kind, const QString& method, const QVariantList& arguments) {
     operation_message_.clear();
     setBusy(true);
     setError({}, {});
+    const QString requested_profile_id = arguments.isEmpty() ? QString{} : arguments.front().toString();
     auto* watcher = new QDBusPendingCallWatcher(manager_call(bus_, method, arguments), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, kind](QDBusPendingCallWatcher*) {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, kind, requested_profile_id](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
         if (reply.isError()) {
@@ -215,14 +226,16 @@ void ProfileConfigurationModel::request(RequestKind kind, const QString& method,
             }
             return;
         }
-        if (kind == RequestKind::Delete) {
-            const QString deleted_id = profileId();
+        if (kind == RequestKind::Delete || kind == RequestKind::RetireUnsupported) {
+            const QString deleted_id = kind == RequestKind::Delete ? profileId() : requested_profile_id;
             profile_ = {};
             generation_.clear();
             fingerprint_.clear();
             loaded_ = false;
             refresh_pending_ = false;
-            operation_message_ = i18nd("kcm_btrfsbackup", "Profile deleted");
+            operation_message_ = kind == RequestKind::Delete
+                ? i18nd("kcm_btrfsbackup", "Profile deleted")
+                : i18nd("kcm_btrfsbackup", "Unsupported profile removed");
             emit profileChanged();
             setBusy(false);
             emit profileDeleted(deleted_id);
