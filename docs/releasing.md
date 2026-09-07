@@ -87,7 +87,8 @@ changelog.
 3. Create a signed, annotated version tag and push it.
 4. Let the tag-triggered `release gates` workflow build the complete artifact
    set, verify `SHA256SUMS`, and preserve `release-artifacts-GITHUB_SHA`.
-5. Confirm that the packaging, real-Btrfs and QEMU jobs passed.
+5. Confirm that the real-Btrfs and QEMU jobs downloaded, checksum-verified and
+   tested the artifact preserved by the packaging job.
 6. Confirm that the publication job attested the preserved files, created a
    draft release from that artifact, downloaded every release asset, verified
    its name and checksum, and published the draft.

@@ -326,11 +326,12 @@ profile generation/fingerprint races, and run mismatch handling.
 `tools/release.py --target all` creates the source tarball, builds all supported release targets, and writes SHA-256 reports. It does not repeat the repository test suite by default; use `--static-tests` or `--full-tests` for an explicit combined test-and-package run. Package targets that produce installable archives are also smoke-tested where practical.
 
 The release workflow uploads the complete `build/release-artifacts` directory
-only after `sha256sum --check SHA256SUMS` succeeds. Tag-triggered publication
-downloads that workflow artifact, verifies the checksums again, creates GitHub
-artifact attestations, and checks the downloaded draft release assets before
-making the release public. A local rebuild is never substituted for the gated
-artifact.
+only after `sha256sum --check SHA256SUMS` succeeds. The real-Btrfs and QEMU
+gates download that preserved directory, verify its checksums, and pass it to
+their harnesses through `PACKAGE_DIR`. Tag-triggered publication downloads the
+same workflow artifact, verifies the checksums again, creates GitHub artifact
+attestations, and checks the downloaded draft release assets before making the
+release public. A local rebuild is never substituted for the gated artifact.
 
 The offline release matrix builds the complete artifact set twice in the release
 container and requires identical checksums for a fixed `SOURCE_DATE_EPOCH`:
