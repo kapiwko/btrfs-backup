@@ -17,6 +17,55 @@ void expect(bool condition, const char* message) {
     }
 }
 
+QString capabilities_payload(QString overrides = {}) {
+    QString result = QStringLiteral(R"({
+        "schemaVersion":1,
+        "interface":"io.github.btrfsbackup.Manager1",
+        "implementationVersion":"1.0.0",
+        "apiMajor":1,
+        "apiMinor":0,
+        "profileSchemaVersion":1,
+        "publicStatusSchemaVersion":1,
+        "historySchemaVersion":1,
+        "deviceStateSchemaVersion":1,
+        "readOnly":false,
+        "features":["profiles","status"]
+    })");
+    if (!overrides.isEmpty()) {
+        const auto separator = overrides.indexOf(u'=');
+        result.replace(overrides.left(separator), overrides.sliced(separator + 1));
+    }
+    return result;
+}
+
+void test_current_manager_contract_is_required() {
+    const auto current = btrfsbackup::kde::parse_capabilities(capabilities_payload());
+    expect(current.has_value(), "current capabilities were rejected");
+    expect(current && btrfsbackup::kde::is_current_manager_api(*current), "current manager API was rejected");
+
+    const auto different_minor = btrfsbackup::kde::parse_capabilities(
+        capabilities_payload(QStringLiteral("\"apiMinor\":0=\"apiMinor\":2"))
+    );
+    expect(
+        different_minor && !btrfsbackup::kde::is_current_manager_api(*different_minor),
+        "different API minor was accepted"
+    );
+    expect(
+        !btrfsbackup::kde::parse_capabilities(
+             capabilities_payload(QStringLiteral("\"schemaVersion\":1=\"schemaVersion\":2"))
+        )
+             .has_value(),
+        "unsupported capabilities schema was accepted"
+    );
+    expect(
+        !btrfsbackup::kde::parse_capabilities(
+             capabilities_payload(QStringLiteral("\"deviceStateSchemaVersion\":1=\"unsupported\":1"))
+        )
+             .has_value(),
+        "capabilities missing a current schema field were accepted"
+    );
+}
+
 QString payload(QString storage = {}) {
     return QStringLiteral(R"({
         "schemaVersion": 1,
@@ -88,6 +137,13 @@ void test_profile_configuration_health_is_decoded() {
         profiles.has_value() && profiles->front().configuration_error_code == QStringLiteral("configuration.source_missing"),
         "configuration health code was ignored"
     );
+    expect(
+        !btrfsbackup::kde::parse_profiles(QStringLiteral(R"([{
+            "schemaVersion":2,"profileId":"default","sources":[]
+        }])"))
+             .has_value(),
+        "unsupported profile summary schema was accepted"
+    );
 }
 
 void test_run_transfer_bytes_are_decoded() {
@@ -153,12 +209,15 @@ void test_backup_coverage_is_sanitized() {
     expect(coverage.has_value() && coverage->size() == 1, "valid backup coverage was rejected");
     expect(!btrfsbackup::kde::parse_backup_coverage(QStringLiteral(R"([
         {"profileId":"default","sourceId":"home","relativePath":"../private"}
-    ])")).has_value(), "traversal coverage was accepted");
+    ])"))
+                .has_value(),
+           "traversal coverage was accepted");
 }
 
 } // namespace
 
 int main() {
+    test_current_manager_contract_is_required();
     test_complete_and_missing_storage();
     test_invalid_storage_preserves_target_state();
     test_invalid_parent_is_rejected();

@@ -149,9 +149,7 @@ void BackupHistoryModel::ensureCapabilities(bool replace) {
             return;
         }
         const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
-        if (!capabilities.has_value() ||
-            capabilities->api_major != btrfsbackup::manager_protocol::api_major ||
-            capabilities->history_schema_version != btrfsbackup::manager_protocol::history_schema_version ||
+        if (!capabilities.has_value() || !btrfsbackup::kde::is_current_manager_api(*capabilities) ||
             !capabilities->features.contains(
                 QLatin1String(btrfsbackup::manager_protocol::feature::sanitized_history)
             )) {

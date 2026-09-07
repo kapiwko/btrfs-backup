@@ -9,6 +9,8 @@
 
 #include <algorithm>
 
+#include <core/ManagerProtocol.hpp>
+
 using Qt::StringLiterals::operator""_s;
 
 namespace btrfsbackup::kde::kio {
@@ -18,7 +20,8 @@ std::optional<QHash<QString, RepositorySnapshot>> parse_repository_snapshots(con
     if (!document.isObject())
         return std::nullopt;
     const QJsonObject root = document.object();
-    if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"snapshots"_s).isArray())
+    if (root.value(u"schemaVersion"_s).toInt(-1) != manager_protocol::browse_repository_schema_version ||
+        !root.value(u"snapshots"_s).isArray())
         return std::nullopt;
     QHash<QString, RepositorySnapshot> result;
     for (const QJsonValue& value : root.value(u"snapshots"_s).toArray()) {
@@ -84,7 +87,7 @@ std::optional<PreviousVersionsPage> parse_previous_versions_page(const QString& 
     if (!document.isObject())
         return std::nullopt;
     const QJsonObject root = document.object();
-    if (root.value(u"schemaVersion"_s).toInt() != 1 ||
+    if (root.value(u"schemaVersion"_s).toInt(-1) != manager_protocol::previous_versions_page_schema_version ||
         !root.value(u"entries"_s).isArray() || !root.value(u"continuationToken"_s).isString())
         return std::nullopt;
     PreviousVersionsPage result;

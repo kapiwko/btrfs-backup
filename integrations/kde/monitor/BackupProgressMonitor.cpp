@@ -164,9 +164,7 @@ void BackupProgressMonitor::connect_to_manager() {
         }
 
         const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
-        if (!capabilities.has_value() ||
-            capabilities->api_major != btrfsbackup::manager_protocol::api_major ||
-            capabilities->public_status_schema_version != btrfsbackup::manager_protocol::public_status_schema_version ||
+        if (!capabilities.has_value() || !btrfsbackup::kde::is_current_manager_api(*capabilities) ||
             !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
             qWarning() << "btrfs-backup KDE monitor received incompatible manager capabilities";
             manager_unavailable();

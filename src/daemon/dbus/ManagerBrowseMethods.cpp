@@ -112,7 +112,7 @@ int ManagerBrowseMethods::begin_browse_operation(sd_bus_message* message, sd_bus
                 session_id == nullptr ? "" : session_id
             );
             return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                 {"schemaVersion", manager_protocol::operation_result_schema_version},
+                                                                 {"schemaVersion", manager_protocol::browse_operation_schema_version},
                                                                  {"leaseId", lease_id},
                                                              }));
         },
@@ -187,7 +187,7 @@ int ManagerBrowseMethods::list_browse_directory(sd_bus_message* message, sd_bus_
                 });
             }
             return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                 {"schemaVersion", 1},
+                                                                 {"schemaVersion", manager_protocol::browse_directory_schema_version},
                                                                  {"entries", std::move(entries)},
                                                              }));
         },
@@ -230,7 +230,7 @@ int ManagerBrowseMethods::list_browse_directory_page(sd_bus_message* message, sd
                 });
             }
             return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                 {"schemaVersion", 1},
+                                                                 {"schemaVersion", manager_protocol::browse_directory_page_schema_version},
                                                                  {"entries", std::move(entries)},
                                                                  {"continuationToken", page.continuation_token},
                                                              }));
@@ -304,7 +304,7 @@ int ManagerBrowseMethods::inspect_browse_entry(sd_bus_message* message, sd_bus_e
                 relative_path == nullptr ? "" : relative_path
             );
             return ManagerMethodSupport::reply_json(message, config::json::dump_json({
-                                                                 {"schemaVersion", 1},
+                                                                 {"schemaVersion", manager_protocol::browse_entry_schema_version},
                                                                  {"name", entry.name},
                                                                  {"kind", entry.directory ? "directory" : "file"},
                                                                  {"size", entry.size},

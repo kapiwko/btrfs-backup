@@ -132,9 +132,7 @@ void ProfileDirectoryModel::connectToManager() {
             managerUnavailable();
             return;
         }
-        if (capabilities->api_major != btrfsbackup::manager_protocol::api_major ||
-            capabilities->public_status_schema_version != btrfsbackup::manager_protocol::public_status_schema_version ||
-            capabilities->history_schema_version != btrfsbackup::manager_protocol::history_schema_version ||
+        if (!btrfsbackup::kde::is_current_manager_api(*capabilities) ||
             !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
             setLastError(tr("The backup manager API is not compatible with this interface."), QStringLiteral("manager.incompatible-api"));
             managerUnavailable();

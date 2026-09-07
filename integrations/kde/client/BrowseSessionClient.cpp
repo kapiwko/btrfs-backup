@@ -11,6 +11,21 @@
 #include <utility>
 
 namespace btrfsbackup::kde {
+namespace {
+
+bool accepted_operation(const QString& payload, const QString& expected_operation) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject())
+        return false;
+    const QJsonObject object = document.object();
+    return object.value(QStringLiteral("schemaVersion")).toInt(-1) ==
+        manager_protocol::operation_result_schema_version &&
+        object.value(QStringLiteral("operation")).toString() == expected_operation &&
+        object.value(QStringLiteral("accepted")).isBool() &&
+        object.value(QStringLiteral("accepted")).toBool();
+}
+
+} // namespace
 
 BrowseSessionClient::BrowseSessionClient(QDBusConnection bus) : manager_(std::move(bus)) {
 }
@@ -41,7 +56,9 @@ std::optional<BrowseOperationLease> BrowseSessionClient::beginOperation(const QS
         return std::nullopt;
     const QJsonObject object = document.object();
     const QString lease_id = object.value(QStringLiteral("leaseId")).toString();
-    if (object.value(QStringLiteral("schemaVersion")).toInt() != 1 || lease_id.isEmpty())
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+            manager_protocol::browse_operation_schema_version ||
+        lease_id.isEmpty())
         return std::nullopt;
     return BrowseOperationLease{lease_id};
 }
@@ -49,11 +66,13 @@ std::optional<BrowseOperationLease> BrowseSessionClient::beginOperation(const QS
 bool BrowseSessionClient::endOperation(const QString& session_id, const BrowseOperationLease& lease) const {
     if (lease.lease_id.isEmpty())
         return false;
-    return payload(manager_.endBrowseOperation(session_id, lease.lease_id)).has_value();
+    const auto value = payload(manager_.endBrowseOperation(session_id, lease.lease_id));
+    return value && accepted_operation(*value, QStringLiteral("end-browse-operation"));
 }
 
 bool BrowseSessionClient::close(const QString& session_id) const {
-    return payload(manager_.closeBrowseSession(session_id)).has_value();
+    const auto value = payload(manager_.closeBrowseSession(session_id));
+    return value && accepted_operation(*value, QStringLiteral("close-browse-session"));
 }
 
 std::optional<QString> BrowseSessionClient::listDirectory(const QString& session_id, const QString& path) const {

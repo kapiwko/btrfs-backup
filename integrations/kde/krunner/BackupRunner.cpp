@@ -68,7 +68,7 @@ void BackupRunner::match(KRunner::RunnerContext& context) {
         return;
     const auto capabilities_payload = payload(btrfsbackup::kde::ManagerClient{}.capabilities());
     const auto capabilities = capabilities_payload ? btrfsbackup::kde::parse_capabilities(*capabilities_payload) : std::nullopt;
-    if (!capabilities || capabilities->api_major != btrfsbackup::manager_protocol::api_major)
+    if (!capabilities || !btrfsbackup::kde::is_current_manager_api(*capabilities))
         return;
     QString required_feature;
     using btrfsbackup::kde::krunner::CommandKind;

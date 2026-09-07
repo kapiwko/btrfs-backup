@@ -174,17 +174,17 @@ void test_stopping_tracking_is_not_a_terminal_result() {
 
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
-        QStringLiteral(R"({"implementationVersion":"1.0.0","apiMajor":1,"apiMinor":0,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"features":["cancel-backup","change-signals"]})")
+        QStringLiteral(R"({"schemaVersion":1,"interface":"io.github.btrfsbackup.Manager1","implementationVersion":"1.0.0","apiMajor":1,"apiMinor":0,"profileSchemaVersion":1,"publicStatusSchemaVersion":1,"historySchemaVersion":1,"deviceStateSchemaVersion":1,"readOnly":false,"features":["cancel-backup","change-signals"]})")
     );
     expect(
-        capabilities.has_value() && capabilities->api_major == 1 &&
+        capabilities.has_value() && btrfsbackup::kde::is_current_manager_api(*capabilities) &&
             capabilities->api_minor == 0 && capabilities->implementation_version == QStringLiteral("1.0.0") &&
             capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)),
         "shared client decodes manager capabilities"
     );
 
     const auto profiles = btrfsbackup::kde::parse_profiles(
-        QStringLiteral(R"([{"profileId":"default","name":"Default","targetName":"Disk","sources":[{"id":"home","name":"Home"}]}])")
+        QStringLiteral(R"([{"schemaVersion":1,"profileId":"default","name":"Default","targetName":"Disk","sources":[{"id":"home","name":"Home"}]}])")
     );
     expect(
         profiles.has_value() && profiles->size() == 1 && profiles->front().id == QStringLiteral("default"),

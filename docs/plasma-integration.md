@@ -11,10 +11,11 @@ desktop-neutral restore engine. Calls are asynchronous; after the initial state
 load, clients refresh only in response to manager change signals. Mutating
 calls remain behind the manager's per-operation polkit authorization.
 
-The model validates `apiMajor` and public status schema capabilities before it
-accepts data. `managerConnected` reports manager availability, while target
-connectivity, mount state, and safe-removal state come only from authoritative
-`GetDeviceState` data supplied by the system backend.
+The clients require the exact current API major and minor versions and every
+advertised public schema before they accept data. `managerConnected` reports
+manager availability, while target connectivity, mount state, and safe-removal
+state come only from authoritative `GetDeviceState` data supplied by the system
+backend.
 
 The plasmoid consumes profiles, reduced current status, sanitized history and
 target lifecycle state. Its expanded profile view also shows filesystem

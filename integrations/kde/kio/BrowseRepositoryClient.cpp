@@ -70,7 +70,8 @@ std::optional<RemoteDirectoryPage> BrowseRepositoryClient::directoryPage(
     if (!payload)
         return std::nullopt;
     const QJsonObject root = QJsonDocument::fromJson(payload->toUtf8()).object();
-    if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"entries"_s).isArray() ||
+    if (root.value(u"schemaVersion"_s).toInt(-1) != manager_protocol::browse_directory_page_schema_version ||
+        !root.value(u"entries"_s).isArray() ||
         !root.value(u"continuationToken"_s).isString())
         return std::nullopt;
     RemoteDirectoryPage result;
@@ -93,7 +94,9 @@ std::optional<RemoteEntry> BrowseRepositoryClient::entry(const QString& session_
     if (!payload)
         return std::nullopt;
     const QJsonObject object = QJsonDocument::fromJson(payload->toUtf8()).object();
-    return object.value(u"schemaVersion"_s).toInt() == 1 ? parse_remote_entry(object) : std::nullopt;
+    return object.value(u"schemaVersion"_s).toInt(-1) == manager_protocol::browse_entry_schema_version
+        ? parse_remote_entry(object)
+        : std::nullopt;
 }
 
 std::optional<PreviousVersionsPage> BrowseRepositoryClient::previousVersions(

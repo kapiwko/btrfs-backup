@@ -24,11 +24,15 @@ class IoGithubBtrfsbackupManager1Interface;
 namespace btrfsbackup::kde {
 
 struct ManagerCapabilities {
+    QString interface_name;
     QString implementation_version;
     int api_major = -1;
     int api_minor = -1;
+    int profile_schema_version = -1;
     int public_status_schema_version = -1;
     int history_schema_version = -1;
+    int device_state_schema_version = -1;
+    bool read_only = true;
     QSet<QString> features;
 };
 
@@ -173,6 +177,7 @@ class ManagerClient {
     const QVariantList& arguments = {}
 );
 [[nodiscard]] std::optional<ManagerCapabilities> parse_capabilities(const QString& payload);
+[[nodiscard]] bool is_current_manager_api(const ManagerCapabilities& capabilities);
 [[nodiscard]] std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload);
 [[nodiscard]] std::optional<RunStatus> parse_status(const QString& payload);
 [[nodiscard]] std::optional<QList<HistoryEntry>> parse_history(const QString& payload);

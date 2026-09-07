@@ -22,18 +22,29 @@ std::optional<ManagerCapabilities> parse_capabilities(const QString& payload) {
     }
 
     const QJsonObject object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+            manager_protocol::capabilities_schema_version ||
+        !object.value(QStringLiteral("readOnly")).isBool()) {
+        return std::nullopt;
+    }
     ManagerCapabilities result{
+        .interface_name = object.value(QStringLiteral("interface")).toString(),
         .implementation_version = object.value(QStringLiteral("implementationVersion")).toString(),
         .api_major = object.value(QStringLiteral("apiMajor")).toInt(-1),
         .api_minor = object.value(QStringLiteral("apiMinor")).toInt(-1),
+        .profile_schema_version = object.value(QStringLiteral("profileSchemaVersion")).toInt(-1),
         .public_status_schema_version = object.value(
                                                   QStringLiteral("publicStatusSchemaVersion")
         )
                                             .toInt(-1),
         .history_schema_version = object.value(QStringLiteral("historySchemaVersion")).toInt(-1),
+        .device_state_schema_version = object.value(QStringLiteral("deviceStateSchemaVersion")).toInt(-1),
+        .read_only = object.value(QStringLiteral("readOnly")).toBool(true),
         .features = {},
     };
-    if (result.implementation_version.isEmpty()) {
+    if (result.interface_name.isEmpty() || result.implementation_version.isEmpty() || result.api_major < 0 ||
+        result.api_minor < 0 || result.profile_schema_version < 0 || result.public_status_schema_version < 0 ||
+        result.history_schema_version < 0 || result.device_state_schema_version < 0) {
         return std::nullopt;
     }
     const QJsonValue features = object.value(QStringLiteral("features"));
@@ -49,6 +60,17 @@ std::optional<ManagerCapabilities> parse_capabilities(const QString& payload) {
     return result;
 }
 
+bool is_current_manager_api(const ManagerCapabilities& capabilities) {
+    return capabilities.interface_name == QLatin1String(manager_protocol::interface_name) &&
+        capabilities.api_major == manager_protocol::api_major &&
+        capabilities.api_minor == manager_protocol::api_minor &&
+        capabilities.profile_schema_version == manager_protocol::profile_schema_version &&
+        capabilities.public_status_schema_version == manager_protocol::public_status_schema_version &&
+        capabilities.history_schema_version == manager_protocol::history_schema_version &&
+        capabilities.device_state_schema_version == manager_protocol::device_state_schema_version &&
+        !capabilities.read_only;
+}
+
 std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
     const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
     if (!document.isArray()) {
@@ -61,6 +83,10 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
             return std::nullopt;
         }
         const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+            manager_protocol::profile_summary_schema_version) {
+            return std::nullopt;
+        }
         ProfileSummary profile{
             .id = object.value(QStringLiteral("profileId")).toString(),
             .name = object.value(QStringLiteral("name")).toString(),
@@ -137,7 +163,7 @@ std::optional<RunStatus> parse_status(const QString& payload) {
             return std::nullopt;
         }
     }
-    object[QStringLiteral("schemaVersion")] = 1;
+    object[QStringLiteral("schemaVersion")] = manager_protocol::public_status_schema_version;
     const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(
         QJsonDocument(object).toJson(QJsonDocument::Compact).toStdString()
     );

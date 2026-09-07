@@ -11,9 +11,6 @@
 #include <QDBusError>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonParseError>
 #include <QMap>
 #include <QUrl>
 
@@ -53,16 +50,6 @@ QString manager_error_message(const QDBusError& error) {
     return i18nd(translation_domain, "The backup manager could not complete the request.");
 }
 
-int json_int(const QJsonObject& object, const char* key, int fallback = 0) {
-    const auto value = object.value(QLatin1String(key));
-    return value.isDouble() ? value.toInt() : fallback;
-}
-
-QString parseError(const QJsonParseError& error) {
-    if (error.error == QJsonParseError::NoError)
-        return BackupStatusModel::tr("Invalid manager response.");
-    return BackupStatusModel::tr("Invalid manager response: %1").arg(error.errorString());
-}
 } // namespace
 
 BackupStatusModel::BackupStatusModel(QObject* parent)
@@ -455,14 +442,13 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
             emit operationChanged();
             return;
         }
-        QJsonParseError error;
-        const QJsonDocument document = QJsonDocument::fromJson(reply.value().toUtf8(), &error);
-        if (error.error != QJsonParseError::NoError || !document.isObject() || json_int(document.object(), "schemaVersion", -1) != 1) {
-            setLastError(parseError(error), QStringLiteral("manager.invalid-operation-response"));
+        const auto result = btrfsbackup::kde::parse_operation_result(reply.value());
+        if (!result.has_value()) {
+            setLastError(tr("Invalid manager response."), QStringLiteral("manager.invalid-operation-response"));
             emit operationChanged();
             return;
         }
-        last_operation_ = document.object().value(QStringLiteral("operation")).toString();
+        last_operation_ = result->operation;
         operation_message_timer_.start();
         emit operationChanged();
         directory_->refreshNow();

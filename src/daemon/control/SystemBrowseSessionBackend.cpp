@@ -21,6 +21,7 @@
 #include <config/json/JsonIo.hpp>
 #include <config/domain/Validation.hpp>
 #include <core/RuntimeTime.hpp>
+#include <core/ManagerProtocol.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
@@ -368,7 +369,7 @@ void SystemBrowseSessionBackend::ensure_repository_cache(SessionMount& mount) {
         });
     }
     mount.repository_document = config::json::dump_json({
-        {"schemaVersion", 1},
+        {"schemaVersion", manager_protocol::browse_repository_schema_version},
         {"repositoryId", catalog.identity().repository_id},
         {"targetFilesystemUuid", catalog.identity().target_filesystem_uuid},
         {"createdAt", format_utc_iso_timestamp(catalog.identity().created_at)},
