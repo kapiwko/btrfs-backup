@@ -18,24 +18,6 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup::daemon::query {
 
-void StatusQueryService::set_history_state(PublicRunStatus& result, const std::string& state) {
-    using btrfsbackup::state::document::PublicRunState;
-    if (state == "succeeded")
-        result.state = PublicRunState::Succeeded;
-    else if (state == "failed")
-        result.state = PublicRunState::Failed;
-    else if (state == "cancelled")
-        result.state = PublicRunState::Cancelled;
-    else if (state == "skipped")
-        result.state = PublicRunState::Skipped;
-    else if (state == "validated")
-        result.state = PublicRunState::Validated;
-    else {
-        result.state = PublicRunState::Unknown;
-        result.unknown_state = state;
-    }
-}
-
 StatusQueryService::StatusQueryService(
     fs::path status_root,
     fs::path state_root,
@@ -93,6 +75,24 @@ PublicStatusResponse StatusQueryService::get_status(const std::string& profile_i
             response.run.progress.overall_percent = last->overall_progress;
     }
     return response;
+}
+
+void StatusQueryService::set_history_state(PublicRunStatus& result, const std::string& state) {
+    using btrfsbackup::state::document::PublicRunState;
+    if (state == "succeeded")
+        result.state = PublicRunState::Succeeded;
+    else if (state == "failed")
+        result.state = PublicRunState::Failed;
+    else if (state == "cancelled")
+        result.state = PublicRunState::Cancelled;
+    else if (state == "skipped")
+        result.state = PublicRunState::Skipped;
+    else if (state == "validated")
+        result.state = PublicRunState::Validated;
+    else {
+        result.state = PublicRunState::Unknown;
+        result.unknown_state = state;
+    }
 }
 
 } // namespace btrfsbackup::daemon::query
