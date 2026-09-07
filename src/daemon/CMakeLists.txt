@@ -92,6 +92,7 @@ target_link_libraries(btrfsbackup-daemon-control
 add_library(btrfsbackup-daemon-system-control STATIC
     control/BrowseDirectoryPageCollector.cpp
     control/BrowseFilesystemAccess.cpp
+    control/StoredPermissionEvaluator.cpp
     control/BrowseSessionMountStore.cpp
     control/CommandSystemdUnitController.cpp
     control/DestructiveDeviceSafetyInspector.cpp
@@ -129,6 +130,7 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/SystemDeviceProvisioningBackend.hpp
         daemon/control/SystemProfileAdministrationBackend.hpp
     PRIVATE_HEADERS
+        daemon/control/StoredPermissionEvaluator.hpp
         daemon/control/DevicePreparationExecutor.hpp
         daemon/control/DevicePreparationRecovery.hpp
         daemon/control/OperationEnvironmentFile.hpp

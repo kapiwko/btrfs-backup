@@ -4,17 +4,16 @@
 #include <daemon/control/BrowseFilesystemAccess.hpp>
 
 #include <daemon/control/BrowseDirectoryPageCollector.hpp>
+#include <daemon/control/StoredPermissionEvaluator.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <acl/libacl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include <cerrno>
 #include <memory>
-#include <ranges>
 #include <stdexcept>
 #include <system_error>
 
@@ -84,108 +83,6 @@ OwnedFileDescriptor session_root(const fs::path& root) {
     return descriptor;
 }
 
-struct AclCloser {
-    void operator()(void* value) const noexcept {
-        if (value != nullptr)
-            acl_free(value);
-    }
-};
-
-using OwnedAcl = std::unique_ptr<std::remove_pointer_t<acl_t>, AclCloser>;
-using OwnedAclQualifier = std::unique_ptr<void, AclCloser>;
-
-bool contains_group(const BrowseAccessIdentity& identity, gid_t group) {
-    return std::ranges::find(identity.groups, static_cast<std::uint32_t>(group)) != identity.groups.end();
-}
-
-int acl_permissions(acl_permset_t permissions) {
-    const int read = acl_get_perm(permissions, ACL_READ);
-    const int write = acl_get_perm(permissions, ACL_WRITE);
-    const int execute = acl_get_perm(permissions, ACL_EXECUTE);
-    if (read < 0 || write < 0 || execute < 0)
-        path_error("cannot read stored POSIX ACL permissions", errno);
-    return (read == 1 ? 4 : 0) | (write == 1 ? 2 : 0) | (execute == 1 ? 1 : 0);
-}
-
-int mode_permissions(const struct stat& status, const BrowseAccessIdentity& identity) {
-    if (status.st_uid == static_cast<uid_t>(identity.uid))
-        return (status.st_mode >> 6) & 7;
-    if (contains_group(identity, status.st_gid))
-        return (status.st_mode >> 3) & 7;
-    return status.st_mode & 7;
-}
-
-int effective_permissions(int descriptor, const struct stat& status, const BrowseAccessIdentity& identity) {
-    OwnedAcl acl(acl_get_fd(descriptor));
-    if (!acl && (errno == ENOTSUP || errno == EOPNOTSUPP || errno == ENOSYS))
-        return mode_permissions(status, identity);
-    if (!acl)
-        path_error("cannot read stored POSIX ACL", errno);
-
-    int owner = -1;
-    int named_user = -1;
-    int matching_groups = 0;
-    bool group_matched = false;
-    int other = 0;
-    int mask = 7;
-    acl_entry_t entry{};
-    int entry_id = ACL_FIRST_ENTRY;
-    int entry_result = 0;
-    while ((entry_result = acl_get_entry(acl.get(), entry_id, &entry)) == 1) {
-        entry_id = ACL_NEXT_ENTRY;
-        acl_tag_t tag{};
-        acl_permset_t permissions{};
-        if (acl_get_tag_type(entry, &tag) != 0 || acl_get_permset(entry, &permissions) != 0)
-            path_error("cannot read stored POSIX ACL entry", errno);
-        const int value = acl_permissions(permissions);
-        if (tag == ACL_USER_OBJ) {
-            owner = value;
-        } else if (tag == ACL_USER) {
-            OwnedAclQualifier qualifier(acl_get_qualifier(entry));
-            if (!qualifier)
-                path_error("cannot read stored POSIX ACL user", errno);
-            if (*static_cast<uid_t*>(qualifier.get()) == static_cast<uid_t>(identity.uid))
-                named_user = value;
-        } else if (tag == ACL_GROUP_OBJ) {
-            if (contains_group(identity, status.st_gid)) {
-                matching_groups |= value;
-                group_matched = true;
-            }
-        } else if (tag == ACL_GROUP) {
-            OwnedAclQualifier qualifier(acl_get_qualifier(entry));
-            if (!qualifier)
-                path_error("cannot read stored POSIX ACL group", errno);
-            if (contains_group(identity, *static_cast<gid_t*>(qualifier.get()))) {
-                matching_groups |= value;
-                group_matched = true;
-            }
-        } else if (tag == ACL_MASK) {
-            mask = value;
-        } else if (tag == ACL_OTHER) {
-            other = value;
-        }
-    }
-    if (entry_result < 0)
-        path_error("cannot enumerate stored POSIX ACL", errno);
-    if (status.st_uid == static_cast<uid_t>(identity.uid))
-        return owner >= 0 ? owner : mode_permissions(status, identity);
-    if (named_user >= 0)
-        return named_user & mask;
-    if (group_matched)
-        return matching_groups & mask;
-    return other;
-}
-
-void require_access(int descriptor, const BrowseAccessIdentity* identity, int required, const char* operation) {
-    if (identity == nullptr || identity->uid == 0)
-        return;
-    struct stat status{};
-    if (fstat(descriptor, &status) != 0)
-        path_error("cannot inspect browse permissions", errno);
-    if ((effective_permissions(descriptor, status, *identity) & required) != required)
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, operation);
-}
-
 OwnedFileDescriptor open_authorized_directory(
     int root,
     const fs::path& relative,
@@ -195,7 +92,12 @@ OwnedFileDescriptor open_authorized_directory(
     OwnedFileDescriptor current(openat(root, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!current.valid())
         path_error("cannot open browse root", errno);
-    require_access(current.get(), identity, 1, "stored directory permissions deny traversal");
+    StoredPermissionEvaluator::require_access(
+        current.get(),
+        identity,
+        1,
+        "stored directory permissions deny traversal"
+    );
     for (const std::string& component : validated_components(relative)) {
         OwnedFileDescriptor next(openat(
             current.get(),
@@ -205,9 +107,19 @@ OwnedFileDescriptor open_authorized_directory(
         if (!next.valid())
             path_error("cannot traverse browse entry", errno);
         current = std::move(next);
-        require_access(current.get(), identity, 1, "stored directory permissions deny traversal");
+        StoredPermissionEvaluator::require_access(
+            current.get(),
+            identity,
+            1,
+            "stored directory permissions deny traversal"
+        );
     }
-    require_access(current.get(), identity, final_permissions, "stored directory permissions deny listing");
+    StoredPermissionEvaluator::require_access(
+        current.get(),
+        identity,
+        final_permissions,
+        "stored directory permissions deny listing"
+    );
     return current;
 }
 
@@ -350,7 +262,12 @@ OwnedFileDescriptor BrowseFilesystemAccess::open_file(
         path_error("cannot inspect browse file", errno);
     if (!S_ISREG(status.st_mode))
         throw std::invalid_argument("browse entry is not a regular file");
-    require_access(result.get(), identity, 4, "stored file permissions deny reading");
+    StoredPermissionEvaluator::require_access(
+        result.get(),
+        identity,
+        4,
+        "stored file permissions deny reading"
+    );
     return result;
 }
 
