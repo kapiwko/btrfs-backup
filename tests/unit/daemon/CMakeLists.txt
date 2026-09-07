@@ -86,6 +86,13 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-browse-continuation-token-codec-tests
+    BrowseContinuationTokenCodecTests.cpp
+    browse-continuation-token-codec-tests
+    btrfsbackup-daemon-control
+)
+
+add_btrfsbackup_test(
     btrfsbackup-browse-directory-page-collector-tests
     BrowseDirectoryPageCollectorTests.cpp
     browse-directory-page-collector-tests

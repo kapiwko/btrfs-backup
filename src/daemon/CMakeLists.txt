@@ -59,6 +59,7 @@ target_link_libraries(btrfsbackup-daemon-query
 
 add_library(btrfsbackup-daemon-control STATIC
     control/AuthorizedOperationCommand.cpp
+    control/BrowseContinuationTokenCodec.cpp
     control/BrowseSessionService.cpp
     control/CredentialAdministrationService.cpp
     control/DeviceProvisioningService.cpp
@@ -73,6 +74,7 @@ target_compile_definitions(
 target_restricted_include_directories(btrfsbackup-daemon-control
     PUBLIC_HEADERS
         daemon/control/AuthorizedOperationCommand.hpp
+        daemon/control/BrowseContinuationTokenCodec.hpp
         daemon/control/BrowseSessionService.hpp
         daemon/control/CredentialAdministrationService.hpp
         daemon/control/DeviceProvisioningService.hpp
