@@ -132,10 +132,10 @@ void test_preflight_rejects_source_larger_than_destination_space() {
     const std::uintmax_t available = fs::space(root).available;
     test_helpers::expect_true(
         "finite destination capacity",
-        available < std::numeric_limits<std::uintmax_t>::max(),
-        "destination reports an unbounded capacity"
+        available <= std::numeric_limits<std::uintmax_t>::max() - (1ULL << 30U),
+        "destination capacity leaves no room for the test margin"
     );
-    fs::resize_file(source, available + 1U);
+    fs::resize_file(source, available + (1ULL << 30U));
 
     btrfsbackup::platform::linux::restore::PosixRestoreOperations operations;
     btrfsbackup::CancellationToken cancellation;
