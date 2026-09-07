@@ -37,13 +37,14 @@ the Plasma panel.*
 The stable release line is 1.0.x. Install the base package with:
 
 ```bash
-sudo pacman -U btrfs-backup-1.0.0-1-x86_64.pkg.tar.zst
+version=$(cat VERSION)
+sudo pacman -U "btrfs-backup-${version}-1-x86_64.pkg.tar.zst"
 ```
 
 For the KDE desktop tools, install the matching package:
 
 ```bash
-sudo pacman -U btrfs-backup-kde-1.0.0-1-x86_64.pkg.tar.zst
+sudo pacman -U "btrfs-backup-kde-${version}-1-x86_64.pkg.tar.zst"
 ```
 
 The base package installs the systemd and udev templates but does not enable a

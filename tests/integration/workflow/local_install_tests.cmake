@@ -7,14 +7,17 @@ foreach(variable IN ITEMS CMAKE_COMMAND SOURCE_DIR TEST_ROOT)
     endif()
 endforeach()
 
+file(READ "${SOURCE_DIR}/VERSION" release_version)
+string(STRIP "${release_version}" release_version)
+
 set(test_dir "${TEST_ROOT}/local-install")
 set(dist_dir "${test_dir}/dist")
 set(manifest "${test_dir}/commands.txt")
 file(REMOVE_RECURSE "${test_dir}")
 file(MAKE_DIRECTORY "${dist_dir}")
 file(TOUCH
-    "${dist_dir}/btrfs-backup-1.0.0-1-x86_64.pkg.tar.zst"
-    "${dist_dir}/btrfs-backup-kde-1.0.0-1-x86_64.pkg.tar.zst"
+    "${dist_dir}/btrfs-backup-${release_version}-1-x86_64.pkg.tar.zst"
+    "${dist_dir}/btrfs-backup-kde-${release_version}-1-x86_64.pkg.tar.zst"
 )
 
 execute_process(

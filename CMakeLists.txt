@@ -16,6 +16,19 @@ project(
     LANGUAGES CXX
 )
 
+set(BTRFS_BACKUP_GENERATED_MAN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/man")
+file(MAKE_DIRECTORY "${BTRFS_BACKUP_GENERATED_MAN_DIR}")
+configure_file(
+    data/man/btrfs-backupctl.1.in
+    "${BTRFS_BACKUP_GENERATED_MAN_DIR}/btrfs-backupctl.1"
+    @ONLY
+)
+configure_file(
+    data/man/btrfs-backup.8.in
+    "${BTRFS_BACKUP_GENERATED_MAN_DIR}/btrfs-backup.8"
+    @ONLY
+)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -227,11 +240,11 @@ install(
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/tmpfiles.d"
 )
 install(
-    FILES data/man/btrfs-backupctl.1
+    FILES "${BTRFS_BACKUP_GENERATED_MAN_DIR}/btrfs-backupctl.1"
     DESTINATION "${CMAKE_INSTALL_MANDIR}/man1"
 )
 install(
-    FILES data/man/btrfs-backup.8
+    FILES "${BTRFS_BACKUP_GENERATED_MAN_DIR}/btrfs-backup.8"
     DESTINATION "${CMAKE_INSTALL_MANDIR}/man8"
 )
 install(

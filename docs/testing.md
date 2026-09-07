@@ -342,6 +342,7 @@ python3 tests/integration/docker/run_release_matrix.py
 After building the Arch target, also check:
 
 ```bash
-tar --zstd -tf dist/btrfs-backup-1.0.0-1-x86_64.pkg.tar.zst
+version=$(cat VERSION)
+tar --zstd -tf "dist/btrfs-backup-${version}-1-x86_64.pkg.tar.zst"
 sha256sum -c dist/SHA256SUMS
 ```

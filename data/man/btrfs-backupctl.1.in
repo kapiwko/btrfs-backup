@@ -1,4 +1,4 @@
-.TH BTRFS-BACKUPCTL 1 "September 2026" "btrfs-backup 1.0.0" "User Commands"
+.TH BTRFS-BACKUPCTL 1 "September 2026" "btrfs-backup @BTRFS_BACKUP_VERSION@" "User Commands"
 .SH NAME
 btrfs-backupctl \- configure, inspect and recover btrfs-backup repositories
 .SH SYNOPSIS

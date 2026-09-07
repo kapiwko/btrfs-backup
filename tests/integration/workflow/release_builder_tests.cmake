@@ -7,6 +7,9 @@ foreach(variable IN ITEMS CMAKE_COMMAND PYTHON SOURCE_DIR TEST_ROOT BUILD_DIR)
     endif()
 endforeach()
 
+file(READ "${SOURCE_DIR}/VERSION" release_version)
+string(STRIP "${release_version}" release_version)
+
 set(root "${TEST_ROOT}/release-builder")
 set(first "${root}/first")
 set(second "${root}/second")
@@ -36,8 +39,8 @@ if(NOT first_checksums STREQUAL second_checksums)
 endif()
 
 foreach(name IN ITEMS
-        "btrfs-backup-1.0.0.tar.gz"
-        "btrfs-backup-1.0.0-source.zip"
+        "btrfs-backup-${release_version}.tar.gz"
+        "btrfs-backup-${release_version}-source.zip"
         "SBOM.spdx.json"
         "BUILD-REPORT.txt"
         "BUILD-REPORT.json"
@@ -61,7 +64,7 @@ if(spdx_position EQUAL -1)
 endif()
 
 execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E tar tf "${first}/btrfs-backup-1.0.0.tar.gz"
+    COMMAND "${CMAKE_COMMAND}" -E tar tf "${first}/btrfs-backup-${release_version}.tar.gz"
     OUTPUT_VARIABLE archive_entries
     RESULT_VARIABLE list_result
 )

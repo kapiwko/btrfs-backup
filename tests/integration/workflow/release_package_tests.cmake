@@ -7,6 +7,9 @@ foreach(variable IN ITEMS CMAKE_COMMAND PYTHON SOURCE_DIR TEST_ROOT RELEASE_BUIL
     endif()
 endforeach()
 
+file(READ "${SOURCE_DIR}/VERSION" release_version)
+string(STRIP "${release_version}" release_version)
+
 file(READ "${SOURCE_DIR}/cmake/ReleasePackaging.cmake" packaging)
 foreach(setting IN ITEMS
         "CPACK_PACKAGE_RELOCATABLE OFF"
@@ -41,7 +44,7 @@ endfunction()
 
 build_install_tarball("${root}/first")
 build_install_tarball("${root}/second")
-set(archive_name "btrfs-backup-1.0.0-install.tar.gz")
+set(archive_name "btrfs-backup-${release_version}-install.tar.gz")
 file(SHA256 "${root}/first/${archive_name}" first_hash)
 file(SHA256 "${root}/second/${archive_name}" second_hash)
 if(NOT first_hash STREQUAL second_hash)
@@ -62,9 +65,23 @@ foreach(expected IN ITEMS
         "usr/bin/btrfs-backupctl"
         "usr/bin/btrfs-backupd"
         "usr/bin/btrfs-backup-device-preparation"
+        "usr/share/man/man1/btrfs-backupctl.1"
+        "usr/share/man/man8/btrfs-backup.8"
         "usr/lib/systemd/system/btrfs-backup@.service")
     string(FIND "${entries}" "${expected}\n" position)
     if(position EQUAL -1)
         message(FATAL_ERROR "Install archive is missing ${expected}")
+    endif()
+endforeach()
+
+set(extracted "${root}/extracted")
+file(ARCHIVE_EXTRACT INPUT "${root}/first/${archive_name}" DESTINATION "${extracted}")
+foreach(page IN ITEMS
+        "usr/share/man/man1/btrfs-backupctl.1"
+        "usr/share/man/man8/btrfs-backup.8")
+    file(READ "${extracted}/${page}" contents)
+    string(FIND "${contents}" "btrfs-backup ${release_version}" version_position)
+    if(version_position EQUAL -1)
+        message(FATAL_ERROR "Installed ${page} does not contain VERSION")
     endif()
 endforeach()

@@ -1,4 +1,4 @@
-.TH BTRFS-BACKUP 8 "September 2026" "btrfs-backup 1.0.0" "System Administration"
+.TH BTRFS-BACKUP 8 "September 2026" "btrfs-backup @BTRFS_BACKUP_VERSION@" "System Administration"
 .SH NAME
 btrfs-backup \- run an encrypted removable Btrfs backup
 .SH SYNOPSIS

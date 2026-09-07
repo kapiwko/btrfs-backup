@@ -29,6 +29,7 @@ def prepare(stage: Path, paths: list[str]) -> None:
 
 
 def main() -> int:
+    version = (ROOT / "VERSION").read_text().strip()
     with tempfile.TemporaryDirectory(prefix="btrfs-backup-arch-order.", dir="/tmp") as temporary:
         root = Path(temporary)
         first_stage = root / "first-stage"
@@ -38,8 +39,8 @@ def main() -> int:
         prepare(first_stage, list(FILES))
         prepare(second_stage, list(reversed(FILES)))
 
-        first = build_arch_package(ROOT, first_stage, root / "first.pkg.tar.zst", "1.0.0", "x86_64", 1700000000, kde=True)
-        second = build_arch_package(ROOT, second_stage, root / "second.pkg.tar.zst", "1.0.0", "x86_64", 1700000000, kde=True)
+        first = build_arch_package(ROOT, first_stage, root / "first.pkg.tar.zst", version, "x86_64", 1700000000, kde=True)
+        second = build_arch_package(ROOT, second_stage, root / "second.pkg.tar.zst", version, "x86_64", 1700000000, kde=True)
         if first.read_bytes() != second.read_bytes():
             raise RuntimeError("Arch package depends on filesystem creation order")
     print("ok - Arch package member order is deterministic")
