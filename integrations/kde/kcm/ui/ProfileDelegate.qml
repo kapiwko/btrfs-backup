@@ -152,9 +152,11 @@ QQC2.ItemDelegate {
             }
 
             QQC2.Switch {
+                objectName: "automaticBackupsSwitch"
                 text: translations.i18n("Automatic backups")
                 checked: delegate.profileStatus.profileEnabled
-                enabled: BtrfsBackup.ProfilePresentation.canToggleAutomatic(delegate.profileStatus)
+                enabled: !delegate.unsupportedSchema
+                    && BtrfsBackup.ProfilePresentation.canToggleAutomatic(delegate.profileStatus)
                 onToggled: {
                     if (checked !== delegate.profileStatus.profileEnabled)
                         delegate.profileStatus.setProfileEnabled(checked)

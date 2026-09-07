@@ -259,6 +259,8 @@ void BackupStatusModel::cancelBackup() {
 }
 
 void BackupStatusModel::setProfileEnabled(bool enabled) {
+    if (!configuration_valid_)
+        return;
     requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::set_profile_enabled), {profile_, enabled});
 }
 

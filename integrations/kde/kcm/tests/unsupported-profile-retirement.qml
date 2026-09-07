@@ -66,10 +66,13 @@ Item {
         when: windowShown
 
         function test_retirementRequiresConfirmation() {
+            const automaticBackupsSwitch = findChild(delegate, "automaticBackupsSwitch")
             const action = findChild(delegate, "retireUnsupportedProfileAction")
             const dialog = findChild(delegate, "retireUnsupportedProfileDialog")
+            verify(automaticBackupsSwitch !== null)
             verify(action !== null)
             verify(dialog !== null)
+            compare(automaticBackupsSwitch.enabled, false)
             compare(action.visible, true)
             compare(action.enabled, true)
 
