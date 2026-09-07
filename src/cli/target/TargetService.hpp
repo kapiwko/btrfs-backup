@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <variant>
 #include <vector>
@@ -23,15 +24,15 @@ namespace btrfsbackup::cli::target {
 struct TargetServiceDependencies {
     btrfsbackup::backup::ICommandRunner& commands;
     btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup;
-    std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
-    std::filesystem::path lock_root;
-    std::filesystem::path mount_point_trust_root;
+    std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts{};
+    std::filesystem::path lock_root{};
+    std::filesystem::path mount_point_trust_root{};
     std::filesystem::path mapper_root = "/dev/mapper";
     std::filesystem::path activation_state_root = "/run/btrfs-backup/target-activation";
     std::filesystem::path keyfile_trust_root = "/";
-    std::string systemd_cryptsetup_command;
-    std::function<std::filesystem::path(const std::filesystem::path&)> canonical_device;
-    std::function<void(const std::filesystem::path&)> unmount_filesystem;
+    std::string systemd_cryptsetup_command{};
+    std::function<std::filesystem::path(const std::filesystem::path&)> canonical_device{};
+    std::function<void(const std::filesystem::path&)> unmount_filesystem{};
 };
 
 struct ActivateTargetRequest {
@@ -97,6 +98,26 @@ using TargetOperationResult = std::variant<
     TargetOperationSkipped>;
 
 [[nodiscard]] const std::vector<TargetEvent>& target_operation_events(const TargetOperationResult& result) noexcept;
+
+class TargetService final {
+  public:
+    explicit TargetService(TargetServiceDependencies& dependencies);
+    ~TargetService() noexcept;
+
+    TargetService(const TargetService&) = delete;
+    TargetService& operator=(const TargetService&) = delete;
+    TargetService(TargetService&&) noexcept;
+    TargetService& operator=(TargetService&&) noexcept;
+
+    [[nodiscard]] TargetOperationResult activate(const ActivateTargetRequest& request);
+    [[nodiscard]] TargetOperationResult deactivate(const DeactivateTargetRequest& request);
+    [[nodiscard]] TargetOperationResult mount(const MountTargetRequest& request);
+    [[nodiscard]] TargetOperationResult eject(const EjectTargetRequest& request);
+
+  private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 TargetOperationResult mount_target(
     const MountTargetRequest& request

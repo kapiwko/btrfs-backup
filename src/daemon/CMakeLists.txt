@@ -83,12 +83,11 @@ target_restricted_include_directories(btrfsbackup-daemon-control
 )
 target_link_libraries(btrfsbackup-daemon-control
     PUBLIC
-        btrfsbackup-config-domain
+        btrfsbackup-config-json
         btrfsbackup-daemon-core
         btrfsbackup-provisioning
         btrfsbackup-platform-linux-base
     PRIVATE
-        btrfsbackup-config-json
         btrfsbackup-core
         btrfsbackup-manager-protocol
 )

@@ -21,6 +21,7 @@ set(approved_special_member_types
     "src/backup/transfer/ThreadedAsyncTransferHandle.hpp:ThreadedAsyncTransferHandle"
     "src/cli/BackupTool.hpp:TerminationSignalMonitor"
     "src/cli/runner/RunnerComposition.hpp:RunnerComposition"
+    "src/cli/target/TargetService.hpp:TargetService"
     "src/config/ports/IProfileRepository.hpp:IProfileRepository"
     "src/core/Cancellation.hpp:CancellationToken"
     "src/daemon/ManagerAuditLog.hpp:FileManagerAuditLog"
