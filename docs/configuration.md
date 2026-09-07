@@ -26,10 +26,12 @@ An unsupported profile is reported with the stable code
 `configuration.unsupported-schema`, together with its detected schema version
 and the supported version. The KDE interface offers a separately authorized
 removal of its managed system configuration. This operation fingerprints and
-revalidates the root-owned legacy file without interpreting its old fields and
-never removes backup data. The user can then create a new profile with the same
-identifier and use the normal validated repository-adoption path for an
-existing backup device.
+revalidates the root-owned legacy file without interpreting its old fields. It
+moves persistent profile state and history into the root-only
+`/var/lib/btrfs-backup/retired/<profile-id>/` quarantine and removes runtime
+status, so a new profile with the same identifier starts with no inherited
+state. It never removes backup data. The user can then use the normal validated
+repository-adoption path for an existing backup device.
 
 `save` writes:
 

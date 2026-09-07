@@ -110,6 +110,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/ProvisioningDeviceEnumerator.cpp
     control/ProvisionedProfileBuilder.cpp
     control/ProvisioningSource.cpp
+    control/ProfileStateQuarantine.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
     control/SystemCredentialAdministrationBackend.cpp
@@ -141,6 +142,7 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/ProvisioningDeviceEnumerator.hpp
         daemon/control/ProvisionedProfileBuilder.hpp
         daemon/control/ProvisioningSource.hpp
+        daemon/control/ProfileStateQuarantine.hpp
 )
 target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC

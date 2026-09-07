@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
+#include <daemon/control/ProfileStateQuarantine.hpp>
 
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
@@ -239,12 +240,30 @@ void SystemProfileAdministrationBackend::retire_unsupported_profile(
     const UnsupportedProfileIdentity& expected
 ) {
     const ProfileId id(expected.profile_id);
-    platform::linux::config::retire_unsupported_profile(
-        id,
-        expected.fingerprint,
-        {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
-        activator_
+    ProfileStateQuarantine quarantine(
+        {roots_.state_root, roots_.status_root, roots_.history_root},
+        expected.profile_id,
+        expected.fingerprint
     );
+    quarantine.quarantine();
+    try {
+        platform::linux::config::retire_unsupported_profile(
+            id,
+            expected.fingerprint,
+            {roots_.etc_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
+            activator_
+        );
+    } catch (...) {
+        const auto rollback_result = quarantine.rollback();
+        if (!rollback_result.complete) {
+            throw platform::linux::config::ConfigurationSaveError(
+                "unsupported profile retirement failed and state rollback was incomplete",
+                rollback_result
+            );
+        }
+        throw;
+    }
+    quarantine.finish();
 }
 
 void SystemProfileAdministrationBackend::set_profile_enabled(const EditableProfile& expected, bool enabled) {

@@ -16,6 +16,9 @@ struct ProfileAdministrationRoots {
     std::filesystem::path udev_root;
     std::filesystem::path systemd_root;
     std::filesystem::path public_root;
+    std::filesystem::path state_root;
+    std::filesystem::path status_root;
+    std::filesystem::path history_root;
 };
 
 class SystemProfileAdministrationBackend final : public IProfileAdministrationBackend {

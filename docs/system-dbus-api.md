@@ -57,7 +57,7 @@ diagnostics and partial-installation checks.
 | `UpdateProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint, s request)` | `(s)` | changes a source name and retention policy |
 | `RemoveProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint)` | `(s)` | removes a source definition without deleting backup data |
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
-| `RetireUnsupportedProfile` | `(s profileId)` | `(s)` | removes only an unsupported profile's managed configuration artifacts without parsing its legacy fields or deleting backup data |
+| `RetireUnsupportedProfile` | `(s profileId)` | `(s)` | removes an unsupported profile's managed configuration, quarantines its persistent state and history, and leaves backup data intact |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
 | `BeginBrowseOperation` | `(s sessionId)` | `(s)` | acquires an identified, caller-owned operation lease |
@@ -115,8 +115,12 @@ uses the non-retained profile-deletion authorization, and repeats the pinned
 read before and during the locked commit. The transaction removes the private
 and public profile documents, the profile-specific udev rule, systemd drop-in,
 the managed-artifact manifest, and mount units named safely by that independent
-manifest. It does not inspect legacy profile fields and does not touch status,
-history, credentials, snapshots, or repository data.
+manifest. Before committing those removals, it atomically moves the profile's
+persistent state and history below
+`/var/lib/btrfs-backup/retired/<profile-id>/<fingerprint-and-generation>/` and
+isolates its runtime status below `/run` for deletion after the commit. A failed
+configuration commit restores all three directories. It does not inspect legacy
+profile fields and does not touch credentials, snapshots, or repository data.
 
 A previous-versions page has this shape:
 
