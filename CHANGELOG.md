@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.0.0 - 2026-09-07
 
 The first stable release provides a complete Btrfs backup workflow for Linux,
