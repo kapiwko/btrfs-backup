@@ -78,6 +78,29 @@ void test_rejects_symbolic_link() {
     fs::remove_all(root);
 }
 
+void test_rejects_symbolic_link_in_parent_path() {
+    fs::path root = test_helpers::test_root("trusted-file", "parent-symlink");
+    fs::path real_directory = root / "real";
+    fs::path linked_directory = root / "linked";
+    fs::create_directories(real_directory);
+    test_helpers::write_file(real_directory / "profile.json", "{}\n");
+    chmod((real_directory / "profile.json").c_str(), 0600);
+    fs::create_directory_symlink(real_directory, linked_directory);
+
+    test_helpers::expect_validation_error(
+        "trusted parent symlink",
+        [&] {
+            (void)btrfsbackup::platform::linux::filesystem::read_trusted_config_file(
+                linked_directory / "profile.json",
+                {.allow_current_user_owner = true}
+            );
+        },
+        "not a regular file"
+    );
+
+    fs::remove_all(root);
+}
+
 void test_bounded_read_rejects_oversized_file() {
     fs::path root = test_helpers::test_root("trusted-file", "size-limit");
     fs::path config = root / "profile.json";
@@ -109,6 +132,7 @@ int main() {
     test_rejects_public_permissions();
     test_rejects_missing_or_directory();
     test_rejects_symbolic_link();
+    test_rejects_symbolic_link_in_parent_path();
     test_bounded_read_rejects_oversized_file();
 
     return test_helpers::finish("trusted file tests");

@@ -5,7 +5,9 @@
 #include <platform/linux/filesystem/TrustedFile.hpp>
 
 #include <fcntl.h>
+#include <linux/openat2.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -20,7 +22,23 @@ namespace btrfsbackup::platform::linux::filesystem {
 namespace {
 
 int open_trusted_config_file(const std::filesystem::path& path) {
-    int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    const bool absolute = path.is_absolute();
+    OwnedFileDescriptor root(open(absolute ? "/" : ".", O_PATH | O_DIRECTORY | O_CLOEXEC));
+    if (!root.valid())
+        throw ValidationError("Cannot open the directory containing configuration file: " + path.string());
+
+    std::filesystem::path relative = path.lexically_normal();
+    if (absolute)
+        relative = relative.lexically_relative("/");
+    if (relative.empty())
+        relative = ".";
+
+    struct open_how how{};
+    how.flags = O_RDONLY | O_CLOEXEC;
+    how.resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS;
+    const int fd = static_cast<int>(
+        syscall(SYS_openat2, root.get(), relative.c_str(), &how, sizeof(how))
+    );
     if (fd < 0) {
         if (errno == EACCES) {
             throw ValidationError("Configuration file is not readable: " + path.string());

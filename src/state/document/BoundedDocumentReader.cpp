@@ -5,7 +5,9 @@
 #include <state/document/BoundedDocumentReader.hpp>
 
 #include <fcntl.h>
+#include <linux/openat2.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -43,6 +45,29 @@ class FileDescriptor {
     int descriptor_;
 };
 
+int open_without_symlinks(const fs::path& path) {
+    const bool absolute = path.is_absolute();
+    const FileDescriptor root(open(absolute ? "/" : ".", O_PATH | O_DIRECTORY | O_CLOEXEC));
+    if (root.get() < 0)
+        return -1;
+
+    fs::path relative = path.lexically_normal();
+    if (absolute)
+        relative = relative.lexically_relative("/");
+    if (relative.empty())
+        relative = ".";
+
+    struct open_how how{};
+    how.flags = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
+    how.resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS;
+    const int descriptor = static_cast<int>(
+        syscall(SYS_openat2, root.get(), relative.c_str(), &how, sizeof(how))
+    );
+    const int open_error = errno;
+    errno = open_error;
+    return descriptor;
+}
+
 [[noreturn]] void throw_read_error(const fs::path& path, int error) {
     throw btrfsbackup::ValidationError(
         "cannot read document " + path.string() + ": " + std::strerror(error)
@@ -62,7 +87,7 @@ std::string BoundedDocumentReader::read(
 ) const {
     int raw_descriptor;
     do {
-        raw_descriptor = open(path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+        raw_descriptor = open_without_symlinks(path);
     } while (raw_descriptor < 0 && errno == EINTR);
     const FileDescriptor descriptor(raw_descriptor);
     if (descriptor.get() < 0) {

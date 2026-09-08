@@ -55,6 +55,22 @@ void test_rejects_symbolic_link() {
     fs::remove_all(root);
 }
 
+void test_rejects_symbolic_link_in_parent_path() {
+    const fs::path root = test_helpers::test_root("bounded-document-reader", "parent-symlink");
+    const fs::path real_directory = root / "real";
+    const fs::path linked_directory = root / "linked";
+    fs::create_directories(real_directory);
+    test_helpers::write_file(real_directory / "document.json", "document");
+    fs::create_directory_symlink(real_directory, linked_directory);
+
+    test_helpers::expect_validation_error(
+        "symbolic link in parent path",
+        [&] { (void)BoundedDocumentReader{}.read(linked_directory / "document.json", 1024); },
+        "cannot read document"
+    );
+    fs::remove_all(root);
+}
+
 void test_rejects_non_regular_file() {
     const fs::path root = test_helpers::test_root("bounded-document-reader", "directory");
 
@@ -112,6 +128,7 @@ int main() {
     test_reads_regular_document_within_limit();
     test_rejects_document_over_limit();
     test_rejects_symbolic_link();
+    test_rejects_symbolic_link_in_parent_path();
     test_rejects_non_regular_file();
     test_rejects_document_writable_by_others();
     test_rejects_unexpected_owner_and_exact_permissions();
