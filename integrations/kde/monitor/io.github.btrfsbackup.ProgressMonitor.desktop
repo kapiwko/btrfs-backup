@@ -5,6 +5,7 @@
 [Desktop Entry]
 Type=Application
 Name=Btrfs Backup Progress Monitor
+Name[pl]=Monitor postępu kopii zapasowej Btrfs
 Comment=Publishes Btrfs backup progress to Plasma
 Exec=btrfs-backup-kde-monitor
 Icon=drive-harddisk
