@@ -45,29 +45,6 @@ class FileDescriptor {
     int descriptor_;
 };
 
-int open_without_symlinks(const fs::path& path) {
-    const bool absolute = path.is_absolute();
-    const FileDescriptor root(open(absolute ? "/" : ".", O_PATH | O_DIRECTORY | O_CLOEXEC));
-    if (root.get() < 0)
-        return -1;
-
-    fs::path relative = path.lexically_normal();
-    if (absolute)
-        relative = relative.lexically_relative("/");
-    if (relative.empty())
-        relative = ".";
-
-    struct open_how how{};
-    how.flags = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
-    how.resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS;
-    const int descriptor = static_cast<int>(
-        syscall(SYS_openat2, root.get(), relative.c_str(), &how, sizeof(how))
-    );
-    const int open_error = errno;
-    errno = open_error;
-    return descriptor;
-}
-
 [[noreturn]] void throw_read_error(const fs::path& path, int error) {
     throw btrfsbackup::ValidationError(
         "cannot read document " + path.string() + ": " + std::strerror(error)
@@ -135,6 +112,29 @@ std::string BoundedDocumentReader::read(
             throw_read_error(path, errno);
         }
     }
+}
+
+int BoundedDocumentReader::open_without_symlinks(const fs::path& path) {
+    const bool absolute = path.is_absolute();
+    const FileDescriptor root(open(absolute ? "/" : ".", O_PATH | O_DIRECTORY | O_CLOEXEC));
+    if (root.get() < 0)
+        return -1;
+
+    fs::path relative = path.lexically_normal();
+    if (absolute)
+        relative = relative.lexically_relative("/");
+    if (relative.empty())
+        relative = ".";
+
+    struct open_how how{};
+    how.flags = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
+    how.resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS;
+    const int descriptor = static_cast<int>(
+        syscall(SYS_openat2, root.get(), relative.c_str(), &how, sizeof(how))
+    );
+    const int open_error = errno;
+    errno = open_error;
+    return descriptor;
 }
 
 } // namespace document

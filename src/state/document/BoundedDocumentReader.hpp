@@ -21,6 +21,9 @@ class BoundedDocumentReader {
         std::optional<std::uint32_t> expected_owner = std::nullopt,
         std::optional<std::uint32_t> expected_permissions = std::nullopt
     ) const;
+
+  private:
+    [[nodiscard]] static int open_without_symlinks(const std::filesystem::path& path);
 };
 
 } // namespace document
