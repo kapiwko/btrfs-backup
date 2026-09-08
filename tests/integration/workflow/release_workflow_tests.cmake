@@ -83,6 +83,13 @@ require_job_text(required_ci_job "repos/\${GITHUB_REPOSITORY}/commits/\${GITHUB_
 require_job_text(required_ci_job "-f filter=latest" "required-ci")
 require_job_text(required_ci_job "if [[ \"\${status}\" == \"completed\" && \"\${conclusion}\" == \"success\" ]]" "required-ci")
 require_job_text(required_ci_job "Timed out waiting for required commit checks" "required-ci")
+require_job_text(required_ci_job "security-events: read" "required-ci")
+require_job_text(required_ci_job "Reject open high-severity CodeQL alerts" "required-ci")
+require_job_text(required_ci_job "code-scanning/alerts?state=open" "required-ci")
+require_job_text(required_ci_job ".most_recent_instance.commit_sha == \$sha" "required-ci")
+require_job_text(required_ci_job ".rule.security_severity_level == \"critical\"" "required-ci")
+require_job_text(required_ci_job ".rule.security_severity_level == \"high\"" "required-ci")
+require_job_order(required_ci_job "Require successful commit checks" "Reject open high-severity CodeQL alerts" "required-ci")
 
 foreach(required_check IN ITEMS
         clang-format

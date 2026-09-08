@@ -328,7 +328,8 @@ profile generation/fingerprint races, and run mismatch handling.
 The release workflow uploads the complete `build/release-artifacts` directory
 only after all named tests, compiler variants, sanitizers, fuzz smoke tests,
 static analyses, CodeQL and systemd-security checks succeeded for the exact
-commit SHA and `sha256sum --check SHA256SUMS` succeeds. The real-Btrfs and QEMU
+commit SHA, no open critical or high CodeQL alert remains for that SHA, and
+`sha256sum --check SHA256SUMS` succeeds. The real-Btrfs and QEMU
 gates download that preserved directory, verify its checksums, and pass it to
 their harnesses through `PACKAGE_DIR`. Tag-triggered publication downloads the
 same workflow artifact, verifies the checksums again, creates GitHub artifact

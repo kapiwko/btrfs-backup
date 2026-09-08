@@ -86,8 +86,9 @@ changelog.
 2. Commit the release metadata and run the required quality and test gates.
 3. Create a signed, annotated version tag and push it.
 4. Let the tag-triggered `release gates` workflow confirm every required CI,
-   CodeQL and systemd-security check for the tagged commit, build the complete
-   artifact set, verify `SHA256SUMS`, and preserve
+   CodeQL and systemd-security check for the tagged commit, reject any open
+   critical or high CodeQL alert whose latest instance is that commit, build
+   the complete artifact set, verify `SHA256SUMS`, and preserve
    `release-artifacts-GITHUB_SHA`.
 5. Confirm that the real-Btrfs and QEMU jobs downloaded, checksum-verified and
    tested the artifact preserved by the packaging job.

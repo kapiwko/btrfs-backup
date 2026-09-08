@@ -59,6 +59,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       checks: read
+      security-events: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -123,6 +124,29 @@ jobs:
           done
           echo "Timed out waiting for required commit checks on ${GITHUB_SHA}" >&2
           exit 1
+      - name: Reject open high-severity CodeQL alerts
+        run: |
+          alerts="$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&per_page=100")"
+          blocking_alerts="$(
+            jq -r --arg sha "${GITHUB_SHA}" '
+              [ .[][]
+                | select(.most_recent_instance.commit_sha == $sha)
+                | select(
+                    .rule.security_severity_level == "critical" or
+                    .rule.security_severity_level == "high"
+                  )
+              ]
+              | .[]
+              | "#\(.number) [\(.rule.security_severity_level)] \(.rule.id): \(.html_url)"
+            ' <<< "${alerts}"
+          )"
+          if [[ -n "${blocking_alerts}" ]]; then
+            printf 'Open high-severity CodeQL alerts remain for %s:\n%s\n' \
+              "${GITHUB_SHA}" "${blocking_alerts}" >&2
+            exit 1
+          fi
+          echo "No open critical or high CodeQL alerts remain for ${GITHUB_SHA}"
 
   packaging:
     needs: required-ci
