@@ -4,8 +4,15 @@
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
 #include <daemon/control/ProfileStateQuarantine.hpp>
 #include <daemon/control/ProvisioningSource.hpp>
+#include <daemon/control/StoredPermissionEvaluator.hpp>
 
+#include <array>
 #include <cstdio>
+#include <fcntl.h>
+#include <string_view>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <utility>
 
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
@@ -16,6 +23,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileService.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/filesystem/TrustedFile.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 
@@ -42,6 +50,18 @@ bool hooks_empty(const config::ProfileHooks& hooks) {
     return hooks.before_snapshot.empty() && hooks.after_snapshot.empty();
 }
 
+bool has_mount_option(std::string_view options, std::string_view expected) {
+    while (!options.empty()) {
+        const auto separator = options.find(',');
+        if (options.substr(0, separator) == expected)
+            return true;
+        if (separator == std::string_view::npos)
+            break;
+        options.remove_prefix(separator + 1U);
+    }
+    return false;
+}
+
 std::string source_candidate_id(const SourceCandidate& candidate) {
     std::string identity;
     identity.reserve(
@@ -62,6 +82,55 @@ std::string source_candidate_id(const SourceCandidate& candidate) {
         "candidate",
         identity
     );
+}
+
+std::filesystem::path path_from_descriptor(int descriptor) {
+    if (descriptor < 0)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "source descriptor is invalid");
+    const int flags = ::fcntl(descriptor, F_GETFL);
+    if (flags < 0 || (flags & O_PATH) != O_PATH)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "source descriptor must use O_PATH");
+    struct stat descriptor_status{};
+    if (::fstat(descriptor, &descriptor_status) != 0 || !S_ISDIR(descriptor_status.st_mode))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "source descriptor must identify a directory");
+    const std::string proc_path = "/proc/self/fd/" + std::to_string(descriptor);
+    std::array<char, 4096> resolved{};
+    const ssize_t length = ::readlink(proc_path.c_str(), resolved.data(), resolved.size());
+    if (length < 0 || static_cast<std::size_t>(length) == resolved.size())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "cannot resolve source descriptor");
+    const std::filesystem::path path{std::string(resolved.data(), static_cast<std::size_t>(length))};
+    if (!path.is_absolute() || path.string().ends_with(" (deleted)"))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "source descriptor no longer identifies a local path");
+    struct stat path_status{};
+    if (::stat(path.c_str(), &path_status) != 0 || path_status.st_dev != descriptor_status.st_dev ||
+        path_status.st_ino != descriptor_status.st_ino) {
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "source path changed after it was selected");
+    }
+    return path.lexically_normal();
+}
+
+platform::linux::OwnedFileDescriptor open_for_caller_access(
+    const std::filesystem::path& path,
+    const BrowseAccessIdentity& identity
+) {
+    platform::linux::OwnedFileDescriptor current(::open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC));
+    if (!current.valid())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "cannot inspect source directory permissions");
+    StoredPermissionEvaluator::require_access(current.get(), &identity, 1, "source directory permissions deny access");
+    for (const auto& component : path.relative_path()) {
+        if (component.empty() || component == ".")
+            continue;
+        if (component == "..")
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "source path contains parent traversal");
+        platform::linux::OwnedFileDescriptor next(
+            ::openat(current.get(), component.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
+        );
+        if (!next.valid())
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "cannot inspect source directory permissions");
+        StoredPermissionEvaluator::require_access(next.get(), &identity, 1, "source directory permissions deny access");
+        current = std::move(next);
+    }
+    return current;
 }
 
 } // namespace
@@ -104,6 +173,7 @@ std::vector<ProfileSourceCandidate> SystemProfileAdministrationBackend::source_c
                 .filesystem_uuid = candidate.filesystem_uuid,
                 .mount_root = candidate.mount_root,
                 .local_snapshot_root = candidate.local_snapshot_root,
+                .subvolume_uuid = {},
             });
         }
         return result;
@@ -113,6 +183,69 @@ std::vector<ProfileSourceCandidate> SystemProfileAdministrationBackend::source_c
             "could not discover profile source candidates"
         );
     }
+}
+
+ProfileSourceCandidate SystemProfileAdministrationBackend::resolve_source_candidate(
+    const std::filesystem::path& path
+) const {
+    try {
+        const auto mounts = platform::linux::storage::read_mount_table(mountinfo_path_);
+        const auto source_mount = backup::mount_for_path(mounts, path);
+        if (!source_mount.has_value() || source_mount->fstype != "btrfs" ||
+            source_mount->filesystem_uuid.empty() || !has_mount_option(source_mount->options, "rw")) {
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "source is not on a writable identified Btrfs filesystem");
+        }
+        const std::filesystem::path mount_root = std::filesystem::path(source_mount->target).lexically_normal();
+        const std::filesystem::path local_snapshot_root = mount_root / ".snapshots" / "btrfs-backup";
+        const auto local_mount = backup::mount_for_path(mounts, local_snapshot_root);
+        if (!local_mount.has_value() || local_mount->filesystem_uuid != source_mount->filesystem_uuid)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "snapshot root is not on the source filesystem");
+        const std::filesystem::path normalized = path.lexically_normal();
+        const auto metadata = btrfs_.read_snapshot_metadata(normalized);
+        if (!metadata.has_value() || !metadata->is_subvolume || metadata->uuid.empty())
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceNotSubvolume, "source path is not a Btrfs subvolume");
+        const SourceCandidate source{
+            .id = {},
+            .path = normalized.string(),
+            .filesystem_uuid = source_mount->filesystem_uuid,
+            .mount_root = mount_root.string(),
+            .local_snapshot_root = local_snapshot_root.lexically_normal().string(),
+        };
+        return {
+            .id = source_candidate_id(source),
+            .subvolume = source.path,
+            .filesystem_uuid = source.filesystem_uuid,
+            .mount_root = source.mount_root,
+            .local_snapshot_root = source.local_snapshot_root,
+            .subvolume_uuid = metadata->uuid.value(),
+        };
+    } catch (const dbus::ManagerOperationError&) {
+        throw;
+    } catch (...) {
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceDiscoveryFailed, "could not resolve selected profile source");
+    }
+}
+
+ProfileSourceCandidate SystemProfileAdministrationBackend::source_candidate_from_descriptor(
+    int descriptor,
+    const BrowseAccessIdentity& identity
+) const {
+    const std::filesystem::path path = path_from_descriptor(descriptor);
+    platform::linux::OwnedFileDescriptor permission_descriptor = open_for_caller_access(path, identity);
+    struct stat selected_status{};
+    struct stat permission_status{};
+    if (::fstat(descriptor, &selected_status) != 0 ||
+        ::fstat(permission_descriptor.get(), &permission_status) != 0 ||
+        selected_status.st_dev != permission_status.st_dev || selected_status.st_ino != permission_status.st_ino) {
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "source descriptor identity changed");
+    }
+    StoredPermissionEvaluator::require_access(
+        permission_descriptor.get(),
+        &identity,
+        1,
+        "source directory permissions deny access"
+    );
+    return resolve_source_candidate(path);
 }
 
 std::optional<EditableProfile> SystemProfileAdministrationBackend::find_profile(const ProfileId& profile_id) const {

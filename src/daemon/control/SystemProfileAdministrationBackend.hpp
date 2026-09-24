@@ -49,6 +49,13 @@ class SystemProfileAdministrationBackend final : public IProfileAdministrationBa
     void set_profile_enabled(const EditableProfile& expected, bool enabled) override;
     [[nodiscard]] SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path& path) const override;
     [[nodiscard]] std::vector<ProfileSourceCandidate> source_candidates() const override;
+    [[nodiscard]] ProfileSourceCandidate source_candidate_from_descriptor(
+        int descriptor,
+        const BrowseAccessIdentity& identity
+    ) const override;
+    [[nodiscard]] ProfileSourceCandidate resolve_source_candidate(
+        const std::filesystem::path& path
+    ) const override;
 
   private:
     [[nodiscard]] config::Profile parse_draft(const ProfileId& profile_id, const std::string& document) const;

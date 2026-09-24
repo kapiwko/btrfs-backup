@@ -3,6 +3,7 @@
 
 import QtQuick
 import QtQuick.Controls as QQC2
+import QtQuick.Dialogs as Dialogs
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
@@ -32,6 +33,7 @@ QQC2.Dialog {
         int targetRetention, string candidateId)
     signal editAccepted(int index, string name, int localRetention,
         int targetRetention)
+    signal customCandidateRequested(url directory)
 
     parent: QQC2.Overlay.overlay
     anchors.centerIn: parent
@@ -81,6 +83,21 @@ QQC2.Dialog {
         nameField.forceActiveFocus()
     }
 
+    function selectCandidate(candidateId) {
+        for (let index = 0; index < sourceCandidates.length; ++index) {
+            if (sourceCandidates[index].id === candidateId) {
+                subvolumeField.currentIndex = index
+                return
+            }
+        }
+    }
+
+    Dialogs.FolderDialog {
+        id: folderDialog
+        title: translations.i18n("Choose a Btrfs subvolume")
+        onAccepted: root.customCandidateRequested(selectedFolder)
+    }
+
     contentItem: ColumnLayout {
         spacing: Kirigami.Units.largeSpacing
 
@@ -105,6 +122,14 @@ QQC2.Dialog {
                 textRole: root.candidateOnly && !root.editing ? "displayName" : ""
                 valueRole: root.candidateOnly && !root.editing ? "id" : ""
                 editText: ""
+            }
+            QQC2.Button {
+                objectName: "chooseOtherSubvolumeButton"
+                visible: !root.editing && root.candidateOnly
+                enabled: root.enabled
+                text: translations.i18n("Choose another subvolume…")
+                icon.name: "document-open-folder"
+                onClicked: folderDialog.open()
             }
         }
 

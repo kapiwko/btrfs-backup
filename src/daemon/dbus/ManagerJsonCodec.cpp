@@ -251,6 +251,15 @@ std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) con
     });
 }
 
+std::string ManagerJsonCodec::encode(const control::ProfileSourceCandidate& candidate) const {
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::profile_source_candidate_schema_version},
+        {"id", candidate.id},
+        {"path", candidate.subvolume.string()},
+        {"displayName", candidate.subvolume.string()},
+    });
+}
+
 std::string ManagerJsonCodec::encode(const std::vector<control::TargetCredential>& credentials) const {
     config::json::Json result = config::json::Json::array();
     for (const auto& credential : credentials) {

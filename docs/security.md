@@ -96,6 +96,12 @@ and regular-file reads use already-open descriptors passed over D-Bus.
 Coverage lookup likewise accepts only an `O_PATH` descriptor for a regular file
 or directory that the desktop process has already opened; it does not accept an
 arbitrary path string at the privileged boundary.
+Profile source selection follows the same descriptor boundary for a directory
+chosen in the KCM. The manager evaluates the caller's execute permission on the
+pinned object, requires a writable Btrfs subvolume, and retains its subvolume
+UUID in a five-minute candidate bound to the caller and profile. After profile
+authorization it resolves the path again and rejects a changed subvolume UUID,
+filesystem identity, mount root, or derived local snapshot root.
 Stored ownership, group mode bits and POSIX ACLs are evaluated against the UID,
 primary GID and supplementary groups captured from the actual D-Bus sender
 process when the browse session opens. Account-database membership is not used

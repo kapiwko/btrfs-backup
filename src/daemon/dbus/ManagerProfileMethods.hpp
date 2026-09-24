@@ -21,6 +21,7 @@ class ManagerProfileMethods final {
     );
 
     int get_profile_details(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int register_profile_source_candidate(sd_bus_message* message, sd_bus_error* error) noexcept;
     int update_profile_settings(sd_bus_message* message, sd_bus_error* error) noexcept;
     int add_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;
     int update_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;

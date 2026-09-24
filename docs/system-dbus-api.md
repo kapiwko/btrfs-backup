@@ -52,8 +52,9 @@ diagnostics and partial-installation checks.
 | `EjectTarget` | `(s profileId)` | `(s)` | completed target eject |
 | `SetProfileEnabled` | `(s profileId, b enabled)` | `(s)` | transactionally enables or disables automatic activation only |
 | `GetProfileDetails` | `(s profileId)` | `(s)` | profile-details schema 3 without hooks or key-file paths; source candidates expose only an opaque identifier, path and display name |
+| `RegisterProfileSourceCandidate` | `(s profileId, h sourceDirectory)` | `(s)` | validates an `O_PATH` directory descriptor from an active caller and returns a caller-bound profile-source-candidate schema 1 document |
 | `UpdateProfileSettings` | `(s profileId, s generation, s fingerprint, s request)` | `(s)` | changes the display name, daily limit and automatic eject policy |
-| `AddProfileSource` | `(s profileId, s generation, s fingerprint, s request)` | `(s)` | adds a source from its typed candidate identifier, name and retention policy; the manager resolves the candidate again after authorization |
+| `AddProfileSource` | `(s profileId, s generation, s fingerprint, s request)` | `(s)` | adds a source from its typed candidate identifier, name and retention policy; the manager resolves the path and compares the subvolume UUID again after authorization |
 | `UpdateProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint, s request)` | `(s)` | changes a source name and retention policy |
 | `RemoveProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint)` | `(s)` | removes a source definition without deleting backup data |
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |

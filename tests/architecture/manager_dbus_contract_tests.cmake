@@ -235,6 +235,10 @@ assert_unprivileged_method(
     get_profile_details GetProfileDetails s s
     "<methodname=\"GetProfileDetails\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
+assert_unprivileged_method(
+    register_profile_source_candidate RegisterProfileSourceCandidate sh s
+    "<methodname=\"RegisterProfileSourceCandidate\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"sourceDirectory\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
 assert_authorized_method(
     update_profile_settings UpdateProfileSettings ssss s
     "<methodname=\"UpdateProfileSettings\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"

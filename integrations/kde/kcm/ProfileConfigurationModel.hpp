@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QVariantList>
+#include <QUrl>
 
 #include <ManagerApi.hpp>
 
@@ -59,6 +60,7 @@ class ProfileConfigurationModel final : public QObject {
     Q_INVOKABLE void loadDetails(const QString& profileId);
     Q_INVOKABLE void reload();
     Q_INVOKABLE void clearError();
+    Q_INVOKABLE void registerSourceCandidate(const QUrl& directory);
     Q_INVOKABLE void addSourceConfiguration(
         const QString& name,
         const QString& candidateId,
@@ -77,6 +79,7 @@ class ProfileConfigurationModel final : public QObject {
     void conflictDetected();
     void profileSaved(const QString& profileId);
     void profileDeleted(const QString& profileId);
+    void sourceCandidateRegistered(const QVariantMap& candidate);
 
   private:
     enum class RequestKind { LoadDetails,

@@ -14,6 +14,8 @@ Item {
     QtObject {
         id: editor
 
+        signal sourceCandidateRegistered(var candidate)
+
         property bool busy: false
         property var sources: [{
             id: "home",
@@ -28,6 +30,7 @@ Item {
             { id: "home-candidate", path: "/home", displayName: "/home" },
             { id: "work-candidate", path: "/srv/work", displayName: "/srv/work" }
         ]
+        function registerSourceCandidate(directory) {}
     }
 
     KcmUi.ProfileSources {
@@ -46,6 +49,7 @@ Item {
             const dialog = findChild(sources, "sourceDialog")
             verify(action !== null)
             verify(dialog !== null)
+            verify(findChild(dialog, "chooseOtherSubvolumeButton") !== null)
 
             action.trigger()
 

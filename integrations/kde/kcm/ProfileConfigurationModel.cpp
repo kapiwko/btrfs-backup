@@ -11,9 +11,17 @@
 #include <KLocalizedString>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusUnixFileDescriptor>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QFile>
+
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstring>
 
 namespace btrfsbackup::kde::kcm {
 
@@ -121,6 +129,58 @@ void ProfileConfigurationModel::reload() {
 
 void ProfileConfigurationModel::clearError() {
     setError({}, {});
+}
+
+void ProfileConfigurationModel::registerSourceCandidate(const QUrl& directory) {
+    if (!loaded_ || busy_ || !directory.isLocalFile())
+        return;
+    const QByteArray path = QFile::encodeName(directory.toLocalFile());
+    const int descriptor = ::open(path.constData(), O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (descriptor < 0) {
+        setError(
+            QStringLiteral("manager.invalid-source"),
+            i18nd("kcm_btrfsbackup", "Cannot open the selected directory: %1", QString::fromLocal8Bit(std::strerror(errno)))
+        );
+        return;
+    }
+    const QDBusUnixFileDescriptor source_directory(descriptor);
+    ::close(descriptor);
+    operation_message_.clear();
+    setBusy(true);
+    setError({}, {});
+    auto* watcher = new QDBusPendingCallWatcher(
+        manager_call(
+            bus_,
+            QLatin1String(manager_protocol::method::register_profile_source_candidate),
+            {profileId(), QVariant::fromValue(source_directory)}
+        ),
+        this
+    );
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
+        const QDBusPendingReply<QString> reply = *watcher;
+        watcher->deleteLater();
+        if (reply.isError()) {
+            setError(reply.error().name(), manager_error_message(reply.error()));
+            setBusy(false);
+            return;
+        }
+        QJsonParseError error;
+        const QJsonDocument response = QJsonDocument::fromJson(reply.value().toUtf8(), &error);
+        const QJsonObject candidate = response.object();
+        if (error.error != QJsonParseError::NoError || !response.isObject() ||
+            candidate.value(QStringLiteral("schemaVersion")).toInt() != manager_protocol::profile_source_candidate_schema_version ||
+            candidate.value(QStringLiteral("id")).toString().isEmpty() ||
+            candidate.value(QStringLiteral("path")).toString().isEmpty()) {
+            setError(QStringLiteral("manager.invalid-response"), i18nd("kcm_btrfsbackup", "The backup manager returned an invalid source candidate."));
+            setBusy(false);
+            return;
+        }
+        const QVariantMap value = candidate.toVariantMap();
+        source_candidates_.append(value);
+        emit profileChanged();
+        setBusy(false);
+        emit sourceCandidateRegistered(value);
+    });
 }
 
 void ProfileConfigurationModel::addSourceConfiguration(

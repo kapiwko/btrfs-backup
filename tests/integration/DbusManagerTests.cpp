@@ -498,6 +498,7 @@ void Fixture::verify_read_api() {
         "ValidateTarget",
         "EjectTarget",
         "GetProfileDetails",
+        "RegisterProfileSourceCandidate",
         "UpdateProfileSettings",
         "AddProfileSource",
         "UpdateProfileSource",
@@ -548,6 +549,8 @@ void Fixture::verify_profile_update_and_signals() {
     require_contains(details.output, "fingerprint", "profile details omit fingerprint");
     require_contains(details.output, "generation", "profile details omit generation");
     require(!details.output.contains("key contents"), "secret contents crossed profile details");
+    const auto invalid_source_descriptor = call("RegisterProfileSourceCandidate", {"sh", "default", "0"});
+    require(invalid_source_descriptor.status != 0, "non-O_PATH source descriptor was accepted");
     const auto begin = std::search_n(details.output.begin(), details.output.end(), 64U, true, [](char value, bool) {
         return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
     });

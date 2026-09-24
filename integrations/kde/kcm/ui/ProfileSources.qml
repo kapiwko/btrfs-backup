@@ -184,6 +184,17 @@ Item {
         onEditAccepted: (index, name, localRetention, targetRetention) => {
             root.editRequested(index, name, localRetention, targetRetention);
         }
+        onCustomCandidateRequested: directory => {
+            root.editor?.registerSourceCandidate(directory)
+        }
+    }
+
+    Connections {
+        target: root.editor
+        ignoreUnknownSignals: true
+        function onSourceCandidateRegistered(candidate) {
+            sourceDialog.selectCandidate(candidate.id)
+        }
     }
 
     function sourceSubtitle(source) {

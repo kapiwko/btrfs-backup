@@ -49,6 +49,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="profileId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="RegisterProfileSourceCandidate">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="sourceDirectory" type="h" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="UpdateProfileSettings">
       <arg name="profileId" type="s" direction="in"/>
       <arg name="expectedGeneration" type="s" direction="in"/>

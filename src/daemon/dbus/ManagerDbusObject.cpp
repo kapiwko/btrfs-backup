@@ -42,6 +42,9 @@ int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) n
 int get_profile_details(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->profile_methods().get_profile_details(message, error);
 }
+int register_profile_source_candidate(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->profile_methods().register_profile_source_candidate(message, error);
+}
 int update_profile_settings(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->profile_methods().update_profile_settings(message, error);
 }
@@ -151,6 +154,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::validate_target, "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::eject_target, "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::get_profile_details, "s", "s", get_profile_details, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::register_profile_source_candidate, "sh", "s", register_profile_source_candidate, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::update_profile_settings, "ssss", "s", update_profile_settings, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::add_profile_source, "ssss", "s", add_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::update_profile_source, "sssss", "s", update_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),

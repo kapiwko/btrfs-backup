@@ -1279,3 +1279,15 @@ msgstr "Zapisywanie bieżącej tablicy partycji"
 
 msgid "Installing backup credentials"
 msgstr "Instalowanie danych uwierzytelniających kopii zapasowej"
+
+msgid "Choose a Btrfs subvolume"
+msgstr "Wybierz podwolumin Btrfs"
+
+msgid "Choose another subvolume…"
+msgstr "Wybierz inny podwolumin…"
+
+msgid "Cannot open the selected directory: %1"
+msgstr "Nie można otworzyć wybranego katalogu: %1"
+
+msgid "The backup manager returned an invalid source candidate."
+msgstr "Manager kopii zapasowych zwrócił nieprawidłowego kandydata na źródło."

@@ -4,10 +4,16 @@
 #include <daemon/control/ProfileAdministrationService.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cerrno>
 #include <filesystem>
+#include <iomanip>
+#include <sstream>
 #include <ranges>
 #include <set>
+
+#include <sys/random.h>
 
 #include <config/json/JsonIo.hpp>
 #include <core/Errors.hpp>
@@ -25,12 +31,104 @@ std::string target_filesystem_uuid(const Json& document) {
     return document.at("target").value("btrfsUuid", "");
 }
 
+bool same_source_candidate(
+    const ProfileSourceCandidate& expected,
+    const ProfileSourceCandidate& current
+) {
+    return expected.id == current.id && expected.subvolume == current.subvolume &&
+        expected.filesystem_uuid == current.filesystem_uuid && expected.mount_root == current.mount_root &&
+        expected.local_snapshot_root == current.local_snapshot_root &&
+        (expected.subvolume_uuid.empty() || expected.subvolume_uuid == current.subvolume_uuid);
+}
+
 } // namespace
 
 ProfileAdministrationService::ProfileAdministrationService(
     IManagerAuthorizer& authorizer,
-    IProfileAdministrationBackend& backend
-) : authorizer_(authorizer), backend_(backend) {
+    IProfileAdministrationBackend& backend,
+    std::chrono::seconds candidate_lifetime,
+    ProfileCandidateIdGenerator candidate_ids,
+    ProfileCandidateClock clock
+) : authorizer_(authorizer), backend_(backend), candidate_lifetime_(candidate_lifetime),
+    candidate_ids_(candidate_ids ? std::move(candidate_ids) : ProfileCandidateIdGenerator{random_candidate_id}),
+    clock_(clock ? std::move(clock) : ProfileCandidateClock{[] { return std::chrono::steady_clock::now(); }}) {
+    if (candidate_lifetime_ <= std::chrono::seconds::zero())
+        throw std::invalid_argument("profile source candidate lifetime must be positive");
+}
+
+std::string ProfileAdministrationService::random_candidate_id() {
+    std::array<unsigned char, 16> bytes{};
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        const ssize_t count = getrandom(bytes.data() + offset, bytes.size() - offset, 0);
+        if (count > 0) {
+            offset += static_cast<std::size_t>(count);
+            continue;
+        }
+        if (count < 0 && errno == EINTR)
+            continue;
+        throw ValidationError("cannot generate a profile source candidate identifier");
+    }
+    std::ostringstream value;
+    value << "profile-source-" << std::hex << std::setfill('0');
+    for (const auto byte : bytes)
+        value << std::setw(2) << static_cast<unsigned>(byte);
+    return value.str();
+}
+
+void ProfileAdministrationService::expire_source_candidates(std::chrono::steady_clock::time_point now) {
+    std::erase_if(stored_source_candidates_, [&](const auto& item) {
+        return item.second.expires_at <= now;
+    });
+}
+
+ProfileSourceCandidate ProfileAdministrationService::register_source_candidate(
+    const std::string& caller,
+    const std::string& profile_id,
+    int descriptor,
+    const BrowseAccessIdentity& identity
+) {
+    if (caller.empty() || !authorizer_.caller_is_active(caller))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, "source selection requires an active caller");
+    const auto existing_profile = backend_.find_profile(ProfileId(profile_id));
+    const EditableProfile& profile = require_existing(existing_profile);
+    const std::string target_uuid = target_filesystem_uuid(Json::parse(profile.document));
+    ProfileSourceCandidate candidate = backend_.source_candidate_from_descriptor(descriptor, identity);
+    if (!target_uuid.empty() && candidate.filesystem_uuid == target_uuid)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "backup target cannot be used as a source");
+    const auto now = clock_();
+    std::lock_guard lock(source_candidates_mutex_);
+    expire_source_candidates(now);
+    const auto caller_candidate_count = std::ranges::count_if(
+        stored_source_candidates_,
+        [&](const auto& item) {
+            return item.second.caller == caller && item.second.profile_id == profile_id;
+        }
+    );
+    if (caller_candidate_count >= 16) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "too many active profile source candidates"
+        );
+    }
+    if (stored_source_candidates_.size() >= 1024) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "too many active profile source candidates"
+        );
+    }
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        std::string id = candidate_ids_();
+        if (id.empty() || stored_source_candidates_.contains(id))
+            continue;
+        candidate.id = id;
+        stored_source_candidates_.insert_or_assign(
+            id,
+            StoredSourceCandidate{candidate, caller, profile_id, now + candidate_lifetime_}
+        );
+        return candidate;
+    }
+    throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a profile source candidate identifier");
 }
 
 Json ProfileAdministrationService::parse_request(
@@ -224,9 +322,23 @@ ProfileDetails ProfileAdministrationService::details_from(const EditableProfile&
 }
 
 ProfileSourceCandidate ProfileAdministrationService::require_source_candidate(
+    const std::string& caller,
+    const std::string& profile_id,
     const std::string& candidate_id,
     const std::string& excluded_filesystem_uuid
-) const {
+) {
+    {
+        const auto now = clock_();
+        std::lock_guard lock(source_candidates_mutex_);
+        expire_source_candidates(now);
+        const auto stored = stored_source_candidates_.find(candidate_id);
+        if (stored != stored_source_candidates_.end()) {
+            if (stored->second.caller != caller || stored->second.profile_id != profile_id) {
+                throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "source candidate is unavailable");
+            }
+            return stored->second.candidate;
+        }
+    }
     const auto candidates = backend_.source_candidates();
     const auto candidate = std::ranges::find(candidates, candidate_id, &ProfileSourceCandidate::id);
     if (candidate == candidates.end() ||
@@ -237,6 +349,16 @@ ProfileSourceCandidate ProfileAdministrationService::require_source_candidate(
         );
     }
     return *candidate;
+}
+
+void ProfileAdministrationService::consume_source_candidate(
+    const std::string& caller,
+    const std::string& candidate_id
+) {
+    std::lock_guard lock(source_candidates_mutex_);
+    const auto candidate = stored_source_candidates_.find(candidate_id);
+    if (candidate != stored_source_candidates_.end() && candidate->second.caller == caller)
+        stored_source_candidates_.erase(candidate);
 }
 
 void ProfileAdministrationService::require_available_subvolume(const std::filesystem::path& path) const {
@@ -306,7 +428,7 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     const std::string name = request_value<std::string>(request, "name");
     const std::string candidate_id = request_value<std::string>(request, "candidateId");
     const std::string target_uuid = target_filesystem_uuid(document);
-    const ProfileSourceCandidate candidate = require_source_candidate(candidate_id, target_uuid);
+    const ProfileSourceCandidate candidate = require_source_candidate(caller, profile_id, candidate_id, target_uuid);
     require_available_subvolume(candidate.subvolume);
     const std::string source_id = unique_source_id(sources, name);
     sources.push_back({
@@ -322,8 +444,10 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     const ProfileDraftResult draft = backend_.validate_draft(id, config::json::dump_json(document));
     require_authorized(caller, ManagerAuthorizationAction::ManageProfileConfiguration);
     require_current(backend_.find_profile(id), existing);
-    const ProfileSourceCandidate current_candidate = require_source_candidate(candidate_id, target_uuid);
-    if (current_candidate != candidate) {
+    ProfileSourceCandidate current_candidate = backend_.resolve_source_candidate(candidate.subvolume);
+    current_candidate.id = candidate.id;
+    if (!same_source_candidate(candidate, current_candidate) ||
+        (!target_uuid.empty() && current_candidate.filesystem_uuid == target_uuid)) {
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::Conflict,
             "source candidate changed"
@@ -331,6 +455,7 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     }
     require_available_subvolume(current_candidate.subvolume);
     const ProfileDraftResult saved = backend_.save_profile(existing, draft, false);
+    consume_source_candidate(caller, candidate_id);
     return details_from({saved.profile_id, saved.generation, saved.fingerprint, saved.document});
 }
 

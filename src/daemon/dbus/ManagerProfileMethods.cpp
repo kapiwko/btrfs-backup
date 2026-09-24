@@ -36,6 +36,31 @@ int ManagerProfileMethods::get_profile_details(sd_bus_message* message, sd_bus_e
     );
 }
 
+int ManagerProfileMethods::register_profile_source_candidate(
+    sd_bus_message* message,
+    sd_bus_error* error
+) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            int descriptor = -1;
+            const int read_result = sd_bus_message_read(message, "sh", &profile_id, &descriptor);
+            if (read_result < 0)
+                return read_result;
+            return ManagerMethodSupport::reply_json(
+                message,
+                support_.codec().encode(profile_administration_.register_source_candidate(
+                    ManagerMethodSupport::caller_bus_name(message),
+                    profile_id == nullptr ? "" : profile_id,
+                    descriptor,
+                    ManagerMethodSupport::caller_access_identity(message)
+                ))
+            );
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerProfileMethods::update_profile_settings(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {

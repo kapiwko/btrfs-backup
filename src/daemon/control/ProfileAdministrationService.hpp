@@ -4,12 +4,18 @@
 #pragma once
 
 #include <optional>
+#include <chrono>
+#include <functional>
+#include <map>
+#include <mutex>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <config/json/JsonIo.hpp>
 #include <daemon/control/OperationalControlService.hpp>
+#include <daemon/control/BrowseSessionService.hpp>
 
 namespace btrfsbackup::daemon::control {
 
@@ -35,6 +41,7 @@ struct ProfileSourceCandidate {
     std::string filesystem_uuid;
     std::filesystem::path mount_root;
     std::filesystem::path local_snapshot_root;
+    std::string subvolume_uuid;
 
     bool operator==(const ProfileSourceCandidate&) const = default;
 };
@@ -92,11 +99,42 @@ class IProfileAdministrationBackend {
     [[nodiscard]] virtual std::vector<ProfileSourceCandidate> source_candidates() const {
         return {};
     }
+    [[nodiscard]] virtual ProfileSourceCandidate source_candidate_from_descriptor(
+        int,
+        const BrowseAccessIdentity&
+    ) const {
+        throw std::logic_error("descriptor-backed source selection is unavailable");
+    }
+    [[nodiscard]] virtual ProfileSourceCandidate resolve_source_candidate(
+        const std::filesystem::path& path
+    ) const {
+        for (const auto& candidate : source_candidates()) {
+            if (candidate.subvolume.lexically_normal() == path.lexically_normal())
+                return candidate;
+        }
+        throw std::logic_error("source candidate is unavailable");
+    }
 };
+
+using ProfileCandidateClock = std::function<std::chrono::steady_clock::time_point()>;
+using ProfileCandidateIdGenerator = std::function<std::string()>;
 
 class ProfileAdministrationService {
   public:
-    ProfileAdministrationService(IManagerAuthorizer& authorizer, IProfileAdministrationBackend& backend);
+    ProfileAdministrationService(
+        IManagerAuthorizer& authorizer,
+        IProfileAdministrationBackend& backend,
+        std::chrono::seconds candidate_lifetime = std::chrono::minutes(5),
+        ProfileCandidateIdGenerator candidate_ids = {},
+        ProfileCandidateClock clock = {}
+    );
+
+    [[nodiscard]] ProfileSourceCandidate register_source_candidate(
+        const std::string& caller,
+        const std::string& profile_id,
+        int descriptor,
+        const BrowseAccessIdentity& identity
+    );
 
     [[nodiscard]] ProfileDetails get_profile_details(const std::string& profile_id) const;
     [[nodiscard]] ProfileDetails update_profile_settings(
@@ -173,13 +211,29 @@ class ProfileAdministrationService {
     );
     [[nodiscard]] ProfileDetails details_from(const EditableProfile& profile) const;
     [[nodiscard]] ProfileSourceCandidate require_source_candidate(
+        const std::string& caller,
+        const std::string& profile_id,
         const std::string& candidate_id,
         const std::string& excluded_filesystem_uuid
-    ) const;
+    );
+    static std::string random_candidate_id();
+    void expire_source_candidates(std::chrono::steady_clock::time_point now);
+    void consume_source_candidate(const std::string& caller, const std::string& candidate_id);
     void require_available_subvolume(const std::filesystem::path& path) const;
 
     IManagerAuthorizer& authorizer_;
     IProfileAdministrationBackend& backend_;
+    struct StoredSourceCandidate {
+        ProfileSourceCandidate candidate;
+        std::string caller;
+        std::string profile_id;
+        std::chrono::steady_clock::time_point expires_at;
+    };
+    std::chrono::seconds candidate_lifetime_;
+    ProfileCandidateIdGenerator candidate_ids_;
+    ProfileCandidateClock clock_;
+    std::mutex source_candidates_mutex_;
+    std::map<std::string, StoredSourceCandidate> stored_source_candidates_;
 };
 
 } // namespace btrfsbackup::daemon::control

@@ -224,6 +224,21 @@ void test_status_history_and_device() {
             !details.at("sourceCandidates").at(0).contains("localSnapshotRoot"),
         "profile details exposed private source discovery metadata"
     );
+    const Json registered_candidate = Json::parse(codec.encode(profile_details.source_candidates.front()));
+    expect_field(
+        "registered candidate schema",
+        registered_candidate,
+        "schemaVersion",
+        btrfsbackup::manager_protocol::profile_source_candidate_schema_version
+    );
+    expect_field("registered candidate id", registered_candidate, "id", "home-candidate");
+    expect_field("registered candidate path", registered_candidate, "path", "/home");
+    test_helpers::expect_true(
+        "registered candidate metadata privacy",
+        !registered_candidate.contains("filesystemUuid") && !registered_candidate.contains("mountRoot") &&
+            !registered_candidate.contains("localSnapshotRoot"),
+        "registered candidate exposed private metadata"
+    );
 }
 
 void test_storage_topology_and_plan_contract() {
