@@ -230,9 +230,6 @@ std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) con
         source_candidates.push_back({
             {"id", candidate.id},
             {"path", candidate.subvolume.string()},
-            {"filesystemUuid", candidate.filesystem_uuid},
-            {"mountRoot", candidate.mount_root.string()},
-            {"localSnapshotRoot", candidate.local_snapshot_root.string()},
             {"displayName", candidate.subvolume.string()},
         });
     }

@@ -217,11 +217,12 @@ void test_status_history_and_device() {
     expect_field("details health code", details, "configurationErrorCode", "configuration.source_not_subvolume");
     expect_field("details first candidate", details.at("sourceCandidates").at(0), "id", "home-candidate");
     expect_field("details first candidate path", details.at("sourceCandidates").at(0), "path", "/home");
-    expect_field(
-        "details first candidate snapshot root",
-        details.at("sourceCandidates").at(0),
-        "localSnapshotRoot",
-        "/home/.snapshots/btrfs-backup"
+    test_helpers::expect_true(
+        "details candidate metadata privacy",
+        !details.at("sourceCandidates").at(0).contains("filesystemUuid") &&
+            !details.at("sourceCandidates").at(0).contains("mountRoot") &&
+            !details.at("sourceCandidates").at(0).contains("localSnapshotRoot"),
+        "profile details exposed private source discovery metadata"
     );
 }
 

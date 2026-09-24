@@ -8,6 +8,7 @@
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
 #include <config/ProfileFingerprint.hpp>
+#include <config/ProfileFingerprint.hpp>
 #include <core/ManagerProtocol.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <core/Errors.hpp>
@@ -37,6 +38,28 @@ bool hooks_equal(const config::ProfileHooks& left, const config::ProfileHooks& r
 
 bool hooks_empty(const config::ProfileHooks& hooks) {
     return hooks.before_snapshot.empty() && hooks.after_snapshot.empty();
+}
+
+std::string source_candidate_id(const SourceCandidate& candidate) {
+    std::string identity;
+    identity.reserve(
+        candidate.filesystem_uuid.size() + candidate.path.size() + candidate.mount_root.size() +
+        candidate.local_snapshot_root.size() + 4U
+    );
+    for (const std::string* value : {
+             &candidate.filesystem_uuid,
+             &candidate.path,
+             &candidate.mount_root,
+             &candidate.local_snapshot_root,
+         }) {
+        identity.append(*value);
+        identity.push_back('\0');
+    }
+    return config::compute_config_fingerprint_from_bytes(
+        "profile-source-candidate-v1",
+        "candidate",
+        identity
+    );
 }
 
 } // namespace
@@ -74,7 +97,7 @@ std::vector<ProfileSourceCandidate> SystemProfileAdministrationBackend::source_c
             if (!local_mount.has_value() || local_mount->filesystem_uuid != candidate.filesystem_uuid)
                 continue;
             result.push_back({
-                .id = candidate.filesystem_uuid + ":" + candidate.path,
+                .id = source_candidate_id(candidate),
                 .subvolume = candidate.path,
                 .filesystem_uuid = candidate.filesystem_uuid,
                 .mount_root = candidate.mount_root,

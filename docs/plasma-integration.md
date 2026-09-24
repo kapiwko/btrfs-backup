@@ -84,6 +84,13 @@ authorization and explicitly preserves backup data. Hook changes require their
 own high-risk authorization. The plasmoid and its settings remain useful
 without opening the KCM.
 
+Profile source selection in the 1.0 KCM is intentionally limited to writable
+Btrfs mount roots discovered by the manager. More advanced profiles that use a
+Btrfs subvolume without its own mount-table entry remain supported by the
+configuration format and command-line tooling. Candidate responses contain an
+opaque identifier, the displayed path and display name; filesystem identity and
+the derived snapshot root remain inside the manager.
+
 Device preparation first obtains a caller-bound storage topology and then asks
 the manager to build a short-lived plan for the selected opaque candidate. The
 topology is a sanitized presentation model: the KCM identifies devices and

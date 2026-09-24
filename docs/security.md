@@ -9,9 +9,9 @@ as the only component allowed to mutate system configuration or backup state.
 
 Direct runtime commands run as root. Globally readable manager responses are
 reduced and sanitized. Provisioning discovery is a separate, active-session
-interface: its device topology is sanitized, while source discovery may expose
-the active user's Btrfs mount paths and filesystem UUIDs so that the user can
-choose a source. The active local session may invoke already configured
+interface: its device topology is sanitized, while profile source selection
+exposes only Btrfs mount paths with opaque candidate identifiers. Filesystem
+UUIDs, mount roots and derived snapshot roots remain inside the manager. The active local session may invoke already configured
 operational controls through their separate polkit actions; inactive callers
 still require administrator authentication. Repository browsing and
 descriptor-backed coverage queries are available to the active local session. Repository reads
@@ -40,8 +40,8 @@ Provisioning data has distinct disclosure and lifetime rules:
 - sanitized status and topology responses contain presentation data, stable
   codes, geometry, safety decisions, and opaque identifiers, but no device
   nodes, hardware identity, mount paths, labels, or storage UUIDs;
-- source candidates are active-session selection data. Their paths and
-  filesystem UUIDs may be displayed, but `StartDevicePreparation` accepts only
+- provisioning source candidates are active-session selection data. Their paths
+  may be displayed, but filesystem UUIDs remain private and `StartDevicePreparation` accepts only
   the caller-bound, expiring candidate identifier and resolves the stored values
   in the manager;
 - complete topology snapshots, plans, and compatible-target inspection
