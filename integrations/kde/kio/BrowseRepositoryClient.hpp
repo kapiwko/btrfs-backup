@@ -20,7 +20,7 @@ namespace btrfsbackup::kde::kio {
 struct RemoteEntry {
     QString name;
     bool directory = false;
-    std::uint64_t size = 0;
+    std::int64_t size = 0;
     std::uint32_t mode = 0;
     std::int64_t modified_at = 0;
 };

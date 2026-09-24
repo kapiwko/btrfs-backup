@@ -225,9 +225,12 @@ void RestoreController::ensure_source_open() {
             (kind != u"file"_s && kind != u"directory"_s) ||
             !metadata.value(u"size"_s).isDouble() || !metadata.value(u"modifiedAt"_s).isDouble())
             throw std::runtime_error("could not inspect the selected backup entry");
+        const qint64 source_size = metadata.value(u"size"_s).toInteger();
+        if (source_size < 0)
+            throw std::runtime_error("backup entry has an invalid negative size");
         source_type_ = kind == u"directory"_s ? i18n("Folder") : i18n("File");
         source_is_directory_ = kind == u"directory"_s;
-        source_size_bytes_ = source_is_directory_ ? 0 : metadata.value(u"size"_s).toInteger();
+        source_size_bytes_ = source_is_directory_ ? 0ULL : static_cast<qulonglong>(source_size);
         source_icon_ = source_is_directory_
             ? u"folder"_s
             : QMimeDatabase{}.mimeTypeForFile(sourceName(), QMimeDatabase::MatchExtension).iconName();
@@ -235,7 +238,7 @@ void RestoreController::ensure_source_open() {
             source_icon_ = u"text-x-generic"_s;
         source_size_ = kind == u"directory"_s
             ? i18n("Calculated during restore")
-            : btrfsbackup::kde::format_byte_size(metadata.value(u"size"_s).toInteger());
+            : btrfsbackup::kde::format_byte_size(source_size);
         source_modified_ = QLocale{}.toString(
             QDateTime::fromSecsSinceEpoch(metadata.value(u"modifiedAt"_s).toInteger()).toLocalTime(),
             QLocale::ShortFormat

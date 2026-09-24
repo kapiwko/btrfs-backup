@@ -100,6 +100,7 @@ foreach(required_check IN ITEMS
         "Clang (manager disabled) tests"
         architecture-tests
         kde-dbus-contract
+        kde-strict-warnings
         sanitizers
         fuzz-smoke
         strict-warnings
@@ -113,6 +114,7 @@ foreach(tests_check IN ITEMS
         clang-tidy
         architecture-tests
         kde-dbus-contract
+        kde-strict-warnings
         sanitizers
         fuzz-smoke
         strict-warnings)

@@ -50,7 +50,7 @@ std::vector<RepositorySnapshot> matching_versions(
     const QString& source_id
 ) {
     std::vector<RepositorySnapshot> result;
-    result.reserve(snapshots.size());
+    result.reserve(static_cast<std::size_t>(snapshots.size()));
     for (const RepositorySnapshot& snapshot : snapshots) {
         if (snapshot.verified && snapshot.profile_id == profile_id && snapshot.source_id == source_id)
             result.push_back(snapshot);
@@ -96,16 +96,19 @@ std::optional<PreviousVersionsPage> parse_previous_versions_page(const QString& 
             return std::nullopt;
         const QJsonObject object = value.toObject();
         const QString kind = object.value(u"kind"_s).toString();
+        const QJsonValue size = object.value(u"size"_s);
+        const qint64 decoded_size = size.toInteger(-1);
         PreviousVersion version{
             object.value(u"snapshotId"_s).toString(),
             QDateTime::fromString(object.value(u"createdAt"_s).toString(), Qt::ISODate),
             kind == u"directory"_s,
-            static_cast<std::uint64_t>(object.value(u"size"_s).toDouble(-1)),
+            decoded_size,
             static_cast<std::uint32_t>(object.value(u"mode"_s).toDouble(-1)),
             static_cast<std::int64_t>(object.value(u"modifiedAt"_s).toDouble()),
         };
         if (version.snapshot_id.isEmpty() || !version.created_at.isValid() ||
             (kind != u"directory"_s && kind != u"file"_s) || !object.value(u"size"_s).isDouble() ||
+            decoded_size < 0 || size.toDouble() != static_cast<double>(decoded_size) ||
             !object.value(u"mode"_s).isDouble() || !object.value(u"modifiedAt"_s).isDouble())
             return std::nullopt;
         result.entries.push_back(std::move(version));

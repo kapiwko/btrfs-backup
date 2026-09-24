@@ -74,6 +74,7 @@ jobs:
             "Clang (manager disabled) tests"
             "architecture-tests"
             "kde-dbus-contract"
+            "kde-strict-warnings"
             "sanitizers"
             "fuzz-smoke"
             "strict-warnings"

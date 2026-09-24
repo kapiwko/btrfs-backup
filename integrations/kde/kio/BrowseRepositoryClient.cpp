@@ -23,13 +23,15 @@ std::optional<RemoteEntry> parse_remote_entry(const QJsonObject& object) {
     const QJsonValue size = object.value(u"size"_s);
     const QJsonValue mode = object.value(u"mode"_s);
     const QJsonValue modified = object.value(u"modifiedAt"_s);
+    const qint64 decoded_size = size.toInteger(-1);
     if (!name.isString() || (kind != u"directory"_s && kind != u"file"_s) || !size.isDouble() ||
+        decoded_size < 0 || size.toDouble() != static_cast<double>(decoded_size) ||
         !mode.isDouble() || !modified.isDouble())
         return std::nullopt;
     return RemoteEntry{
         name.toString(),
         kind == u"directory"_s,
-        static_cast<std::uint64_t>(size.toDouble()),
+        decoded_size,
         static_cast<std::uint32_t>(mode.toDouble()),
         static_cast<std::int64_t>(modified.toDouble()),
     };

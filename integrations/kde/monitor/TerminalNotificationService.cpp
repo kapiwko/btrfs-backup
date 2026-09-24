@@ -173,7 +173,7 @@ void TerminalNotificationService::publish_target_storage(
     message.text = i18n(
         "%1% (%2) is available on “%3” for backup “%4”. Free some space or adjust retention.",
         storage.available_percent,
-        KFormat{}.formatByteSize(storage.available_bytes),
+        KFormat{}.formatByteSize(static_cast<double>(storage.available_bytes)),
         target,
         display_name(profile_id, profile_name)
     );

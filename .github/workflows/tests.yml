@@ -193,6 +193,52 @@ jobs:
           ctest --test-dir build/kde-debug -R '^(manager-dbus-contract|dbus-manager-tests)$' --output-on-failure
           ctest --preset kde --parallel "$(nproc)"
 
+  kde-strict-warnings:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Prepare Arch Linux
+        run: |
+          pacman -Syu --noconfirm --needed \
+            btrfs-progs \
+            ccache \
+            clang \
+            cmake \
+            extra-cmake-modules \
+            git \
+            kcmutils \
+            kcoreaddons \
+            ki18n \
+            kirigami \
+            kio \
+            kjobwidgets \
+            knotifications \
+            kpackage \
+            krunner \
+            kwidgetsaddons \
+            libplasma \
+            ninja \
+            nlohmann-json \
+            pkgconf \
+            qt6-base \
+            qt6-declarative \
+            systemd \
+            util-linux
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-kde-strict-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-kde-strict-
+      - name: Configure KDE strict warnings
+        run: cmake --preset kde-strict-warnings -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+      - name: Build KDE integration with strict warnings
+        run: cmake --build --preset kde-strict-warnings --parallel "$(nproc)"
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+
   sanitizers:
     runs-on: ubuntu-24.04
     container: archlinux:base-devel

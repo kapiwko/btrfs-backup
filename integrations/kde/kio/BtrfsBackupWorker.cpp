@@ -263,7 +263,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
             entry.fastInsert(KIO::UDSEntry::UDS_NAME, version.snapshot_id);
             entry.fastInsert(KIO::UDSEntry::UDS_DISPLAY_NAME, QLocale{}.toString(version.created_at.toLocalTime(), QLocale::ShortFormat));
             entry.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, version.directory ? S_IFDIR : S_IFREG);
-            entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(version.size));
+            entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<long long>(version.size));
             entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, version.created_at.toSecsSinceEpoch());
             entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(version.mode & 0777));
             entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(remote));
@@ -300,7 +300,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
         entry.fastInsert(KIO::UDSEntry::UDS_NAME, snapshot.id);
         entry.fastInsert(KIO::UDSEntry::UDS_DISPLAY_NAME, QLocale{}.toString(snapshot.created_at.toLocalTime(), QLocale::ShortFormat));
         entry.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, remote->directory ? S_IFDIR : S_IFREG);
-        entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(remote->size));
+        entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<long long>(remote->size));
         entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, snapshot.created_at.toSecsSinceEpoch());
         entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(remote->mode & 0777));
         entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(*remote));
@@ -340,7 +340,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
                 KIO::UDSEntry::UDS_FILE_TYPE,
                 child.directory ? S_IFDIR : S_IFREG
             );
-            entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(child.size));
+            entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<long long>(child.size));
             entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, child.modified_at);
             entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(child.mode & 0777));
             entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(child));
@@ -372,7 +372,9 @@ KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
         if (fstat(file.descriptor(), &status) != 0)
             return KIO::WorkerResult::fail(KIO::ERR_CANNOT_READ);
         mimeType(QMimeDatabase{}.mimeTypeForFile(QString::fromStdString(relative->filename().string()), QMimeDatabase::MatchExtension).name());
-        totalSize(status.st_size);
+        if (status.st_size < 0)
+            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_READ);
+        totalSize(static_cast<KIO::filesize_t>(status.st_size));
         KIO::filesize_t processed = 0;
         QByteArray buffer(128 * 1024, Qt::Uninitialized);
         while (true) {
@@ -387,7 +389,7 @@ KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
             if (count == 0)
                 break;
             data(QByteArray(buffer.constData(), count));
-            processed += count;
+            processed += static_cast<KIO::filesize_t>(count);
             processedSize(processed);
         }
         data({});
@@ -431,7 +433,11 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
             close_open_file();
             return KIO::WorkerResult::fail(KIO::ERR_CANNOT_READ);
         }
-        totalSize(status.st_size);
+        if (status.st_size < 0) {
+            close_open_file();
+            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_READ);
+        }
+        totalSize(static_cast<KIO::filesize_t>(status.st_size));
         keep_session = true;
         return KIO::WorkerResult::pass();
     } catch (...) {
@@ -457,17 +463,19 @@ KIO::WorkerResult BtrfsBackupWorker::read(KIO::filesize_t size) {
     data(QByteArray(buffer.constData(), count));
     const off_t current = lseek(open_file_.descriptor(), 0, SEEK_CUR);
     if (current >= 0)
-        position(current);
+        position(static_cast<KIO::filesize_t>(current));
     return KIO::WorkerResult::pass();
 }
 
 KIO::WorkerResult BtrfsBackupWorker::seek(KIO::filesize_t offset) {
     if (!open_file_.valid())
         return KIO::WorkerResult::fail(KIO::ERR_CANNOT_SEEK);
+    if (offset > static_cast<KIO::filesize_t>(std::numeric_limits<off_t>::max()))
+        return KIO::WorkerResult::fail(KIO::ERR_CANNOT_SEEK);
     const off_t result = lseek(open_file_.descriptor(), static_cast<off_t>(offset), SEEK_SET);
     if (result < 0)
         return KIO::WorkerResult::fail(KIO::ERR_CANNOT_SEEK);
-    position(result);
+    position(static_cast<KIO::filesize_t>(result));
     return KIO::WorkerResult::pass();
 }
 
@@ -507,7 +515,7 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     KIO::UDSEntry result;
     result.fastInsert(KIO::UDSEntry::UDS_NAME, relative->filename().empty() ? u"."_s : QString::fromStdString(relative->filename().string()));
     result.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, entry->directory ? S_IFDIR : S_IFREG);
-    result.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(entry->size));
+    result.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<long long>(entry->size));
     result.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, entry->modified_at);
     result.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(entry->mode & 0777));
     result.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(*entry));

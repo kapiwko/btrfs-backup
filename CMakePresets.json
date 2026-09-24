@@ -118,6 +118,15 @@
       }
     },
     {
+      "name": "kde-strict-warnings",
+      "displayName": "Clang strict warnings for KDE integration",
+      "inherits": "strict-warnings",
+      "binaryDir": "${sourceDir}/build/kde-strict-warnings",
+      "cacheVariables": {
+        "BUILD_KDE_INTEGRATION": "ON"
+      }
+    },
+    {
       "name": "manager-debug",
       "displayName": "GCC debug build with the system manager",
       "inherits": "gcc-debug",
@@ -207,6 +216,13 @@
     {
       "name": "kde-debug",
       "configurePreset": "kde-debug"
+    },
+    {
+      "name": "kde-strict-warnings",
+      "configurePreset": "kde-strict-warnings",
+      "targets": [
+        "btrfs-backup-kde"
+      ]
     },
     {
       "name": "manager-debug",
