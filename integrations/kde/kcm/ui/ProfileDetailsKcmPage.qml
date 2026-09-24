@@ -82,8 +82,8 @@ KCMUtils.SimpleKCM {
         editor: root.editor
         profileStatus: root.profileStatus
         credentialModel: root.credentialModel
-        onAddSourceRequested: (name, subvolume, localRetention, targetRetention) => {
-            root.editor.addSourceConfiguration(name, subvolume, localRetention, targetRetention);
+        onAddSourceRequested: (name, candidateId, localRetention, targetRetention) => {
+            root.editor.addSourceConfiguration(name, candidateId, localRetention, targetRetention);
         }
         onEditSourceRequested: (index, name, localRetention, targetRetention) => {
             root.editor.updateSourceConfiguration(index, name, localRetention, targetRetention);

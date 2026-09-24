@@ -225,6 +225,17 @@ std::string ManagerJsonCodec::encode(const std::vector<BackupCoverage>& coverage
 
 std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) const {
     config::json::Json document = config::json::Json::parse(profile.document);
+    config::json::Json source_candidates = config::json::Json::array();
+    for (const control::ProfileSourceCandidate& candidate : profile.source_candidates) {
+        source_candidates.push_back({
+            {"id", candidate.id},
+            {"path", candidate.subvolume.string()},
+            {"filesystemUuid", candidate.filesystem_uuid},
+            {"mountRoot", candidate.mount_root.string()},
+            {"localSnapshotRoot", candidate.local_snapshot_root.string()},
+            {"displayName", candidate.subvolume.string()},
+        });
+    }
     document.erase("hooks");
     if (document.contains("target") && document["target"].is_object()) {
         auto& target = document["target"];
@@ -239,7 +250,7 @@ std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) con
         {"document", std::move(document)},
         {"configurationValid", profile.configuration_valid},
         {"configurationErrorCode", profile.configuration_error_code},
-        {"sourceCandidates", profile.source_candidates},
+        {"sourceCandidates", std::move(source_candidates)},
     });
 }
 

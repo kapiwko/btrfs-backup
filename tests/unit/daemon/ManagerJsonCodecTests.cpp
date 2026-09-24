@@ -189,7 +189,19 @@ void test_status_history_and_device() {
     expect_field("operation", operation_document, "runId", operation.run_id);
     expect_field("operation", operation_document, "accepted", true);
 
-    const Json details = Json::parse(codec.encode(btrfsbackup::daemon::control::ProfileDetails{"default", "generation", "fingerprint", R"({"profileId":"default","target":{"activation":{"mode":"keyFile","keyFile":"/root/key"}},"hooks":{"beforeSnapshot":["secret-command"]}})", false, "configuration.source_not_subvolume", {"/home", "/srv/work"}}));
+    const btrfsbackup::daemon::control::ProfileDetails profile_details{
+        "default",
+        "generation",
+        "fingerprint",
+        R"({"profileId":"default","target":{"activation":{"mode":"keyFile","keyFile":"/root/key"}},"hooks":{"beforeSnapshot":["secret-command"]}})",
+        false,
+        "configuration.source_not_subvolume",
+        {
+            {"home-candidate", "/home", "home-fs", "/home", "/home/.snapshots/btrfs-backup"},
+            {"work-candidate", "/srv/work", "work-fs", "/srv/work", "/srv/work/.snapshots/btrfs-backup"},
+        }
+    };
+    const Json details = Json::parse(codec.encode(profile_details));
     test_helpers::expect_true(
         "details hooks privacy",
         !details.at("document").contains("hooks"),
@@ -203,7 +215,14 @@ void test_status_history_and_device() {
     expect_field("details activation", details.at("document").at("target").at("activation"), "mode", "keyFile");
     expect_field("details health", details, "configurationValid", false);
     expect_field("details health code", details, "configurationErrorCode", "configuration.source_not_subvolume");
-    expect_field("details candidates", details, "sourceCandidates", std::vector<std::string>{"/home", "/srv/work"});
+    expect_field("details first candidate", details.at("sourceCandidates").at(0), "id", "home-candidate");
+    expect_field("details first candidate path", details.at("sourceCandidates").at(0), "path", "/home");
+    expect_field(
+        "details first candidate snapshot root",
+        details.at("sourceCandidates").at(0),
+        "localSnapshotRoot",
+        "/home/.snapshots/btrfs-backup"
+    );
 }
 
 void test_storage_topology_and_plan_contract() {

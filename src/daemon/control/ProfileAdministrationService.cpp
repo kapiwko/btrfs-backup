@@ -190,14 +190,15 @@ ProfileDetails ProfileAdministrationService::details_from(const EditableProfile&
             std::filesystem::path(source.at("subvolume").get<std::string>()).lexically_normal().string()
         );
     }
-    std::vector<std::string> candidates;
+    std::vector<ProfileSourceCandidate> candidates;
     for (const auto& candidate : backend_.source_candidates()) {
-        const std::string normalized = candidate.lexically_normal().string();
+        const std::string normalized = candidate.subvolume.lexically_normal().string();
         if (!configured_sources.contains(normalized))
-            candidates.push_back(normalized);
+            candidates.push_back(candidate);
     }
-    std::ranges::sort(candidates);
-    candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
+    std::ranges::sort(candidates, {}, [](const ProfileSourceCandidate& candidate) {
+        return candidate.subvolume.lexically_normal().string();
+    });
     return {
         .profile_id = profile.profile_id,
         .generation = profile.generation,
@@ -207,6 +208,20 @@ ProfileDetails ProfileAdministrationService::details_from(const EditableProfile&
         .configuration_error_code = health.error_code,
         .source_candidates = std::move(candidates),
     };
+}
+
+ProfileSourceCandidate ProfileAdministrationService::require_source_candidate(
+    const std::string& candidate_id
+) const {
+    const auto candidates = backend_.source_candidates();
+    const auto candidate = std::ranges::find(candidates, candidate_id, &ProfileSourceCandidate::id);
+    if (candidate == candidates.end()) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::SourceUnavailable,
+            "source candidate is no longer available"
+        );
+    }
+    return *candidate;
 }
 
 void ProfileAdministrationService::require_available_subvolume(const std::filesystem::path& path) const {
@@ -270,24 +285,37 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     const auto current = backend_.find_profile(id);
     require_current(current, expected);
     const EditableProfile& existing = require_existing(current);
-    const Json request = parse_request(request_payload, {"name", "subvolume", "localRetention", "remoteRetention"});
+    const Json request = parse_request(request_payload, {"name", "candidateId", "localRetention", "remoteRetention"});
     Json document = Json::parse(existing.document);
     Json& sources = document["sources"];
     const std::string name = request_value<std::string>(request, "name");
-    const std::filesystem::path subvolume = request_value<std::string>(request, "subvolume");
-    require_available_subvolume(subvolume);
+    const std::string candidate_id = request_value<std::string>(request, "candidateId");
+    const ProfileSourceCandidate candidate = require_source_candidate(candidate_id);
+    require_available_subvolume(candidate.subvolume);
     const std::string source_id = unique_source_id(sources, name);
     sources.push_back({
         {"id", source_id},
         {"name", name},
         {"enabled", true},
-        {"subvolume", subvolume.lexically_normal().string()},
-        {"localSnapshotDir", (subvolume.parent_path() / ".snapshots" / "btrfs-backup" / source_id).lexically_normal().string()},
+        {"subvolume", candidate.subvolume.lexically_normal().string()},
+        {"localSnapshotDir", (candidate.local_snapshot_root / source_id).lexically_normal().string()},
         {"remoteSubdir", source_id},
         {"localRetention", request_value<int>(request, "localRetention")},
         {"remoteRetention", request_value<int>(request, "remoteRetention")},
     });
-    return save_document(caller, existing, config::json::dump_json(document), subvolume);
+    const ProfileDraftResult draft = backend_.validate_draft(id, config::json::dump_json(document));
+    require_authorized(caller, ManagerAuthorizationAction::ManageProfileConfiguration);
+    require_current(backend_.find_profile(id), existing);
+    const ProfileSourceCandidate current_candidate = require_source_candidate(candidate_id);
+    if (current_candidate != candidate) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "source candidate changed"
+        );
+    }
+    require_available_subvolume(current_candidate.subvolume);
+    const ProfileDraftResult saved = backend_.save_profile(existing, draft, false);
+    return details_from({saved.profile_id, saved.generation, saved.fingerprint, saved.document});
 }
 
 ProfileDetails ProfileAdministrationService::update_profile_source(

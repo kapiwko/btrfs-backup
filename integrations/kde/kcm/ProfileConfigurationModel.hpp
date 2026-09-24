@@ -59,7 +59,12 @@ class ProfileConfigurationModel final : public QObject {
     Q_INVOKABLE void loadDetails(const QString& profileId);
     Q_INVOKABLE void reload();
     Q_INVOKABLE void clearError();
-    Q_INVOKABLE void addSourceConfiguration(const QString& name, const QString& subvolume, int localRetention, int remoteRetention);
+    Q_INVOKABLE void addSourceConfiguration(
+        const QString& name,
+        const QString& candidateId,
+        int localRetention,
+        int remoteRetention
+    );
     Q_INVOKABLE void updateSourceConfiguration(int index, const QString& name, int localRetention, int remoteRetention);
     Q_INVOKABLE void removeSourceConfiguration(int index);
     Q_INVOKABLE void updateProfileSettings(const QString& name, bool dailyLimit, bool autoEject);

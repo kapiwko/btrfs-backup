@@ -22,7 +22,10 @@ Item {
         property var target: ({device: "/dev/test", luksUuid: "uuid", btrfsUuid: "uuid", mapperName: "backup", activation: {mode: "askPassword"}})
         property var settings: ({remoteRetention: 30, localRetention: 30})
         property var sources: [{name: "Home", subvolume: "/home", localSnapshotDir: "/.snapshots/home", remoteSubdir: "home"}]
-        property var sourceCandidates: ["/home", "/srv/work"]
+        property var sourceCandidates: [
+            { id: "home-candidate", path: "/home", displayName: "/home" },
+            { id: "work-candidate", path: "/srv/work", displayName: "/srv/work" }
+        ]
         property bool configurationValid: true
         property string configurationErrorCode: ""
         property bool loaded: true
@@ -38,7 +41,7 @@ Item {
         function load(profileId) {}
         function loadDetails(profileId) {}
         function reload() {}
-        function addSourceConfiguration(name, subvolume, localRetention, remoteRetention) {}
+        function addSourceConfiguration(name, candidateId, localRetention, remoteRetention) {}
         function updateSourceConfiguration(index, name, localRetention, remoteRetention) {}
         function removeSourceConfiguration(index) {}
         function updateProfileSettings(name, dailyLimit, autoEject) {}

@@ -15,7 +15,7 @@ Item {
     required property var editor
     property var sourceToInspect: null
 
-    signal addRequested(string name, string subvolume, int localRetention, int targetRetention)
+    signal addRequested(string name, string candidateId, int localRetention, int targetRetention)
     signal editRequested(int index, string name, int localRetention, int targetRetention)
     signal removeRequested(int index, var source)
 
@@ -175,10 +175,11 @@ Item {
     SourceDialog {
         id: sourceDialog
         objectName: "sourceDialog"
+        candidateOnly: true
         sourceCandidates: root.editor?.sourceCandidates ?? []
 
-        onAddAccepted: (name, subvolume, localRetention, targetRetention) => {
-            root.addRequested(name, subvolume, localRetention, targetRetention);
+        onAddAccepted: (name, subvolume, localRetention, targetRetention, candidateId) => {
+            root.addRequested(name, candidateId, localRetention, targetRetention);
         }
         onEditAccepted: (index, name, localRetention, targetRetention) => {
             root.editRequested(index, name, localRetention, targetRetention);

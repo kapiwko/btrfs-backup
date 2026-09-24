@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <string>
 #include <optional>
 #include <set>
+#include <string>
 #include <vector>
 
 #include <config/json/JsonIo.hpp>
@@ -29,6 +29,16 @@ struct UnsupportedProfileIdentity {
     bool operator==(const UnsupportedProfileIdentity&) const = default;
 };
 
+struct ProfileSourceCandidate {
+    std::string id;
+    std::filesystem::path subvolume;
+    std::string filesystem_uuid;
+    std::filesystem::path mount_root;
+    std::filesystem::path local_snapshot_root;
+
+    bool operator==(const ProfileSourceCandidate&) const = default;
+};
+
 struct ProfileDetails {
     std::string profile_id;
     std::string generation;
@@ -36,7 +46,7 @@ struct ProfileDetails {
     std::string document;
     bool configuration_valid = true;
     std::string configuration_error_code;
-    std::vector<std::string> source_candidates;
+    std::vector<ProfileSourceCandidate> source_candidates;
 };
 
 enum class SourceSubvolumeState { Available,
@@ -79,7 +89,7 @@ class IProfileAdministrationBackend {
     [[nodiscard]] virtual SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path&) const {
         return SourceSubvolumeState::Available;
     }
-    [[nodiscard]] virtual std::vector<std::filesystem::path> source_candidates() const {
+    [[nodiscard]] virtual std::vector<ProfileSourceCandidate> source_candidates() const {
         return {};
     }
 };
@@ -162,6 +172,7 @@ class ProfileAdministrationService {
         const std::optional<std::filesystem::path>& source_to_recheck = std::nullopt
     );
     [[nodiscard]] ProfileDetails details_from(const EditableProfile& profile) const;
+    [[nodiscard]] ProfileSourceCandidate require_source_candidate(const std::string& candidate_id) const;
     void require_available_subvolume(const std::filesystem::path& path) const;
 
     IManagerAuthorizer& authorizer_;

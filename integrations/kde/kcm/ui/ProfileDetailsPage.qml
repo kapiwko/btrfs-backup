@@ -17,7 +17,7 @@ QQC2.ScrollView {
     required property var profileStatus
     property var credentialModel: null
 
-    signal addSourceRequested(string name, string subvolume, int localRetention, int targetRetention)
+    signal addSourceRequested(string name, string candidateId, int localRetention, int targetRetention)
     signal editSourceRequested(int index, string name, int localRetention, int targetRetention)
     signal removeSourceRequested(int index, var source)
     signal deleteRequested
@@ -59,8 +59,8 @@ QQC2.ScrollView {
             Layout.leftMargin: -Kirigami.Units.largeSpacing
             Layout.rightMargin: -Kirigami.Units.largeSpacing
             editor: root.editor
-            onAddRequested: (name, subvolume, localRetention, targetRetention) => {
-                root.addSourceRequested(name, subvolume, localRetention, targetRetention);
+            onAddRequested: (name, candidateId, localRetention, targetRetention) => {
+                root.addSourceRequested(name, candidateId, localRetention, targetRetention);
             }
             onEditRequested: (index, name, localRetention, targetRetention) => {
                 root.editSourceRequested(index, name, localRetention, targetRetention);

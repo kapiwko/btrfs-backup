@@ -24,7 +24,10 @@ Item {
             localRetention: 30,
             remoteRetention: 30
         }]
-        property var sourceCandidates: ["/home", "/srv/work"]
+        property var sourceCandidates: [
+            { id: "home-candidate", path: "/home", displayName: "/home" },
+            { id: "work-candidate", path: "/srv/work", displayName: "/srv/work" }
+        ]
     }
 
     KcmUi.ProfileSources {

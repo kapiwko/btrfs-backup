@@ -23,6 +23,7 @@ using btrfsbackup::daemon::control::IProfileAdministrationBackend;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
 using btrfsbackup::daemon::control::ProfileAdministrationService;
 using btrfsbackup::daemon::control::ProfileDraftResult;
+using btrfsbackup::daemon::control::ProfileSourceCandidate;
 using btrfsbackup::daemon::control::SourceSubvolumeState;
 using btrfsbackup::daemon::control::UnsupportedProfileIdentity;
 using btrfsbackup::daemon::control::manager_authorization_action_id;
@@ -69,6 +70,10 @@ class Backend final : public IProfileAdministrationBackend {
     int unsupported_retirements = 0;
     bool hooks_allowed = false;
     SourceSubvolumeState source_state = SourceSubvolumeState::Available;
+    std::vector<ProfileSourceCandidate> candidates{
+        {"work-candidate", "/srv/work", "work-fs", "/srv/work", "/srv/work/.snapshots/btrfs-backup"},
+        {"home-candidate", "/home", "home-fs", "/home", "/home/.snapshots/btrfs-backup"},
+    };
 
     std::optional<EditableProfile> find_profile(const ProfileId&) const override {
         return current;
@@ -109,8 +114,8 @@ class Backend final : public IProfileAdministrationBackend {
     SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path&) const override {
         return source_state;
     }
-    std::vector<std::filesystem::path> source_candidates() const override {
-        return {"/srv/work", "/home"};
+    std::vector<ProfileSourceCandidate> source_candidates() const override {
+        return candidates;
     }
 
     UnsupportedProfileIdentity unsupported{"legacy", 4, "legacy-fingerprint"};
@@ -133,7 +138,11 @@ void test_details_do_not_request_authorization() {
     test_helpers::expect_eq("details profile", details.profile_id, "default");
     test_helpers::expect_true("details authorization", authorizer.actions.empty(), "details requested authorization");
     test_helpers::expect_true("configuration valid", details.configuration_valid, "valid source was rejected");
-    test_helpers::expect_true("source candidates", details.source_candidates == std::vector<std::string>{"/srv/work"}, "configured sources were not filtered");
+    test_helpers::expect_true(
+        "source candidates",
+        details.source_candidates.size() == 1 && details.source_candidates.front().id == "work-candidate",
+        "configured sources were not filtered"
+    );
 }
 
 void test_invalid_existing_and_new_sources_are_reported() {
@@ -150,7 +159,7 @@ void test_invalid_existing_and_new_sources_are_reported() {
             "default",
             "g1",
             "f1",
-            R"({"name":"Missing","subvolume":"/missing","localRetention":7,"remoteRetention":14})"
+            R"({"name":"Missing","candidateId":"work-candidate","localRetention":7,"remoteRetention":14})"
         ));
         test_helpers::fail("missing new source", "missing source was saved");
     } catch (const ManagerOperationError& error) {
@@ -227,14 +236,14 @@ void test_source_operations_use_stable_identity() {
         "default",
         "g1",
         "f1",
-        R"({"name":"Work files","subvolume":"/srv/work","localRetention":7,"remoteRetention":14})"
+        R"({"name":"Work files","candidateId":"work-candidate","localRetention":7,"remoteRetention":14})"
     );
     Json document = Json::parse(added.document);
     test_helpers::expect_eq("generated source id", document.at("sources").at(1).at("id").get<std::string>(), "work-files");
     test_helpers::expect_eq(
         "derived snapshot path",
         document.at("sources").at(1).at("localSnapshotDir").get<std::string>(),
-        "/srv/.snapshots/btrfs-backup/work-files"
+        "/srv/work/.snapshots/btrfs-backup/work-files"
     );
 
     auto updated = service.update_profile_source(
@@ -252,6 +261,29 @@ void test_source_operations_use_stable_identity() {
     const auto removed = service.remove_profile_source(":1.12", "default", "work-files", "g2", "f2");
     document = Json::parse(removed.document);
     test_helpers::expect_true("source removed", document.at("sources").size() == 1, "source remained in profile");
+}
+
+void test_source_candidate_is_revalidated_after_authorization() {
+    Authorizer authorizer;
+    Backend backend;
+    ProfileAdministrationService service(authorizer, backend);
+    authorizer.during = [&](ManagerAuthorizationAction) {
+        backend.candidates.front().filesystem_uuid = "replacement-fs";
+    };
+    expect_error("changed source candidate", ManagerErrorCode::Conflict, [&] {
+        static_cast<void>(service.add_profile_source(
+            ":1.12",
+            "default",
+            "g1",
+            "f1",
+            R"({"name":"Work files","candidateId":"work-candidate","localRetention":7,"remoteRetention":14})"
+        ));
+    });
+    test_helpers::expect_true(
+        "changed source candidate not saved",
+        backend.saves == 0,
+        "changed source candidate reached profile commit"
+    );
 }
 
 void test_delete_and_activation_keep_dedicated_actions() {
@@ -339,6 +371,7 @@ int main() {
     test_settings_update_is_bounded_and_preserves_private_fields();
     test_denial_and_authorization_race_have_no_effect();
     test_source_operations_use_stable_identity();
+    test_source_candidate_is_revalidated_after_authorization();
     test_delete_and_activation_keep_dedicated_actions();
     test_unsupported_retirement_revalidates_after_strong_authorization();
     return test_helpers::finish("profile administration service tests");

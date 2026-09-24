@@ -11,7 +11,6 @@
 #include <KLocalizedString>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
-#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -126,16 +125,15 @@ void ProfileConfigurationModel::clearError() {
 
 void ProfileConfigurationModel::addSourceConfiguration(
     const QString& name,
-    const QString& subvolume,
+    const QString& candidate_id,
     int local_retention,
     int remote_retention
 ) {
-    const QString clean_subvolume = QDir::cleanPath(subvolume.trimmed());
-    if (!loaded_ || busy_ || name.trimmed().isEmpty() || !QDir::isAbsolutePath(clean_subvolume))
+    if (!loaded_ || busy_ || name.trimmed().isEmpty() || candidate_id.isEmpty())
         return;
     const QJsonObject payload{
         {QStringLiteral("name"), name.trimmed()},
-        {QStringLiteral("subvolume"), clean_subvolume},
+        {QStringLiteral("candidateId"), candidate_id},
         {QStringLiteral("localRetention"), local_retention},
         {QStringLiteral("remoteRetention"), remote_retention},
     };

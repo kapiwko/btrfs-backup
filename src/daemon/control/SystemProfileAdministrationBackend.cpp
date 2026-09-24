@@ -3,6 +3,7 @@
 
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
 #include <daemon/control/ProfileStateQuarantine.hpp>
+#include <daemon/control/ProvisioningSource.hpp>
 
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
@@ -64,13 +65,22 @@ SourceSubvolumeState SystemProfileAdministrationBackend::inspect_source_subvolum
     }
 }
 
-std::vector<std::filesystem::path> SystemProfileAdministrationBackend::source_candidates() const {
-    try {
-        const auto targets = platform::linux::storage::btrfs_mount_targets(mountinfo_path_);
-        return {targets.begin(), targets.end()};
-    } catch (...) {
-        return {};
+std::vector<ProfileSourceCandidate> SystemProfileAdministrationBackend::source_candidates() const {
+    const auto mounts = platform::linux::storage::read_mount_table(mountinfo_path_);
+    std::vector<ProfileSourceCandidate> result;
+    for (const SourceCandidate& candidate : provisioning_source_candidates(mounts)) {
+        const auto local_mount = backup::mount_for_path(mounts, candidate.local_snapshot_root);
+        if (!local_mount.has_value() || local_mount->filesystem_uuid != candidate.filesystem_uuid)
+            continue;
+        result.push_back({
+            .id = candidate.filesystem_uuid + ":" + candidate.path,
+            .subvolume = candidate.path,
+            .filesystem_uuid = candidate.filesystem_uuid,
+            .mount_root = candidate.mount_root,
+            .local_snapshot_root = candidate.local_snapshot_root,
+        });
     }
+    return result;
 }
 
 std::optional<EditableProfile> SystemProfileAdministrationBackend::find_profile(const ProfileId& profile_id) const {
