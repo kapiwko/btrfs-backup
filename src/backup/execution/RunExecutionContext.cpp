@@ -63,7 +63,7 @@ const MountEntry* RunExecutionContext::verified_target_mount() const noexcept {
     return verified_target_mount_ ? &*verified_target_mount_ : nullptr;
 }
 
-std::optional<TargetCleanupError> RunExecutionContext::close_target_session() noexcept {
+const std::optional<TargetCleanupError>& RunExecutionContext::close_target_session() noexcept {
     if (target_close_attempted_) {
         return target_close_error_;
     }
@@ -154,7 +154,7 @@ void RunExecutionContext::clear_cancellation_request(RunExecutionContextCloseRes
 }
 
 void RunExecutionContext::collect_target_session_failure(RunExecutionContextCloseResult& result) noexcept {
-    if (std::optional<TargetCleanupError> error = close_target_session()) {
+    if (const std::optional<TargetCleanupError>& error = close_target_session()) {
         record_close_failure(result, RunExecutionContextCloseStage::TargetSession, error->message);
     }
 }

@@ -55,7 +55,7 @@ std::optional<BackupExecutionFailed> BackupService::close_target_or_fail(
     std::size_t actions_completed,
     OperationKind operation_kind
 ) {
-    const std::optional<TargetCleanupError> cleanup_error = context.close_target_session();
+    const std::optional<TargetCleanupError>& cleanup_error = context.close_target_session();
     if (!cleanup_error.has_value()) {
         return std::nullopt;
     }

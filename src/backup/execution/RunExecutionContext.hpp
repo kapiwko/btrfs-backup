@@ -59,7 +59,7 @@ class RunExecutionContext {
     ~RunExecutionContext() noexcept;
 
     [[nodiscard]] const RunExecutionContextCloseResult& close() noexcept;
-    [[nodiscard]] std::optional<TargetCleanupError> close_target_session() noexcept;
+    [[nodiscard]] const std::optional<TargetCleanupError>& close_target_session() noexcept;
     void attach_event_sink(std::unique_ptr<IBackupRunEventSink> events) noexcept;
     void attach_verified_target(BackupPreflightResult result) noexcept;
     [[nodiscard]] const MountEntry* verified_target_mount() const noexcept;

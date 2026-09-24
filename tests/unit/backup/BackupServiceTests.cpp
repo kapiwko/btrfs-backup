@@ -20,6 +20,9 @@ namespace {
 
 static_assert(std::is_nothrow_destructible_v<btrfsbackup::backup::execution::RunExecutionContext>);
 static_assert(noexcept(std::declval<btrfsbackup::backup::execution::RunExecutionContext&>().close()));
+static_assert(std::is_same_v<
+              decltype(std::declval<btrfsbackup::backup::execution::RunExecutionContext&>().close_target_session()),
+              const std::optional<btrfsbackup::backup::TargetCleanupError>&>);
 
 struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
     btrfsbackup::config::Profile profile{
