@@ -5,6 +5,8 @@
 #include <daemon/control/ProfileStateQuarantine.hpp>
 #include <daemon/control/ProvisioningSource.hpp>
 
+#include <cstdio>
+
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
 #include <config/ProfileFingerprint.hpp>
@@ -309,7 +311,13 @@ void SystemProfileAdministrationBackend::retire_unsupported_profile(
         }
         throw;
     }
-    quarantine.finish();
+    const ProfileStateQuarantineFinishResult finish_result = quarantine.finish();
+    if (!finish_result.complete()) {
+        std::fputs(
+            "btrfs-backup: retired profile configuration, but transient status quarantine cleanup was incomplete\n",
+            stderr
+        );
+    }
 }
 
 void SystemProfileAdministrationBackend::set_profile_enabled(const EditableProfile& expected, bool enabled) {

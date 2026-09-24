@@ -17,13 +17,22 @@ struct ProfileStateRoots {
     std::filesystem::path history_root;
 };
 
+struct ProfileStateQuarantineFinishResult {
+    bool transient_status_removed = true;
+    bool parent_directory_synced = true;
+
+    [[nodiscard]] bool complete() const noexcept {
+        return transient_status_removed && parent_directory_synced;
+    }
+};
+
 class ProfileStateQuarantine final {
   public:
     ProfileStateQuarantine(ProfileStateRoots roots, std::string profile_id, std::string fingerprint);
 
     void quarantine();
     [[nodiscard]] platform::linux::config::RollbackResult rollback() noexcept;
-    void finish() noexcept;
+    [[nodiscard]] ProfileStateQuarantineFinishResult finish() noexcept;
 
   private:
     struct Move {

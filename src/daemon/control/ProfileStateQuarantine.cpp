@@ -180,19 +180,23 @@ void ProfileStateQuarantine::remove_empty_transaction_directories() noexcept {
     fs::remove(state_retired_root_, error);
 }
 
-void ProfileStateQuarantine::finish() noexcept {
+ProfileStateQuarantineFinishResult ProfileStateQuarantine::finish() noexcept {
+    ProfileStateQuarantineFinishResult result;
     if (moves_[2].moved) {
         std::error_code error;
         fs::remove_all(status_transaction_root_, error);
-        if (!error) {
+        result.transient_status_removed = !error;
+        if (result.transient_status_removed) {
             try {
                 platform::linux::filesystem::fsync_dir(status_transaction_root_.parent_path());
             } catch (...) {
+                result.parent_directory_synced = false;
             }
         }
         moves_[2].moved = false;
     }
     remove_empty_transaction_directories();
+    return result;
 }
 
 } // namespace btrfsbackup::daemon::control

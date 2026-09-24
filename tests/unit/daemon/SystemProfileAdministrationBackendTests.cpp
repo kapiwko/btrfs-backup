@@ -309,6 +309,11 @@ void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
             "retired profile state remains visible: " + directory.string()
         );
     }
+    test_helpers::expect_true(
+        "transient status quarantine removed",
+        !std::filesystem::exists(root / "status" / ".retired" / "default"),
+        "successful retirement left transient status quarantine behind"
+    );
     const auto retired_profile = root / "state" / "retired" / "default";
     std::vector<std::filesystem::path> retirements;
     for (const auto& entry : std::filesystem::directory_iterator(retired_profile))
