@@ -19,6 +19,8 @@ inline QString manager_error_message(const QDBusError& error) {
         return i18nd("kcm_btrfsbackup", "The selected backup source is not a Btrfs subvolume.");
     if (name.endsWith(QStringLiteral(".SourceUnavailable")))
         return i18nd("kcm_btrfsbackup", "The selected backup source cannot be inspected.");
+    if (name.endsWith(QStringLiteral(".SourceDiscoveryFailed")))
+        return i18nd("kcm_btrfsbackup", "Available Btrfs backup sources could not be read.");
     if (name.endsWith(QStringLiteral(".NotFound")))
         return i18nd("kcm_btrfsbackup", "The requested item was not found.");
     if (name.endsWith(QStringLiteral(".NotAuthorized")))

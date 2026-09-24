@@ -14,6 +14,7 @@ enum class ManagerErrorCode {
     SourceMissing,
     SourceNotSubvolume,
     SourceUnavailable,
+    SourceDiscoveryFailed,
     NotFound,
     NotAuthorized,
     Busy,

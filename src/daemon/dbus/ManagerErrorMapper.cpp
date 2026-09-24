@@ -47,6 +47,8 @@ ManagerErrorDescription ManagerErrorMapper::describe(ManagerErrorCode code) noex
         return {code, "io.github.btrfsbackup.Error.SourceNotSubvolume", "source path is not a Btrfs subvolume"};
     case ManagerErrorCode::SourceUnavailable:
         return {code, "io.github.btrfsbackup.Error.SourceUnavailable", "source subvolume cannot be inspected"};
+    case ManagerErrorCode::SourceDiscoveryFailed:
+        return {code, "io.github.btrfsbackup.Error.SourceDiscoveryFailed", "available Btrfs sources could not be read"};
     case ManagerErrorCode::NotFound:
         return {code, "io.github.btrfsbackup.Error.NotFound", "requested resource was not found"};
     case ManagerErrorCode::NotAuthorized:

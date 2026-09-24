@@ -26,6 +26,7 @@ void test_stable_error_catalog() {
         ManagerErrorCode::SourceMissing,
         ManagerErrorCode::SourceNotSubvolume,
         ManagerErrorCode::SourceUnavailable,
+        ManagerErrorCode::SourceDiscoveryFailed,
         ManagerErrorCode::NotFound,
         ManagerErrorCode::NotAuthorized,
         ManagerErrorCode::Busy,

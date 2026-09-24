@@ -17,6 +17,7 @@ namespace {
 
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::SystemProfileAdministrationBackend;
+using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
 namespace json = btrfsbackup::config::json;
 namespace linux_config = btrfsbackup::platform::linux::config;
@@ -408,11 +409,43 @@ void test_unsupported_profile_retirement_rolls_back_as_one_transaction() {
     );
 }
 
+void test_source_discovery_failure_has_stable_error() {
+    const auto root = test_helpers::test_root("profile-administration", "source-discovery-failure");
+    FakeBtrfsOperations btrfs;
+    btrfsbackup::config::NullConfigurationActivator activator;
+    SystemProfileAdministrationBackend backend(
+        {
+            .etc_root = root / "etc",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+            .state_root = root / "state",
+            .status_root = root / "status",
+            .history_root = root / "history",
+        },
+        root / "mounts",
+        root / "missing-mountinfo",
+        btrfs,
+        activator
+    );
+    try {
+        static_cast<void>(backend.source_candidates());
+        test_helpers::fail("source discovery failure", "missing mount table was accepted");
+    } catch (const ManagerOperationError& error) {
+        test_helpers::expect_true(
+            "source discovery error code",
+            error.code() == ManagerErrorCode::SourceDiscoveryFailed,
+            "source discovery returned an unstable error"
+        );
+    }
+}
+
 } // namespace
 
 int main() {
     test_backend_preserves_secrets_and_hook_boundary();
     test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned();
     test_unsupported_profile_retirement_rolls_back_as_one_transaction();
+    test_source_discovery_failure_has_stable_error();
     return test_helpers::finish("system profile administration backend tests");
 }

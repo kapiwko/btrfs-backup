@@ -109,6 +109,8 @@ ColumnLayout {
             return translations.i18n("The selected source path is not a Btrfs subvolume.");
         if (root.editor.errorCode.endsWith(".SourceUnavailable"))
             return translations.i18n("The selected source subvolume cannot be inspected.");
+        if (root.editor.errorCode.endsWith(".SourceDiscoveryFailed"))
+            return translations.i18n("Available Btrfs backup sources could not be read.");
         return translations.i18nc("error message followed by a stable diagnostic code", "%1 (code: %2)", root.editor.errorMessage, root.editor.errorCode);
     }
 
