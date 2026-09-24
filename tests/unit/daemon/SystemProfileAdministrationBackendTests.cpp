@@ -325,7 +325,7 @@ void test_unsupported_profile_retirement_is_bounded_and_fingerprint_pinned() {
         );
         test_helpers::expect_true(
             "history quarantined",
-            read_file(retirements.front() / "history" / "old.json") == "old-history",
+            read_file(root / "history" / ".retired" / "default" / retirements.front().filename() / "old.json") == "old-history",
             "profile history was not preserved in quarantine"
         );
     }

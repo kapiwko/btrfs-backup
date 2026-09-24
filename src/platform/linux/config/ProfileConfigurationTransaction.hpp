@@ -23,6 +23,7 @@ struct RollbackError {
 
 struct RollbackResult {
     bool complete = true;
+    bool diagnostics_incomplete = false;
     std::vector<RollbackError> errors;
 };
 

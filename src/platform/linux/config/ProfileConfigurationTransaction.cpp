@@ -42,6 +42,7 @@ void record_rollback_error(
         }
         result.errors.push_back({std::string(operation), path, std::move(detail)});
     } catch (...) {
+        result.diagnostics_incomplete = true;
     }
 }
 
@@ -104,7 +105,7 @@ std::string configuration_save_message(const std::string& cause, const RollbackR
         for (const RollbackError& error : rollback.errors) {
             message << "; " << error.operation << " " << error.path.string() << ": " << error.message;
         }
-        if (rollback.errors.empty()) {
+        if (rollback.diagnostics_incomplete || rollback.errors.empty()) {
             message << "; rollback diagnostics could not be recorded";
         }
     }

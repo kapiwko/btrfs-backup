@@ -744,7 +744,7 @@ void Fixture::verify_unsupported_retirement_and_profile_id_reuse() {
         "retirement did not quarantine last-success"
     );
     require(
-        fs::is_regular_file(retirements.front() / "history/last.json"),
+        fs::is_regular_file(root_ / "history/.retired/default" / retirements.front().filename() / "last.json"),
         "retirement did not quarantine history"
     );
 

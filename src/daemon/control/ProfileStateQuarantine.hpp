@@ -33,6 +33,11 @@ class ProfileStateQuarantine final {
     };
 
     static void create_private_directory(const std::filesystem::path& path);
+    static void create_transaction_directories(
+        const std::filesystem::path& retired_root,
+        const std::filesystem::path& profile_root,
+        const std::filesystem::path& transaction_root
+    );
     static bool movable_directory_if_present(const std::filesystem::path& path);
     static void move_directory(Move& move);
     static void record_rollback_error(
@@ -44,9 +49,15 @@ class ProfileStateQuarantine final {
     void remove_empty_transaction_directories() noexcept;
 
     ProfileStateRoots roots_;
-    std::filesystem::path retired_profile_root_;
-    std::filesystem::path retired_transaction_root_;
-    std::filesystem::path transient_transaction_root_;
+    std::filesystem::path state_retired_root_;
+    std::filesystem::path state_profile_root_;
+    std::filesystem::path state_transaction_root_;
+    std::filesystem::path history_retired_root_;
+    std::filesystem::path history_profile_root_;
+    std::filesystem::path history_transaction_root_;
+    std::filesystem::path status_retired_root_;
+    std::filesystem::path status_profile_root_;
+    std::filesystem::path status_transaction_root_;
     std::vector<Move> moves_;
 };
 

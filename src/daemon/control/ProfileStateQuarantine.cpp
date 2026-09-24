@@ -21,18 +21,25 @@ ProfileStateQuarantine::ProfileStateQuarantine(
 ) : roots_(std::move(roots)) {
     const std::string transaction = std::move(fingerprint) + "-" +
         platform::linux::config::generate_configuration_generation().value();
-    retired_profile_root_ = roots_.state_root / "retired" / profile_id;
-    retired_transaction_root_ = retired_profile_root_ / transaction;
-    transient_transaction_root_ = roots_.status_root / ".retired" / profile_id / transaction;
+    state_retired_root_ = roots_.state_root / "retired";
+    state_profile_root_ = state_retired_root_ / profile_id;
+    state_transaction_root_ = state_profile_root_ / transaction;
+    history_retired_root_ = roots_.history_root / ".retired";
+    history_profile_root_ = history_retired_root_ / profile_id;
+    history_transaction_root_ = history_profile_root_ / transaction;
+    status_retired_root_ = roots_.status_root / ".retired";
+    status_profile_root_ = status_retired_root_ / profile_id;
+    status_transaction_root_ = status_profile_root_ / transaction;
     moves_ = {
-        {roots_.state_root / "profiles" / profile_id, retired_transaction_root_ / "state"},
-        {roots_.history_root / profile_id, retired_transaction_root_ / "history"},
-        {roots_.status_root / profile_id, transient_transaction_root_ / "status"},
+        {roots_.state_root / "profiles" / profile_id, state_transaction_root_ / "state"},
+        {roots_.history_root / profile_id, history_transaction_root_},
+        {roots_.status_root / profile_id, status_transaction_root_ / "status"},
     };
 }
 
 void ProfileStateQuarantine::create_private_directory(const fs::path& path) {
     std::error_code error;
+    bool created = false;
     const fs::file_status status = fs::symlink_status(path, error);
     if (!error && status.type() != fs::file_type::not_found) {
         if (!fs::is_directory(status) || fs::is_symlink(status))
@@ -42,10 +49,25 @@ void ProfileStateQuarantine::create_private_directory(const fs::path& path) {
     } else {
         if (!fs::create_directory(path, error) || error)
             throw ValidationError("cannot create profile state quarantine directory: " + path.string());
+        created = true;
     }
     fs::permissions(path, fs::perms::owner_all, fs::perm_options::replace, error);
     if (error)
         throw ValidationError("cannot secure profile state quarantine directory: " + path.string());
+    if (created) {
+        platform::linux::filesystem::fsync_dir(path);
+        platform::linux::filesystem::fsync_dir(path.parent_path());
+    }
+}
+
+void ProfileStateQuarantine::create_transaction_directories(
+    const fs::path& retired_root,
+    const fs::path& profile_root,
+    const fs::path& transaction_root
+) {
+    create_private_directory(retired_root);
+    create_private_directory(profile_root);
+    create_private_directory(transaction_root);
 }
 
 bool ProfileStateQuarantine::movable_directory_if_present(const fs::path& path) {
@@ -81,16 +103,14 @@ void ProfileStateQuarantine::quarantine() {
         const bool persistent_history = movable_directory_if_present(moves_[1].source);
         const bool transient_status = movable_directory_if_present(moves_[2].source);
 
-        if (persistent_state || persistent_history) {
-            create_private_directory(roots_.state_root / "retired");
-            create_private_directory(retired_profile_root_);
-            create_private_directory(retired_transaction_root_);
+        if (persistent_state)
+            create_transaction_directories(state_retired_root_, state_profile_root_, state_transaction_root_);
+        if (persistent_history) {
+            create_private_directory(history_retired_root_);
+            create_private_directory(history_profile_root_);
         }
-        if (transient_status) {
-            create_private_directory(roots_.status_root / ".retired");
-            create_private_directory(roots_.status_root / ".retired" / retired_profile_root_.filename());
-            create_private_directory(transient_transaction_root_);
-        }
+        if (transient_status)
+            create_transaction_directories(status_retired_root_, status_profile_root_, status_transaction_root_);
         for (Move& move : moves_)
             move_directory(move);
     } catch (const std::exception& error) {
@@ -112,7 +132,11 @@ void ProfileStateQuarantine::record_rollback_error(
     const std::string& message
 ) noexcept {
     result.complete = false;
-    result.errors.push_back({operation, path, message});
+    try {
+        result.errors.push_back({operation, path, message});
+    } catch (...) {
+        result.diagnostics_incomplete = true;
+    }
 }
 
 platform::linux::config::RollbackResult ProfileStateQuarantine::rollback() noexcept {
@@ -137,23 +161,35 @@ platform::linux::config::RollbackResult ProfileStateQuarantine::rollback() noexc
 
 void ProfileStateQuarantine::remove_empty_transaction_directories() noexcept {
     std::error_code error;
-    fs::remove(transient_transaction_root_, error);
+    fs::remove(status_transaction_root_, error);
     error.clear();
-    fs::remove(transient_transaction_root_.parent_path(), error);
+    fs::remove(status_profile_root_, error);
     error.clear();
-    fs::remove(roots_.status_root / ".retired", error);
+    fs::remove(status_retired_root_, error);
     error.clear();
-    fs::remove(retired_transaction_root_, error);
+    fs::remove(history_transaction_root_, error);
     error.clear();
-    fs::remove(retired_profile_root_, error);
+    fs::remove(history_profile_root_, error);
     error.clear();
-    fs::remove(roots_.state_root / "retired", error);
+    fs::remove(history_retired_root_, error);
+    error.clear();
+    fs::remove(state_transaction_root_, error);
+    error.clear();
+    fs::remove(state_profile_root_, error);
+    error.clear();
+    fs::remove(state_retired_root_, error);
 }
 
 void ProfileStateQuarantine::finish() noexcept {
     if (moves_[2].moved) {
         std::error_code error;
-        fs::remove_all(transient_transaction_root_, error);
+        fs::remove_all(status_transaction_root_, error);
+        if (!error) {
+            try {
+                platform::linux::filesystem::fsync_dir(status_transaction_root_.parent_path());
+            } catch (...) {
+            }
+        }
         moves_[2].moved = false;
     }
     remove_empty_transaction_directories();
