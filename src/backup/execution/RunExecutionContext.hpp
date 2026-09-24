@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <backup/ports/CancellationRequestStore.hpp>
@@ -33,9 +34,10 @@ struct RunExecutionContextCloseFailure {
 
 struct RunExecutionContextCloseResult {
     std::vector<RunExecutionContextCloseFailure> failures;
+    bool diagnostics_incomplete = false;
 
     [[nodiscard]] bool succeeded() const noexcept {
-        return failures.empty();
+        return failures.empty() && !diagnostics_incomplete;
     }
 };
 
@@ -56,7 +58,7 @@ class RunExecutionContext {
     RunExecutionContext& operator=(RunExecutionContext&&) = delete;
     ~RunExecutionContext() noexcept;
 
-    [[nodiscard]] const RunExecutionContextCloseResult& close();
+    [[nodiscard]] const RunExecutionContextCloseResult& close() noexcept;
     [[nodiscard]] std::optional<TargetCleanupError> close_target_session() noexcept;
     void attach_event_sink(std::unique_ptr<IBackupRunEventSink> events) noexcept;
     void attach_verified_target(BackupPreflightResult result) noexcept;
@@ -66,12 +68,17 @@ class RunExecutionContext {
     [[nodiscard]] IBackupRunCheckpointStore& checkpoint_store() noexcept;
 
   private:
-    void close_cancellation_watch(RunExecutionContextCloseResult& result);
+    static void record_close_failure(
+        RunExecutionContextCloseResult& result,
+        RunExecutionContextCloseStage stage,
+        std::string_view message
+    ) noexcept;
+    void close_cancellation_watch(RunExecutionContextCloseResult& result) noexcept;
     void release_event_sink() noexcept;
     void release_checkpoint_store() noexcept;
-    void close_active_run(RunExecutionContextCloseResult& result);
-    void clear_cancellation_request(RunExecutionContextCloseResult& result);
-    void collect_target_session_failure(RunExecutionContextCloseResult& result);
+    void close_active_run(RunExecutionContextCloseResult& result) noexcept;
+    void clear_cancellation_request(RunExecutionContextCloseResult& result) noexcept;
+    void collect_target_session_failure(RunExecutionContextCloseResult& result) noexcept;
     void release_lease() noexcept;
     void report_close_failures(const RunExecutionContextCloseResult& result) const noexcept;
 
