@@ -17,6 +17,16 @@ namespace btrfsbackup::daemon::control {
 
 using Json = config::json::Json;
 
+namespace {
+
+std::string target_filesystem_uuid(const Json& document) {
+    if (!document.contains("target") || !document.at("target").is_object())
+        return {};
+    return document.at("target").value("btrfsUuid", "");
+}
+
+} // namespace
+
 ProfileAdministrationService::ProfileAdministrationService(
     IManagerAuthorizer& authorizer,
     IProfileAdministrationBackend& backend
@@ -191,10 +201,13 @@ ProfileDetails ProfileAdministrationService::details_from(const EditableProfile&
         );
     }
     std::vector<ProfileSourceCandidate> candidates;
+    const std::string target_uuid = target_filesystem_uuid(document);
     for (const auto& candidate : backend_.source_candidates()) {
         const std::string normalized = candidate.subvolume.lexically_normal().string();
-        if (!configured_sources.contains(normalized))
+        if (!configured_sources.contains(normalized) &&
+            (target_uuid.empty() || candidate.filesystem_uuid != target_uuid)) {
             candidates.push_back(candidate);
+        }
     }
     std::ranges::sort(candidates, {}, [](const ProfileSourceCandidate& candidate) {
         return candidate.subvolume.lexically_normal().string();
@@ -211,11 +224,13 @@ ProfileDetails ProfileAdministrationService::details_from(const EditableProfile&
 }
 
 ProfileSourceCandidate ProfileAdministrationService::require_source_candidate(
-    const std::string& candidate_id
+    const std::string& candidate_id,
+    const std::string& excluded_filesystem_uuid
 ) const {
     const auto candidates = backend_.source_candidates();
     const auto candidate = std::ranges::find(candidates, candidate_id, &ProfileSourceCandidate::id);
-    if (candidate == candidates.end()) {
+    if (candidate == candidates.end() ||
+        (!excluded_filesystem_uuid.empty() && candidate->filesystem_uuid == excluded_filesystem_uuid)) {
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::SourceUnavailable,
             "source candidate is no longer available"
@@ -290,7 +305,8 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     Json& sources = document["sources"];
     const std::string name = request_value<std::string>(request, "name");
     const std::string candidate_id = request_value<std::string>(request, "candidateId");
-    const ProfileSourceCandidate candidate = require_source_candidate(candidate_id);
+    const std::string target_uuid = target_filesystem_uuid(document);
+    const ProfileSourceCandidate candidate = require_source_candidate(candidate_id, target_uuid);
     require_available_subvolume(candidate.subvolume);
     const std::string source_id = unique_source_id(sources, name);
     sources.push_back({
@@ -306,7 +322,7 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     const ProfileDraftResult draft = backend_.validate_draft(id, config::json::dump_json(document));
     require_authorized(caller, ManagerAuthorizationAction::ManageProfileConfiguration);
     require_current(backend_.find_profile(id), existing);
-    const ProfileSourceCandidate current_candidate = require_source_candidate(candidate_id);
+    const ProfileSourceCandidate current_candidate = require_source_candidate(candidate_id, target_uuid);
     if (current_candidate != candidate) {
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::Conflict,

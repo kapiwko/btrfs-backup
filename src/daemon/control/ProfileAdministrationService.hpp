@@ -172,7 +172,10 @@ class ProfileAdministrationService {
         const std::optional<std::filesystem::path>& source_to_recheck = std::nullopt
     );
     [[nodiscard]] ProfileDetails details_from(const EditableProfile& profile) const;
-    [[nodiscard]] ProfileSourceCandidate require_source_candidate(const std::string& candidate_id) const;
+    [[nodiscard]] ProfileSourceCandidate require_source_candidate(
+        const std::string& candidate_id,
+        const std::string& excluded_filesystem_uuid
+    ) const;
     void require_available_subvolume(const std::filesystem::path& path) const;
 
     IManagerAuthorizer& authorizer_;

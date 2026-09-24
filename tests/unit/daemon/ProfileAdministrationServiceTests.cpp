@@ -7,6 +7,7 @@
 #include <config/json/JsonIo.hpp>
 #include <core/Errors.hpp>
 
+#include <algorithm>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -33,6 +34,7 @@ using btrfsbackup::daemon::dbus::ManagerOperationError;
 constexpr auto profile_document = R"({
   "profileId":"default",
   "name":"Default",
+  "target":{"btrfsUuid":"target-fs"},
   "settings":{"dailyLimit":true,"autoEject":true,"incrementalRequired":true},
   "sources":[{
     "id":"home","name":"Home","enabled":true,"subvolume":"/home",
@@ -73,6 +75,7 @@ class Backend final : public IProfileAdministrationBackend {
     std::vector<ProfileSourceCandidate> candidates{
         {"work-candidate", "/srv/work", "work-fs", "/srv/work", "/srv/work/.snapshots/btrfs-backup"},
         {"home-candidate", "/home", "home-fs", "/home", "/home/.snapshots/btrfs-backup"},
+        {"target-candidate", "/mnt/backup", "target-fs", "/mnt/backup", "/mnt/backup/.snapshots/btrfs-backup"},
     };
 
     std::optional<EditableProfile> find_profile(const ProfileId&) const override {
@@ -128,6 +131,35 @@ void expect_error(const std::string& name, ManagerErrorCode code, const std::fun
     } catch (const ManagerOperationError& error) {
         test_helpers::expect_true(name, error.code() == code, "unexpected manager error");
     }
+}
+
+void test_target_filesystem_is_not_a_source_candidate() {
+    Authorizer authorizer;
+    Backend backend;
+    ProfileAdministrationService service(authorizer, backend);
+    const auto details = service.get_profile_details("default");
+    test_helpers::expect_true(
+        "target candidate hidden",
+        std::none_of(details.source_candidates.begin(), details.source_candidates.end(), [](const ProfileSourceCandidate& candidate) {
+            return candidate.filesystem_uuid == "target-fs";
+        }),
+        "backup target was offered as a source"
+    );
+    expect_error("target candidate rejected", ManagerErrorCode::SourceUnavailable, [&] {
+        static_cast<void>(service.add_profile_source(
+            ":1.12",
+            "default",
+            "g1",
+            "f1",
+            R"({"name":"Backup target","candidateId":"target-candidate","localRetention":7,"remoteRetention":14})"
+        ));
+    });
+    test_helpers::expect_true(
+        "target candidate not authorized",
+        authorizer.actions.empty(),
+        "backup target reached authorization"
+    );
+    test_helpers::expect_true("target candidate not saved", backend.saves == 0, "backup target was saved as a source");
 }
 
 void test_details_do_not_request_authorization() {
@@ -372,6 +404,7 @@ int main() {
     test_denial_and_authorization_race_have_no_effect();
     test_source_operations_use_stable_identity();
     test_source_candidate_is_revalidated_after_authorization();
+    test_target_filesystem_is_not_a_source_candidate();
     test_delete_and_activation_keep_dedicated_actions();
     test_unsupported_retirement_revalidates_after_strong_authorization();
     return test_helpers::finish("profile administration service tests");
